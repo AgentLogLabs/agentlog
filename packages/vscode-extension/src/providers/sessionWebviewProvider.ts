@@ -748,18 +748,18 @@ export class DashboardPanel implements vscode.Disposable {
 
   private _buildHtml(): string {
     const nonce = generateNonce();
-    const csp = `default-src 'none'; style-src 'nonce-${nonce}' 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src data: vscode-resource:;`;
+    const csp = `default-src 'none'; style-src 'unsafe-inline' https://*.vscode-cdn.net; script-src 'unsafe-inline' 'unsafe-eval' https://*.vscode-cdn.net; img-src data: https://*.vscode-cdn.net;`;
 
-    // 获取脚本和样式的完整内容，手动转义所有破坏 JS 字符串的字符
-    const rawScript = getDashboardScript();
-    const rawStyles = getDashboardStyles();
-    // 对反引号、$、\ 等字符做完整的 JS 字符串转义
-    const safeScript = rawScript
-      .replace(/\\/g, "\\\\")
-      .replace(/`/g, "\\x60")
-      .replace(/\$\{/g, "\\${")
-      .replace(/<\/script>/gi, "<\\/script>");
-    const safeStyles = rawStyles.replace(/<\/style>/gi, "<\\/style>");
+    // 使用 webview.asWebviewUri() 将扩展目录下的文件转换为 vscode-webview-resource:// 协议
+    const extensionUri = this._context.extensionUri;
+    const webviewDir = vscode.Uri.joinPath(extensionUri, "dist", "webview");
+
+    const scriptUri = this._panel.webview.asWebviewUri(
+      vscode.Uri.joinPath(webviewDir, "dashboard.js"),
+    );
+    const styleUri = this._panel.webview.asWebviewUri(
+      vscode.Uri.joinPath(webviewDir, "dashboard.css"),
+    );
 
     return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -768,7 +768,7 @@ export class DashboardPanel implements vscode.Disposable {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="${csp}">
   <title>AgentLog 仪表板</title>
-  <style nonce="${nonce}">${safeStyles}</style>
+  <link rel="stylesheet" href="${styleUri}">
 </head>
 <body>
   <div id="app">
@@ -777,7 +777,7 @@ export class DashboardPanel implements vscode.Disposable {
       <p>正在加载仪表板…</p>
     </div>
   </div>
-  <script nonce="${nonce}">${safeScript}</script>
+  <script src="${scriptUri}"></script>
 </body>
 </html>`;
   }
@@ -1024,188 +1024,6 @@ function getDetailStyles(): string {
   `;
 }
 
-function getDashboardStyles(): string {
-  return `
-    :root {
-      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      --font-mono: 'Fira Code', Consolas, monospace;
-      --radius: 6px;
-      --gap: 16px;
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: var(--font-sans);
-      font-size: 13px;
-      color: var(--vscode-foreground);
-      background: var(--vscode-editor-background);
-      line-height: 1.6;
-    }
-
-    .loading-screen {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      gap: 16px;
-      color: var(--vscode-descriptionForeground);
-    }
-
-    .spinner {
-      width: 32px; height: 32px;
-      border: 3px solid var(--vscode-widget-border);
-      border-top-color: var(--vscode-focusBorder);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .dashboard { display: flex; height: 100vh; overflow: hidden; }
-
-    .sidebar {
-      width: 260px;
-      flex-shrink: 0;
-      border-right: 1px solid var(--vscode-widget-border);
-      overflow-y: auto;
-      padding: 16px 12px;
-      background: var(--vscode-sideBar-background, var(--vscode-editor-background));
-    }
-
-    .main { flex: 1; overflow-y: auto; padding: 20px; }
-
-    .stat-cards {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-
-    .stat-card {
-      padding: 12px;
-      border: 1px solid var(--vscode-widget-border);
-      border-radius: var(--radius);
-      text-align: center;
-    }
-
-    .stat-card .value {
-      font-size: 24px;
-      font-weight: 700;
-      color: var(--vscode-focusBorder);
-    }
-
-    .stat-card .label {
-      font-size: 11px;
-      color: var(--vscode-descriptionForeground);
-      margin-top: 2px;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12px;
-    }
-
-    th {
-      text-align: left;
-      padding: 6px 10px;
-      border-bottom: 1px solid var(--vscode-widget-border);
-      color: var(--vscode-descriptionForeground);
-      font-weight: 600;
-      font-size: 11px;
-      text-transform: uppercase;
-    }
-
-    td {
-      padding: 8px 10px;
-      border-bottom: 1px solid var(--vscode-widget-border);
-      vertical-align: top;
-    }
-
-    tr:hover td { background: var(--vscode-list-hoverBackground); }
-
-    .prompt-cell {
-      max-width: 300px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      cursor: pointer;
-    }
-
-    .badge {
-      display: inline-block;
-      padding: 1px 6px;
-      border-radius: 8px;
-      font-size: 10px;
-      font-weight: 500;
-      background: var(--vscode-badge-background);
-      color: var(--vscode-badge-foreground);
-    }
-
-    .search-bar {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 16px;
-      align-items: center;
-    }
-
-    .search-bar input {
-      flex: 1;
-      padding: 6px 10px;
-      border: 1px solid var(--vscode-input-border);
-      border-radius: var(--radius);
-      background: var(--vscode-input-background);
-      color: var(--vscode-input-foreground);
-      font-size: 12px;
-      outline: none;
-    }
-
-    .search-bar input:focus { border-color: var(--vscode-focusBorder); }
-
-    button {
-      padding: 5px 12px;
-      border-radius: var(--radius);
-      border: 1px solid transparent;
-      cursor: pointer;
-      font-size: 12px;
-      font-family: var(--font-sans);
-    }
-
-    button.primary {
-      background: var(--vscode-button-background);
-      color: var(--vscode-button-foreground);
-    }
-
-    button.secondary {
-      background: var(--vscode-button-secondaryBackground);
-      color: var(--vscode-button-secondaryForeground);
-    }
-
-    button:hover { opacity: 0.85; }
-
-    .status-dot {
-      display: inline-block;
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      margin-right: 5px;
-    }
-
-    .status-dot.online  { background: #22c55e; }
-    .status-dot.offline { background: #ef4444; }
-
-    .pagination {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 12px;
-      font-size: 12px;
-      color: var(--vscode-descriptionForeground);
-    }
-  `;
-}
-
 // ─────────────────────────────────────────────
 // JavaScript（内联，Webview 端运行）
 // ─────────────────────────────────────────────
@@ -1428,193 +1246,6 @@ function getDetailScript(): string {
     function formatDuration(ms) {
       if (!ms) return '';
       return ms < 1000 ? ms + 'ms' : (ms/1000).toFixed(1) + 's';
-    }
-  `;
-}
-
-function getDashboardScript(): string {
-  return `
-    const vscode = acquireVsCodeApi();
-    let state = { sessions: [], total: 0, page: 1, pageSize: 20, stats: {}, backendAlive: false, loading: false };
-
-    window.addEventListener('message', (event) => {
-      const msg = event.data;
-      switch (msg.type) {
-        case 'loadSessions':
-          state.sessions = msg.payload.sessions;
-          state.total = msg.payload.total;
-          state.page = msg.payload.page;
-          state.pageSize = msg.payload.pageSize;
-          renderTable();
-          break;
-        case 'loadStats':
-          state.stats = msg.payload;
-          renderStats();
-          break;
-        case 'backendStatus':
-          state.backendAlive = msg.payload.alive;
-          renderStatusBadge();
-          break;
-        case 'loading':
-          state.loading = msg.payload.loading;
-          renderLoading();
-          break;
-        case 'error':
-          showError(msg.payload.message);
-          break;
-      }
-    });
-
-    vscode.postMessage({ command: 'ready' });
-
-    function renderApp() {
-      document.getElementById('app').innerHTML = \`
-        <div class="dashboard">
-          <div class="sidebar">
-            <div style="margin-bottom:16px">
-              <span id="status-badge"><span class="status-dot offline"></span>离线</span>
-            </div>
-            <button class="primary" style="width:100%;margin-bottom:8px" onclick="exportReport('weekly-report')">📝 导出周报</button>
-            <button class="secondary" style="width:100%;margin-bottom:8px" onclick="exportReport('pr-description')">🔗 导出 PR 说明</button>
-            <button class="secondary" style="width:100%;margin-bottom:8px" onclick="exportReport('jsonl')">💾 导出 JSONL</button>
-            <hr style="border-color:var(--vscode-widget-border);margin:12px 0">
-            <button class="secondary" style="width:100%" onclick="openSettings()">⚙️ 设置</button>
-          </div>
-          <div class="main">
-            <div id="stats-area" class="stat-cards"></div>
-            <div class="search-bar">
-              <input type="text" id="keyword" placeholder="搜索 Prompt / 回复…" onkeydown="if(event.key==='Enter') search()">
-              <button class="primary" onclick="search()">搜索</button>
-              <button class="secondary" onclick="resetSearch()">重置</button>
-            </div>
-            <div id="error-area"></div>
-            <div id="loading-area"></div>
-            <table>
-              <thead>
-                <tr>
-                  <th>时间</th><th>模型</th><th>来源</th><th>Prompt 预览</th><th>Commit</th><th>操作</th>
-                </tr>
-              </thead>
-              <tbody id="sessions-tbody"></tbody>
-            </table>
-            <div class="pagination" id="pagination"></div>
-          </div>
-        </div>
-      \`;
-    }
-
-    renderApp();
-
-    function renderStats() {
-      const s = state.stats;
-      document.getElementById('stats-area').innerHTML = \`
-        <div class="stat-card"><div class="value">\${s.total || 0}</div><div class="label">总会话数</div></div>
-        <div class="stat-card"><div class="value">\${s.boundToCommit || 0}</div><div class="label">已绑定</div></div>
-        <div class="stat-card"><div class="value">\${s.unbound || 0}</div><div class="label">未绑定</div></div>
-        <div class="stat-card"><div class="value">\${Math.round((s.avgDurationMs || 0) / 1000)}s</div><div class="label">平均耗时</div></div>
-      \`;
-    }
-
-    function renderTable() {
-      const tbody = document.getElementById('sessions-tbody');
-      if (!tbody) return;
-      if (state.sessions.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--vscode-descriptionForeground);padding:24px">暂无记录</td></tr>';
-      } else {
-        tbody.innerHTML = state.sessions.map(s => \`
-          <tr>
-            <td style="white-space:nowrap;font-size:11px">\${formatTime(s.createdAt)}</td>
-            <td><span class="badge">\${escHtml(s.model)}</span></td>
-            <td><span class="badge">\${escHtml(s.source)}</span></td>
-            <td class="prompt-cell" onclick="viewSession('\${escHtml(s.id)}')" title="\${escHtml(s.prompt)}">\${escHtml(s.prompt.slice(0, 60))}\${s.prompt.length > 60 ? '…' : ''}</td>
-            <td>\${s.commitHash ? '<span class="badge" style="background:#16a34a;color:#fff">' + escHtml(s.commitHash.slice(0,7)) + '</span>' : '<span style="color:var(--vscode-descriptionForeground)">-</span>'}</td>
-            <td>
-              <button class="secondary" onclick="viewSession('\${escHtml(s.id)}')">详情</button>
-              <button class="secondary" onclick="deleteSession('\${escHtml(s.id)}')" style="margin-left:4px">删除</button>
-            </td>
-          </tr>
-        \`).join('');
-      }
-      renderPagination();
-    }
-
-    function renderPagination() {
-      const el = document.getElementById('pagination');
-      if (!el) return;
-      const totalPages = Math.ceil(state.total / state.pageSize);
-      el.innerHTML = \`
-        <button class="secondary" onclick="goPage(\${state.page - 1})" \${state.page <= 1 ? 'disabled' : ''}>上一页</button>
-        <span>第 \${state.page} / \${totalPages} 页（共 \${state.total} 条）</span>
-        <button class="secondary" onclick="goPage(\${state.page + 1})" \${state.page >= totalPages ? 'disabled' : ''}>下一页</button>
-      \`;
-    }
-
-    function renderStatusBadge() {
-      const el = document.getElementById('status-badge');
-      if (!el) return;
-      el.innerHTML = state.backendAlive
-        ? '<span class="status-dot online"></span>后台在线'
-        : '<span class="status-dot offline"></span>后台离线';
-    }
-
-    function renderLoading() {
-      const el = document.getElementById('loading-area');
-      if (el) el.innerHTML = state.loading ? '<div style="padding:8px;color:var(--vscode-descriptionForeground)">加载中…</div>' : '';
-    }
-
-    function showError(msg) {
-      const el = document.getElementById('error-area');
-      if (el) el.innerHTML = '<div class="error-banner">⚠️ ' + escHtml(msg) + '</div>';
-      setTimeout(() => { if (el) el.innerHTML = ''; }, 5000);
-    }
-
-    function search() {
-      const keyword = document.getElementById('keyword').value.trim();
-      vscode.postMessage({ command: 'querySessions', data: { page: 1, pageSize: state.pageSize, keyword } });
-    }
-
-    function resetSearch() {
-      document.getElementById('keyword').value = '';
-      vscode.postMessage({ command: 'querySessions', data: { page: 1, pageSize: state.pageSize } });
-    }
-
-    function goPage(page) {
-      const totalPages = Math.ceil(state.total / state.pageSize);
-      if (page < 1 || page > totalPages) return;
-      const keyword = document.getElementById('keyword').value.trim();
-      vscode.postMessage({ command: 'querySessions', data: { page, pageSize: state.pageSize, keyword } });
-    }
-
-    function viewSession(id) {
-      vscode.postMessage({ command: 'querySessions', data: { page: 1, pageSize: 1, keyword: id } });
-    }
-
-    function deleteSession(id) {
-      vscode.postMessage({ command: 'deleteSession', data: { sessionId: id } });
-    }
-
-    function exportReport(format) {
-      vscode.postMessage({ command: 'exportAll', data: { format, language: 'zh' } });
-    }
-
-    function openSettings() {
-      vscode.postMessage({ command: 'openSettings' });
-    }
-
-    function escHtml(str) {
-      return String(str || '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-    }
-
-    function formatTime(iso) {
-      try {
-        const d = new Date(iso);
-        const p = n => String(n).padStart(2, '0');
-        return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
-      } catch { return iso; }
     }
   `;
 }
