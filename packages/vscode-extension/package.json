@@ -1,0 +1,321 @@
+{
+  "name": "agentlog-vscode",
+  "displayName": "AgentLog — AI 编程行车记录仪",
+  "description": "自动捕获 AI Agent 交互日志（Prompt / Reasoning / Response），与 Git Commit 绑定，一键导出周报或 PR 说明",
+  "version": "0.1.0",
+  "private": true,
+  "publisher": "agentlog",
+  "license": "MIT",
+  "homepage": "https://github.com/agentlog/agentlog",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentlog/agentlog.git"
+  },
+  "engines": {
+    "vscode": "^1.93.0"
+  },
+  "categories": [
+    "Other",
+    "SCM Providers"
+  ],
+  "keywords": [
+    "AI",
+    "agent",
+    "log",
+    "deepseek",
+    "qwen",
+    "kimi",
+    "cline",
+    "cursor",
+    "git",
+    "prompt"
+  ],
+  "icon": "assets/icon.png",
+  "activationEvents": [
+    "onStartupFinished",
+    "onChatParticipant:agentlog.chat"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "agentlog.startCapture",
+        "title": "AgentLog: 开始捕获 AI 交互",
+        "icon": "$(record)"
+      },
+      {
+        "command": "agentlog.stopCapture",
+        "title": "AgentLog: 停止捕获 AI 交互",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "agentlog.openDashboard",
+        "title": "AgentLog: 打开交互日志面板",
+        "icon": "$(history)"
+      },
+      {
+        "command": "agentlog.exportWeeklyReport",
+        "title": "AgentLog: 导出本周 AI 开发周报",
+        "icon": "$(file-text)"
+      },
+      {
+        "command": "agentlog.exportPrDescription",
+        "title": "AgentLog: 导出 PR / Code Review 说明",
+        "icon": "$(git-pull-request)"
+      },
+      {
+        "command": "agentlog.bindCommit",
+        "title": "AgentLog: 手动绑定 Commit",
+        "icon": "$(git-commit)"
+      },
+      {
+        "command": "agentlog.installGitHook",
+        "title": "AgentLog: 安装 Git post-commit 钩子（自动绑定）",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "agentlog.removeGitHook",
+        "title": "AgentLog: 移除 Git post-commit 钩子",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "agentlog.viewSessionDetail",
+        "title": "AgentLog: 查看会话详情",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "agentlog.deleteSession",
+        "title": "AgentLog: 删除会话记录",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "agentlog.refreshSessionList",
+        "title": "AgentLog: 刷新会话列表",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "agentlog.startBackend",
+        "title": "AgentLog: 启动本地后台服务",
+        "icon": "$(server-process)"
+      },
+      {
+        "command": "agentlog.stopBackend",
+        "title": "AgentLog: 停止本地后台服务",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "agentlog.showBackendStatus",
+        "title": "AgentLog: 查看后台服务状态",
+        "icon": "$(pulse)"
+      },
+      {
+        "command": "agentlog.installHooks",
+        "title": "AgentLog: 安装 Claude Code Hook（自动上报 AI 会话）",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "agentlog.uninstallHooks",
+        "title": "AgentLog: 移除 Claude Code Hook",
+        "icon": "$(trash)"
+      }
+    ],
+    "chatParticipants": [
+      {
+        "id": "agentlog.chat",
+        "fullName": "AgentLog AI 记录仪",
+        "name": "agentlog",
+        "description": "通过 AgentLog 记录 AI 对话（使用当前选中的 Copilot 模型）",
+        "isSticky": true
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "agentlog-sidebar",
+          "title": "AgentLog",
+          "icon": "assets/sidebar-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "agentlog-sidebar": [
+        {
+          "id": "agentlog.sessionList",
+          "name": "AI 交互记录",
+          "type": "tree",
+          "icon": "$(history)",
+          "contextualTitle": "AgentLog — AI 交互记录"
+        },
+        {
+          "id": "agentlog.commitBindings",
+          "name": "Commit 绑定",
+          "type": "tree",
+          "icon": "$(git-commit)",
+          "contextualTitle": "AgentLog — Commit 绑定"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "agentlog.sessionList",
+        "contents": "尚无 AI 交互记录。\n\n确认后台服务已启动，并开始使用 Cline、Cursor 等 AI 工具进行开发。\n\n[启动后台服务](command:agentlog.startBackend)\n[查看服务状态](command:agentlog.showBackendStatus)"
+      },
+      {
+        "view": "agentlog.commitBindings",
+        "contents": "尚无 Commit 绑定记录。\n\n安装 Git 钩子后，每次 git commit 时将自动关联最近的 AI 交互会话。\n\n[安装 Git 钩子](command:agentlog.installGitHook)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "agentlog.refreshSessionList",
+          "when": "view == agentlog.sessionList",
+          "group": "navigation"
+        },
+        {
+          "command": "agentlog.openDashboard",
+          "when": "view == agentlog.sessionList",
+          "group": "navigation"
+        },
+        {
+          "command": "agentlog.exportWeeklyReport",
+          "when": "view == agentlog.sessionList",
+          "group": "export"
+        },
+        {
+          "command": "agentlog.exportPrDescription",
+          "when": "view == agentlog.sessionList",
+          "group": "export"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "agentlog.viewSessionDetail",
+          "when": "view == agentlog.sessionList && viewItem == session",
+          "group": "inline"
+        },
+        {
+          "command": "agentlog.bindCommit",
+          "when": "view == agentlog.sessionList && viewItem == session",
+          "group": "agentlog@1"
+        },
+        {
+          "command": "agentlog.deleteSession",
+          "when": "view == agentlog.sessionList && viewItem == session",
+          "group": "agentlog@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "agentlog.viewSessionDetail",
+          "when": "false"
+        },
+        {
+          "command": "agentlog.deleteSession",
+          "when": "false"
+        }
+      ],
+      "scm/title": [
+        {
+          "command": "agentlog.bindCommit",
+          "group": "agentlog",
+          "when": "scmProvider == git"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "AgentLog",
+      "properties": {
+        "agentlog.backendUrl": {
+          "type": "string",
+          "default": "http://localhost:7892",
+          "description": "AgentLog 本地后台服务地址。修改后需重启插件生效。",
+          "order": 1
+        },
+        "agentlog.autoCapture": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否自动捕获 AI 交互记录（Prompt / Reasoning / Response）。",
+          "order": 2
+        },
+        "agentlog.captureReasoning": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否捕获 AI 的中间推理过程（如 DeepSeek-R1 的 <think> 内容）。关闭可减少存储占用。",
+          "order": 3
+        },
+        "agentlog.autoBindOnCommit": {
+          "type": "boolean",
+          "default": true,
+          "description": "在执行 git commit 时，自动将最近的未绑定 AI 会话与该 Commit 关联。",
+          "order": 4
+        },
+        "agentlog.retentionDays": {
+          "type": "number",
+          "default": 90,
+          "minimum": 0,
+          "description": "会话记录保留天数。设为 0 表示永久保留。",
+          "order": 5
+        },
+        "agentlog.autoStartBackend": {
+          "type": "boolean",
+          "default": true,
+          "description": "VS Code 启动时，是否自动在后台启动 AgentLog 本地服务。",
+          "order": 6
+        },
+        "agentlog.debug": {
+          "type": "boolean",
+          "default": false,
+          "description": "启用调试日志输出（输出到「输出」面板的 AgentLog 频道）。",
+          "order": 7
+        },
+        "agentlog.exportLanguage": {
+          "type": "string",
+          "default": "zh",
+          "enum": [
+            "zh",
+            "en"
+          ],
+          "enumDescriptions": [
+            "中文",
+            "English"
+          ],
+          "description": "导出周报 / PR 描述时使用的语言。",
+          "order": 8
+        },
+        "agentlog.interceptors.cline": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否拦截并捕获来自 Cline 插件的 AI 请求。",
+          "order": 10
+        },
+        "agentlog.interceptors.cursor": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否拦截并捕获来自 Cursor IDE 的 AI 请求。",
+          "order": 11
+        }
+      }
+    },
+    "statusBar": []
+  },
+  "scripts": {
+    "compile": "tsc -p ./tsconfig.json",
+    "watch": "tsc -watch -p ./tsconfig.json",
+    "copy-webview": "node -e \"const fs=require('fs');const p=require('path');const src='src/webview';const dst='dist/webview';if(!fs.existsSync(dst))fs.mkdirSync(dst,{recursive:true});fs.readdirSync(src).forEach(f=>fs.copyFileSync(p.join(src,f),p.join(dst,f)));\"",
+    "build": "npm run compile && npm run copy-webview",
+    "vscode:prepublish": "npm run build",
+    "package": "vsce package",
+    "lint": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@agentlog/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.24.0",
+    "typescript": "^5.4.5"
+  }
+}

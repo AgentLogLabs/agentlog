@@ -1,0 +1,612 @@
+/**
+ * @agentlog/backend — Commit 绑定路由
+ *
+ * 端点列表：
+ *  POST   /api/commits/hook           post-commit 钩子接收端（由 git hook 调用）
+ *  POST   /api/commits/bind           手动绑定会话到 Commit
+ *  DELETE /api/commits/unbind/:sessionId  解绑单条会话
+ *  GET    /api/commits/:hash          查询指定 Commit 的绑定信息
+ *  GET    /api/commits/:hash/sessions 获取 Commit 关联的所有会话
+ *  GET    /api/commits                列出所有已记录的 Commit 绑定（分页）
+ *  POST   /api/commits/hook/install   向指定工作区注入 post-commit 钩子
+ *  DELETE /api/commits/hook/remove    移除指定工作区的 post-commit 钩子
+ */
+
+import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
+import type {
+  BindCommitRequest,
+  CommitBinding,
+  ApiResponse,
+  PaginatedResponse,
+} from '@agentlog/shared';
+import {
+  bindSessionsToCommit,
+  getUnboundSessions,
+  getSessionsByCommitHash,
+  getSessionById,
+} from '../services/logService';
+import {
+  getCommitInfo,
+  getRepoInfo,
+  injectPostCommitHook,
+  removePostCommitHook,
+  isGitRepo,
+} from '../services/gitService';
+import {
+  getDatabase,
+  fromJson,
+  toJson,
+  type CommitRow,
+} from '../db/database';
+
+// ─────────────────────────────────────────────
+// 行 → 实体 映射
+// ─────────────────────────────────────────────
+
+function rowToCommitBinding(row: CommitRow): CommitBinding {
+  return {
+    commitHash: row.commit_hash,
+    sessionIds: fromJson<string[]>(row.session_ids, []),
+    message: row.message,
+    committedAt: row.committed_at,
+    authorName: row.author_name,
+    authorEmail: row.author_email,
+    changedFiles: fromJson<string[]>(row.changed_files, []),
+    workspacePath: row.workspace_path,
+  };
+}
+
+// ─────────────────────────────────────────────
+// 数据库操作（commit_bindings 表）
+// ─────────────────────────────────────────────
+
+/**
+ * 插入或更新一条 Commit 绑定记录。
+ * 若已存在相同 commitHash，则合并 sessionIds（去重）。
+ */
+function upsertCommitBinding(binding: CommitBinding): CommitBinding {
+  const db = getDatabase();
+
+  const existing = db
+    .prepare('SELECT * FROM commit_bindings WHERE commit_hash = ?')
+    .get(binding.commitHash) as CommitRow | undefined;
+
+  if (existing) {
+    const existingIds = fromJson<string[]>(existing.session_ids, []);
+    const mergedIds = [...new Set([...existingIds, ...binding.sessionIds])];
+
+    db.prepare(`
+      UPDATE commit_bindings
+      SET session_ids = ?, message = ?, committed_at = ?,
+          author_name = ?, author_email = ?, changed_files = ?
+      WHERE commit_hash = ?
+    `).run(
+      toJson(mergedIds),
+      binding.message,
+      binding.committedAt,
+      binding.authorName,
+      binding.authorEmail,
+      toJson(binding.changedFiles),
+      binding.commitHash,
+    );
+  } else {
+    db.prepare(`
+      INSERT INTO commit_bindings (
+        commit_hash, session_ids, message, committed_at,
+        author_name, author_email, changed_files, workspace_path
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      binding.commitHash,
+      toJson(binding.sessionIds),
+      binding.message,
+      binding.committedAt,
+      binding.authorName,
+      binding.authorEmail,
+      toJson(binding.changedFiles),
+      binding.workspacePath,
+    );
+  }
+
+  const updated = db
+    .prepare('SELECT * FROM commit_bindings WHERE commit_hash = ?')
+    .get(binding.commitHash) as CommitRow;
+  return rowToCommitBinding(updated);
+}
+
+/** 从 commit_bindings 中移除某个 sessionId 的关联 */
+function removeSessionFromCommitBinding(
+  sessionId: string,
+  commitHash: string,
+): void {
+  const db = getDatabase();
+  const row = db
+    .prepare('SELECT * FROM commit_bindings WHERE commit_hash = ?')
+    .get(commitHash) as CommitRow | undefined;
+
+  if (!row) return;
+
+  const ids = fromJson<string[]>(row.session_ids, []).filter(
+    (id) => id !== sessionId,
+  );
+  db.prepare('UPDATE commit_bindings SET session_ids = ? WHERE commit_hash = ?').run(
+    toJson(ids),
+    commitHash,
+  );
+}
+
+/** 分页查询所有 commit_bindings，按提交时间倒序 */
+function listCommitBindings(
+  page: number,
+  pageSize: number,
+  workspacePath?: string,
+): PaginatedResponse<CommitBinding> {
+  const db = getDatabase();
+  const where = workspacePath ? 'WHERE workspace_path = @workspace_path' : '';
+  const params: Record<string, unknown> = workspacePath
+    ? { workspace_path: workspacePath }
+    : {};
+
+  const { total } = db
+    .prepare(`SELECT COUNT(*) as total FROM commit_bindings ${where}`)
+    .get(params) as { total: number };
+
+  const offset = (page - 1) * pageSize;
+  const rows = db
+    .prepare(
+      `SELECT * FROM commit_bindings ${where}
+       ORDER BY committed_at DESC
+       LIMIT @limit OFFSET @offset`,
+    )
+    .all({ ...params, limit: pageSize, offset }) as CommitRow[];
+
+  return {
+    data: rows.map(rowToCommitBinding),
+    total,
+    page,
+    pageSize,
+  };
+}
+
+// ─────────────────────────────────────────────
+// 路由注册
+// ─────────────────────────────────────────────
+
+const commitsRouter: FastifyPluginAsync = async (fastify: FastifyInstance) => {
+
+  // ──────────────────────────────────────────
+  // POST /api/commits/hook
+  // post-commit 钩子接收端
+  //
+  // 由 .git/hooks/post-commit 脚本在每次 commit 后自动调用。
+  // 功能：
+  //  1. 从 git 获取本次 commit 的详细信息
+  //  2. 查询工作区中最近的未绑定会话
+  //  3. 自动将这些会话绑定到新的 commit
+  //  4. 将绑定关系写入 commit_bindings 表
+  // ──────────────────────────────────────────
+  fastify.post<{
+    Body: { commitHash: string; workspacePath: string };
+  }>(
+    '/hook',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['commitHash', 'workspacePath'],
+          properties: {
+            commitHash: { type: 'string', minLength: 4 },
+            workspacePath: { type: 'string', minLength: 1 },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { commitHash, workspacePath } = request.body;
+
+      try {
+        // 1. 确认是有效的 Git 仓库
+        const isRepo = await isGitRepo(workspacePath);
+        if (!isRepo) {
+          return reply.code(400).send({
+            success: false,
+            error: `路径不是有效的 Git 仓库：${workspacePath}`,
+          } satisfies ApiResponse);
+        }
+
+        // 2. 获取 commit 详细信息
+        const commitInfo = await getCommitInfo(workspacePath, commitHash);
+
+        // 3. 获取工作区中最近的未绑定会话（最多取 20 条）
+        const unboundSessions = getUnboundSessions(workspacePath, 20);
+
+        if (unboundSessions.length === 0) {
+          fastify.log.info(
+            `[Commits Hook] commit=${commitHash.slice(0, 8)} 工作区无未绑定会话，跳过自动绑定`,
+          );
+
+          // 即使没有会话，也记录 commit 信息
+          const binding = upsertCommitBinding({
+            commitHash: commitInfo.hash,
+            sessionIds: [],
+            message: commitInfo.message,
+            committedAt: commitInfo.committedAt,
+            authorName: commitInfo.authorName,
+            authorEmail: commitInfo.authorEmail,
+            changedFiles: commitInfo.changedFiles,
+            workspacePath,
+          });
+
+          return reply.code(200).send({
+            success: true,
+            data: binding,
+          } satisfies ApiResponse<CommitBinding>);
+        }
+
+        // 4. 提取未绑定会话的 ID
+        const sessionIds = unboundSessions.map((s) => s.id);
+
+        // 5. 在 agent_sessions 表中更新 commit_hash
+        const updatedCount = bindSessionsToCommit(sessionIds, commitInfo.hash);
+
+        // 6. 写入 commit_bindings 表
+        const binding = upsertCommitBinding({
+          commitHash: commitInfo.hash,
+          sessionIds,
+          message: commitInfo.message,
+          committedAt: commitInfo.committedAt,
+          authorName: commitInfo.authorName,
+          authorEmail: commitInfo.authorEmail,
+          changedFiles: commitInfo.changedFiles,
+          workspacePath,
+        });
+
+        fastify.log.info(
+          `[Commits Hook] commit=${commitHash.slice(0, 8)} 自动绑定了 ${updatedCount} 条会话`,
+        );
+
+        return reply.code(200).send({
+          success: true,
+          data: binding,
+        } satisfies ApiResponse<CommitBinding>);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        fastify.log.error(`[Commits Hook] 处理失败：${message}`);
+        return reply.code(500).send({
+          success: false,
+          error: `自动绑定失败：${message}`,
+        } satisfies ApiResponse);
+      }
+    },
+  );
+
+  // ──────────────────────────────────────────
+  // POST /api/commits/bind
+  // 手动绑定：将指定会话列表绑定到某个 Commit
+  // ──────────────────────────────────────────
+  fastify.post<{
+    Body: BindCommitRequest & { workspacePath?: string };
+  }>(
+    '/bind',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['sessionIds', 'commitHash'],
+          properties: {
+            sessionIds: {
+              type: 'array',
+              items: { type: 'string' },
+              minItems: 1,
+            },
+            commitHash: { type: 'string', minLength: 4 },
+            workspacePath: { type: 'string' },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { sessionIds, commitHash, workspacePath } = request.body;
+
+      // 校验所有 sessionId 是否存在
+      const missing = sessionIds.filter((id) => !getSessionById(id));
+      if (missing.length > 0) {
+        return reply.code(404).send({
+          success: false,
+          error: `以下会话 ID 不存在：${missing.join(', ')}`,
+        } satisfies ApiResponse);
+      }
+
+      try {
+        // 尝试从 git 获取 commit 信息（若能获取则更丰富）
+        let commitInfo: Awaited<ReturnType<typeof getCommitInfo>> | null = null;
+
+        if (workspacePath) {
+          try {
+            commitInfo = await getCommitInfo(workspacePath, commitHash);
+          } catch {
+            // 无法从 git 获取，使用最小化信息
+            fastify.log.warn(
+              `[Commits Bind] 无法从 git 获取 commit 信息，将使用最小化记录`,
+            );
+          }
+        }
+
+        // 更新 agent_sessions 表
+        const updatedCount = bindSessionsToCommit(sessionIds, commitHash);
+
+        // 写入 commit_bindings 表
+        const binding = upsertCommitBinding({
+          commitHash,
+          sessionIds,
+          message: commitInfo?.message ?? '',
+          committedAt: commitInfo?.committedAt ?? new Date().toISOString(),
+          authorName: commitInfo?.authorName ?? '',
+          authorEmail: commitInfo?.authorEmail ?? '',
+          changedFiles: commitInfo?.changedFiles ?? [],
+          workspacePath: workspacePath ?? '',
+        });
+
+        fastify.log.info(
+          `[Commits Bind] 手动绑定 commit=${commitHash.slice(0, 8)}，共绑定 ${updatedCount} 条会话`,
+        );
+
+        return reply.code(200).send({
+          success: true,
+          data: binding,
+        } satisfies ApiResponse<CommitBinding>);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return reply.code(500).send({
+          success: false,
+          error: `绑定失败：${message}`,
+        } satisfies ApiResponse);
+      }
+    },
+  );
+
+  // ──────────────────────────────────────────
+  // DELETE /api/commits/unbind/:sessionId
+  // 解绑单条会话与 Commit 的关联
+  // ──────────────────────────────────────────
+  fastify.delete<{
+    Params: { sessionId: string };
+  }>(
+    '/unbind/:sessionId',
+    async (request, reply) => {
+      const { sessionId } = request.params;
+
+      const session = getSessionById(sessionId);
+      if (!session) {
+        return reply.code(404).send({
+          success: false,
+          error: `会话不存在：${sessionId}`,
+        } satisfies ApiResponse);
+      }
+
+      if (!session.commitHash) {
+        return reply.code(400).send({
+          success: false,
+          error: `会话 ${sessionId} 尚未绑定任何 Commit`,
+        } satisfies ApiResponse);
+      }
+
+      const commitHash = session.commitHash;
+
+      // 从 agent_sessions 表解绑
+      const db = getDatabase();
+      db.prepare(
+        'UPDATE agent_sessions SET commit_hash = NULL WHERE id = ?',
+      ).run(sessionId);
+
+      // 从 commit_bindings 表中移除此 sessionId
+      removeSessionFromCommitBinding(sessionId, commitHash);
+
+      fastify.log.info(
+        `[Commits Unbind] 会话 ${sessionId.slice(0, 8)} 已从 commit ${commitHash.slice(0, 8)} 解绑`,
+      );
+
+      return reply.code(200).send({
+        success: true,
+      } satisfies ApiResponse);
+    },
+  );
+
+  // ──────────────────────────────────────────
+  // GET /api/commits
+  // 列出所有 commit 绑定记录（分页）
+  // 支持 ?workspacePath=&page=&pageSize=
+  // ──────────────────────────────────────────
+  fastify.get<{
+    Querystring: {
+      workspacePath?: string;
+      page?: string;
+      pageSize?: string;
+    };
+  }>(
+    '/',
+    async (request, reply) => {
+      const {
+        workspacePath,
+        page = '1',
+        pageSize = '20',
+      } = request.query;
+
+      const pageNum = Math.max(1, parseInt(page, 10) || 1);
+      const pageSizeNum = Math.min(100, Math.max(1, parseInt(pageSize, 10) || 20));
+
+      const result = listCommitBindings(pageNum, pageSizeNum, workspacePath);
+
+      return reply.code(200).send({
+        success: true,
+        data: result,
+      } satisfies ApiResponse<PaginatedResponse<CommitBinding>>);
+    },
+  );
+
+  // ──────────────────────────────────────────
+  // GET /api/commits/:hash
+  // 查询指定 Commit 的绑定信息
+  // ──────────────────────────────────────────
+  fastify.get<{
+    Params: { hash: string };
+  }>(
+    '/:hash',
+    async (request, reply) => {
+      const { hash } = request.params;
+      const db = getDatabase();
+
+      // 支持短 hash 前缀匹配（至少 4 位）
+      const row = hash.length >= 40
+        ? (db
+            .prepare('SELECT * FROM commit_bindings WHERE commit_hash = ?')
+            .get(hash) as CommitRow | undefined)
+        : (db
+            .prepare('SELECT * FROM commit_bindings WHERE commit_hash LIKE ?')
+            .get(`${hash}%`) as CommitRow | undefined);
+
+      if (!row) {
+        return reply.code(404).send({
+          success: false,
+          error: `未找到 Commit 绑定记录：${hash}`,
+        } satisfies ApiResponse);
+      }
+
+      return reply.code(200).send({
+        success: true,
+        data: rowToCommitBinding(row),
+      } satisfies ApiResponse<CommitBinding>);
+    },
+  );
+
+  // ──────────────────────────────────────────
+  // GET /api/commits/:hash/sessions
+  // 获取 Commit 关联的所有 AgentSession 详情
+  // ──────────────────────────────────────────
+  fastify.get<{
+    Params: { hash: string };
+  }>(
+    '/:hash/sessions',
+    async (request, reply) => {
+      const { hash } = request.params;
+
+      const sessions = getSessionsByCommitHash(hash);
+
+      return reply.code(200).send({
+        success: true,
+        data: sessions,
+      } satisfies ApiResponse<typeof sessions>);
+    },
+  );
+
+  // ──────────────────────────────────────────
+  // POST /api/commits/hook/install
+  // 向指定工作区注入 post-commit Git 钩子
+  //
+  // Body: { workspacePath: string; backendUrl?: string }
+  // ──────────────────────────────────────────
+  fastify.post<{
+    Body: { workspacePath: string; backendUrl?: string };
+  }>(
+    '/hook/install',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['workspacePath'],
+          properties: {
+            workspacePath: { type: 'string', minLength: 1 },
+            backendUrl: { type: 'string' },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const {
+        workspacePath,
+        backendUrl = 'http://localhost:7892',
+      } = request.body;
+
+      try {
+        const isRepo = await isGitRepo(workspacePath);
+        if (!isRepo) {
+          return reply.code(400).send({
+            success: false,
+            error: `路径不是有效的 Git 仓库：${workspacePath}`,
+          } satisfies ApiResponse);
+        }
+
+        const repoInfo = await getRepoInfo(workspacePath);
+        await injectPostCommitHook(workspacePath, backendUrl);
+
+        fastify.log.info(
+          `[Commits Hook] 已向仓库 ${repoInfo.rootPath} 注入 post-commit 钩子`,
+        );
+
+        return reply.code(200).send({
+          success: true,
+          data: {
+            repoRootPath: repoInfo.rootPath,
+            currentBranch: repoInfo.currentBranch,
+            backendUrl,
+          },
+        } satisfies ApiResponse<{
+          repoRootPath: string;
+          currentBranch: string;
+          backendUrl: string;
+        }>);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return reply.code(500).send({
+          success: false,
+          error: `注入钩子失败：${message}`,
+        } satisfies ApiResponse);
+      }
+    },
+  );
+
+  // ──────────────────────────────────────────
+  // DELETE /api/commits/hook/remove
+  // 移除指定工作区的 post-commit 钩子
+  //
+  // Body: { workspacePath: string }
+  // ──────────────────────────────────────────
+  fastify.delete<{
+    Body: { workspacePath: string };
+  }>(
+    '/hook/remove',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['workspacePath'],
+          properties: {
+            workspacePath: { type: 'string', minLength: 1 },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { workspacePath } = request.body;
+
+      try {
+        await removePostCommitHook(workspacePath);
+
+        fastify.log.info(
+          `[Commits Hook] 已从工作区 ${workspacePath} 移除 post-commit 钩子`,
+        );
+
+        return reply.code(200).send({
+          success: true,
+        } satisfies ApiResponse);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return reply.code(500).send({
+          success: false,
+          error: `移除钩子失败：${message}`,
+        } satisfies ApiResponse);
+      }
+    },
+  );
+};
+
+export default commitsRouter;

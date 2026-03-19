@@ -1,0 +1,309 @@
+:root {
+    --font-sans:
+        -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+        sans-serif;
+    --font-mono:
+        "Fira Code", "Cascadia Code", Consolas, "Courier New", monospace;
+    --radius: 6px;
+    --gap: 16px;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--vscode-foreground);
+    background: var(--vscode-editor-background);
+    line-height: 1.6;
+    padding: 20px;
+}
+
+.loading-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 80vh;
+    gap: 16px;
+    color: var(--vscode-descriptionForeground);
+}
+
+.spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--vscode-widget-border);
+    border-top-color: var(--vscode-focusBorder);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.session-detail {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--gap);
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--vscode-widget-border);
+}
+
+.header-left h1 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--vscode-foreground);
+    margin-bottom: 6px;
+}
+
+.meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    background: var(--vscode-badge-background);
+    color: var(--vscode-badge-foreground);
+}
+
+.badge.provider-deepseek {
+    background: #1a6bb5;
+    color: #fff;
+}
+.badge.provider-qwen {
+    background: #7b2feb;
+    color: #fff;
+}
+.badge.provider-kimi {
+    background: #0ea5e9;
+    color: #fff;
+}
+.badge.provider-doubao {
+    background: #f97316;
+    color: #fff;
+}
+.badge.provider-ollama {
+    background: #4b5563;
+    color: #fff;
+}
+.badge.provider-openai {
+    background: #10a37f;
+    color: #fff;
+}
+.badge.provider-anthropic {
+    background: #d97757;
+    color: #fff;
+}
+.badge.provider-zhipu {
+    background: #2f5ce4;
+    color: #fff;
+}
+
+.badge.source-cline {
+    background: var(--vscode-terminal-ansiBrightGreen);
+    color: #000;
+}
+.badge.source-cursor {
+    background: var(--vscode-terminal-ansiBrightBlue);
+    color: #000;
+}
+
+.badge.commit {
+    background: var(--vscode-gitDecoration-addedResourceForeground);
+    color: #000;
+}
+.badge.unbound {
+    background: var(--vscode-editorWarning-foreground);
+    color: #000;
+}
+
+.header-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+button {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    border-radius: var(--radius);
+    border: 1px solid var(--vscode-button-border, transparent);
+    cursor: pointer;
+    font-size: 12px;
+    font-family: var(--font-sans);
+    transition: opacity 0.15s;
+}
+
+button:hover {
+    opacity: 0.85;
+}
+
+button.primary {
+    background: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+}
+
+button.secondary {
+    background: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+}
+
+button.danger {
+    background: var(--vscode-inputValidation-errorBackground);
+    color: var(--vscode-errorForeground);
+    border-color: var(--vscode-inputValidation-errorBorder);
+}
+
+button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.section {
+    margin-bottom: 20px;
+    border: 1px solid var(--vscode-widget-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(
+        --vscode-sideBar-background,
+        var(--vscode-editor-background)
+    );
+    cursor: pointer;
+    user-select: none;
+}
+
+.section-header h2 {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(
+        --vscode-sideBarSectionHeader-foreground,
+        var(--vscode-foreground)
+    );
+}
+
+.section-body {
+    padding: 14px;
+    background: var(--vscode-editor-background);
+}
+
+pre,
+code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    background: var(--vscode-textCodeBlock-background);
+    border-radius: 3px;
+}
+
+pre {
+    padding: 10px 12px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+code {
+    padding: 1px 4px;
+}
+
+.tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    background: var(--vscode-badge-background);
+    color: var(--vscode-badge-foreground);
+}
+
+.tag-remove {
+    cursor: pointer;
+    opacity: 0.6;
+}
+
+.tag-remove:hover {
+    opacity: 1;
+}
+
+input[type="text"],
+textarea {
+    padding: 6px 10px;
+    border-radius: var(--radius);
+    border: 1px solid var(--vscode-widget-border);
+    background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    font-size: 12px;
+    font-family: var(--font-sans);
+}
+
+textarea {
+    width: 100%;
+    min-height: 80px;
+    resize: vertical;
+}
+
+input:focus,
+textarea:focus {
+    outline: 1px solid var(--vscode-focusBorder);
+    border-color: var(--vscode-focusBorder);
+}
+
+.error-banner {
+    padding: 12px 16px;
+    background: var(--vscode-inputValidation-errorBackground);
+    border: 1px solid var(--vscode-inputValidation-errorBorder);
+    border-radius: var(--radius);
+    color: var(--vscode-errorForeground);
+    margin-bottom: 16px;
+}
+
+.status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-left: 8px;
+}
+
+.status-dot.online {
+    background: #22c55e;
+}
+.status-dot.offline {
+    background: #ef4444;
+}

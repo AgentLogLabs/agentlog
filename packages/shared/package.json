@@ -1,0 +1,19 @@
+{
+  "name": "@agentlog/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AgentLog 共享类型与工具函数",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "name": "agentlog",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI 编程行车记录仪 —— 自动捕获 AI Agent 交互日志，与 Git Commit 绑定",
+  "scripts": {
+    "dev": "pnpm --filter @agentlog/backend dev",
+    "build": "pnpm --filter @agentlog/shared build && pnpm --filter @agentlog/backend build && pnpm --filter agentlog-vscode build",
+    "build:shared": "pnpm --filter @agentlog/shared build",
+    "build:backend": "pnpm --filter @agentlog/backend build",
+    "build:ext": "pnpm --filter agentlog-vscode build",
+    "lint": "pnpm -r lint",
+    "clean": "pnpm -r exec rm -rf dist node_modules"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild",
+      "@vscode/vsce-sign",
+      "keytar"
+    ]
+  }
+}
