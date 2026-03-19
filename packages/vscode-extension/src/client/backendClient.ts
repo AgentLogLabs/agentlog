@@ -10,19 +10,23 @@
  *  - 自动跟踪后台存活状态（isAlive），避免在后台未启动时大量报错
  */
 
-import http from 'http';
-import https from 'https';
+import http from "http";
+import https from "https";
 import type {
   AgentSession,
   CommitBinding,
+  CommitContextOptions,
+  CommitContextResult,
+  CommitExplainResult,
   CreateSessionRequest,
+  ExportLanguage,
   ExportOptions,
   ExportResult,
   PaginatedResponse,
   SessionQueryFilter,
   ApiResponse,
   AgentLogConfig,
-} from '@agentlog/shared';
+} from "@agentlog/shared";
 
 // ─────────────────────────────────────────────
 // 类型定义
@@ -36,7 +40,7 @@ export interface BackendClientOptions {
 }
 
 export interface HealthStatus {
-  status: 'ok' | 'unreachable';
+  status: "ok" | "unreachable";
   version?: string;
   uptime?: number;
   timestamp?: string;
@@ -48,7 +52,7 @@ export class BackendUnreachableError extends Error {
     super(
       `AgentLog 后台服务不可达（${baseUrl}）。请确认服务已启动，或检查 agentlog.backendUrl 配置。`,
     );
-    this.name = 'BackendUnreachableError';
+    this.name = "BackendUnreachableError";
     if (cause instanceof Error) {
       this.stack = `${this.stack}\nCaused by: ${cause.stack}`;
     }
@@ -63,7 +67,7 @@ export class BackendApiError extends Error {
     message: string,
   ) {
     super(`[${statusCode}] ${endpoint} — ${message}`);
-    this.name = 'BackendApiError';
+    this.name = "BackendApiError";
   }
 }
 
@@ -81,7 +85,7 @@ export class BackendClient {
   private readonly PING_CACHE_MS = 10_000; // 10 秒内不重复 ping
 
   constructor(options: BackendClientOptions) {
-    this.baseUrl = options.baseUrl.replace(/\/+$/, ''); // 去掉末尾斜线
+    this.baseUrl = options.baseUrl.replace(/\/+$/, ""); // 去掉末尾斜线
     this.timeoutMs = options.timeoutMs ?? 5_000;
   }
 
@@ -98,13 +102,13 @@ export class BackendClient {
    * @returns        解析后的 JSON 数据
    */
   private request<T>(
-    method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+    method: "GET" | "POST" | "PATCH" | "DELETE",
     path: string,
     body?: unknown,
   ): Promise<T> {
     return new Promise((resolve, reject) => {
       const url = new URL(`${this.baseUrl}${path}`);
-      const isHttps = url.protocol === 'https:';
+      const isHttps = url.protocol === "https:";
       const transport = isHttps ? https : http;
 
       const bodyStr = body !== undefined ? JSON.stringify(body) : undefined;
@@ -115,9 +119,9 @@ export class BackendClient {
         path: url.pathname + url.search,
         method,
         headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-          ...(bodyStr ? { 'Content-Length': Buffer.byteLength(bodyStr) } : {}),
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          ...(bodyStr ? { "Content-Length": Buffer.byteLength(bodyStr) } : {}),
         },
         timeout: this.timeoutMs,
       };
@@ -125,10 +129,10 @@ export class BackendClient {
       const req = transport.request(options, (res) => {
         const chunks: Buffer[] = [];
 
-        res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        res.on("data", (chunk: Buffer) => chunks.push(chunk));
 
-        res.on('end', () => {
-          const raw = Buffer.concat(chunks).toString('utf-8');
+        res.on("end", () => {
+          const raw = Buffer.concat(chunks).toString("utf-8");
 
           // 尝试解析 JSON
           let parsed: unknown;
@@ -169,7 +173,7 @@ export class BackendClient {
       });
 
       // 超时处理
-      req.on('timeout', () => {
+      req.on("timeout", () => {
         req.destroy();
         this._isAlive = false;
         reject(
@@ -181,10 +185,10 @@ export class BackendClient {
       });
 
       // 连接错误（服务未启动）
-      req.on('error', (err) => {
+      req.on("error", (err) => {
         this._isAlive = false;
         const isConnectionRefused =
-          (err as NodeJS.ErrnoException).code === 'ECONNREFUSED';
+          (err as NodeJS.ErrnoException).code === "ECONNREFUSED";
         if (isConnectionRefused) {
           reject(new BackendUnreachableError(this.baseUrl, err));
         } else {
@@ -213,19 +217,19 @@ export class BackendClient {
     const now = Date.now();
     if (!force && now - this._lastPingAt < this.PING_CACHE_MS) {
       return {
-        status: this._isAlive ? 'ok' : 'unreachable',
+        status: this._isAlive ? "ok" : "unreachable",
       };
     }
 
     try {
-      const result = await this.request<HealthStatus>('GET', '/health');
+      const result = await this.request<HealthStatus>("GET", "/health");
       this._isAlive = true;
       this._lastPingAt = Date.now();
-      return { ...result, status: 'ok' };
+      return { ...result, status: "ok" };
     } catch {
       this._isAlive = false;
       this._lastPingAt = Date.now();
-      return { status: 'unreachable' };
+      return { status: "unreachable" };
     }
   }
 
@@ -242,16 +246,18 @@ export class BackendClient {
    * 上报一条新的 AI 交互会话。
    * 插件捕获到完整的 Prompt + Response 后调用此方法。
    */
-  async createSession(
-    req: CreateSessionRequest,
-  ): Promise<AgentSession> {
+  async createSession(req: CreateSessionRequest): Promise<AgentSession> {
     const resp = await this.request<ApiResponse<AgentSession>>(
-      'POST',
-      '/api/sessions',
+      "POST",
+      "/api/sessions",
       req,
     );
     if (!resp.success || !resp.data) {
-      throw new BackendApiError(200, '/api/sessions', resp.error ?? '创建会话失败');
+      throw new BackendApiError(
+        200,
+        "/api/sessions",
+        resp.error ?? "创建会话失败",
+      );
     }
     return resp.data;
   }
@@ -261,11 +267,15 @@ export class BackendClient {
    */
   async getSession(id: string): Promise<AgentSession> {
     const resp = await this.request<ApiResponse<AgentSession>>(
-      'GET',
+      "GET",
       `/api/sessions/${encodeURIComponent(id)}`,
     );
     if (!resp.success || !resp.data) {
-      throw new BackendApiError(200, `/api/sessions/${id}`, resp.error ?? '会话不存在');
+      throw new BackendApiError(
+        200,
+        `/api/sessions/${id}`,
+        resp.error ?? "会话不存在",
+      );
     }
     return resp.data;
   }
@@ -277,12 +287,11 @@ export class BackendClient {
     filter: SessionQueryFilter = {},
   ): Promise<PaginatedResponse<AgentSession>> {
     const qs = buildQueryString(filter as Record<string, unknown>);
-    const resp = await this.request<ApiResponse<PaginatedResponse<AgentSession>>>(
-      'GET',
-      `/api/sessions${qs}`,
-    );
+    const resp = await this.request<
+      ApiResponse<PaginatedResponse<AgentSession>>
+    >("GET", `/api/sessions${qs}`);
     if (!resp.success || !resp.data) {
-      throw new BackendApiError(200, '/api/sessions', resp.error ?? '查询失败');
+      throw new BackendApiError(200, "/api/sessions", resp.error ?? "查询失败");
     }
     return resp.data;
   }
@@ -296,11 +305,15 @@ export class BackendClient {
   ): Promise<AgentSession[]> {
     const qs = buildQueryString({ workspacePath, limit });
     const resp = await this.request<ApiResponse<AgentSession[]>>(
-      'GET',
+      "GET",
       `/api/sessions/unbound${qs}`,
     );
     if (!resp.success || !resp.data) {
-      throw new BackendApiError(200, '/api/sessions/unbound', resp.error ?? '查询失败');
+      throw new BackendApiError(
+        200,
+        "/api/sessions/unbound",
+        resp.error ?? "查询失败",
+      );
     }
     return resp.data;
   }
@@ -313,12 +326,16 @@ export class BackendClient {
     tags: string[],
   ): Promise<AgentSession> {
     const resp = await this.request<ApiResponse<AgentSession>>(
-      'PATCH',
+      "PATCH",
       `/api/sessions/${encodeURIComponent(sessionId)}/tags`,
       { tags },
     );
     if (!resp.success || !resp.data) {
-      throw new BackendApiError(200, `/api/sessions/${sessionId}/tags`, resp.error ?? '更新失败');
+      throw new BackendApiError(
+        200,
+        `/api/sessions/${sessionId}/tags`,
+        resp.error ?? "更新失败",
+      );
     }
     return resp.data;
   }
@@ -331,12 +348,16 @@ export class BackendClient {
     note: string,
   ): Promise<AgentSession> {
     const resp = await this.request<ApiResponse<AgentSession>>(
-      'PATCH',
+      "PATCH",
       `/api/sessions/${encodeURIComponent(sessionId)}/note`,
       { note },
     );
     if (!resp.success || !resp.data) {
-      throw new BackendApiError(200, `/api/sessions/${sessionId}/note`, resp.error ?? '更新失败');
+      throw new BackendApiError(
+        200,
+        `/api/sessions/${sessionId}/note`,
+        resp.error ?? "更新失败",
+      );
     }
     return resp.data;
   }
@@ -349,12 +370,16 @@ export class BackendClient {
     commitHash: string | null,
   ): Promise<AgentSession> {
     const resp = await this.request<ApiResponse<AgentSession>>(
-      'PATCH',
+      "PATCH",
       `/api/sessions/${encodeURIComponent(sessionId)}/commit`,
       { commitHash },
     );
     if (!resp.success || !resp.data) {
-      throw new BackendApiError(200, `/api/sessions/${sessionId}/commit`, resp.error ?? '绑定失败');
+      throw new BackendApiError(
+        200,
+        `/api/sessions/${sessionId}/commit`,
+        resp.error ?? "绑定失败",
+      );
     }
     return resp.data;
   }
@@ -364,27 +389,35 @@ export class BackendClient {
    */
   async deleteSession(sessionId: string): Promise<void> {
     const resp = await this.request<ApiResponse>(
-      'DELETE',
+      "DELETE",
       `/api/sessions/${encodeURIComponent(sessionId)}`,
     );
     if (!resp.success) {
-      throw new BackendApiError(200, `/api/sessions/${sessionId}`, resp.error ?? '删除失败');
+      throw new BackendApiError(
+        200,
+        `/api/sessions/${sessionId}`,
+        resp.error ?? "删除失败",
+      );
     }
   }
 
   /**
    * 获取会话统计信息。
    */
-  async getSessionStats(workspacePath?: string): Promise<Record<string, unknown>> {
-    const qs = workspacePath
-      ? buildQueryString({ workspacePath })
-      : '';
+  async getSessionStats(
+    workspacePath?: string,
+  ): Promise<Record<string, unknown>> {
+    const qs = workspacePath ? buildQueryString({ workspacePath }) : "";
     const resp = await this.request<ApiResponse<Record<string, unknown>>>(
-      'GET',
+      "GET",
       `/api/sessions/stats${qs}`,
     );
     if (!resp.success || !resp.data) {
-      throw new BackendApiError(200, '/api/sessions/stats', resp.error ?? '获取统计失败');
+      throw new BackendApiError(
+        200,
+        "/api/sessions/stats",
+        resp.error ?? "获取统计失败",
+      );
     }
     return resp.data;
   }
@@ -402,12 +435,16 @@ export class BackendClient {
     workspacePath?: string,
   ): Promise<CommitBinding> {
     const resp = await this.request<ApiResponse<CommitBinding>>(
-      'POST',
-      '/api/commits/bind',
+      "POST",
+      "/api/commits/bind",
       { sessionIds, commitHash, workspacePath },
     );
     if (!resp.success || !resp.data) {
-      throw new BackendApiError(200, '/api/commits/bind', resp.error ?? '绑定失败');
+      throw new BackendApiError(
+        200,
+        "/api/commits/bind",
+        resp.error ?? "绑定失败",
+      );
     }
     return resp.data;
   }
@@ -417,14 +454,14 @@ export class BackendClient {
    */
   async unbindSession(sessionId: string): Promise<void> {
     const resp = await this.request<ApiResponse>(
-      'DELETE',
+      "DELETE",
       `/api/commits/unbind/${encodeURIComponent(sessionId)}`,
     );
     if (!resp.success) {
       throw new BackendApiError(
         200,
         `/api/commits/unbind/${sessionId}`,
-        resp.error ?? '解绑失败',
+        resp.error ?? "解绑失败",
       );
     }
   }
@@ -434,14 +471,14 @@ export class BackendClient {
    */
   async getCommitBinding(commitHash: string): Promise<CommitBinding> {
     const resp = await this.request<ApiResponse<CommitBinding>>(
-      'GET',
+      "GET",
       `/api/commits/${encodeURIComponent(commitHash)}`,
     );
     if (!resp.success || !resp.data) {
       throw new BackendApiError(
         200,
         `/api/commits/${commitHash}`,
-        resp.error ?? '未找到绑定记录',
+        resp.error ?? "未找到绑定记录",
       );
     }
     return resp.data;
@@ -456,12 +493,11 @@ export class BackendClient {
     workspacePath?: string,
   ): Promise<PaginatedResponse<CommitBinding>> {
     const qs = buildQueryString({ page, pageSize, workspacePath });
-    const resp = await this.request<ApiResponse<PaginatedResponse<CommitBinding>>>(
-      'GET',
-      `/api/commits/${qs}`,
-    );
+    const resp = await this.request<
+      ApiResponse<PaginatedResponse<CommitBinding>>
+    >("GET", `/api/commits/${qs}`);
     if (!resp.success || !resp.data) {
-      throw new BackendApiError(200, '/api/commits', resp.error ?? '查询失败');
+      throw new BackendApiError(200, "/api/commits", resp.error ?? "查询失败");
     }
     return resp.data;
   }
@@ -474,16 +510,20 @@ export class BackendClient {
     backendUrl?: string,
   ): Promise<{ repoRootPath: string; currentBranch: string }> {
     const resp = await this.request<
-      ApiResponse<{ repoRootPath: string; currentBranch: string; backendUrl: string }>
-    >('POST', '/api/commits/hook/install', {
+      ApiResponse<{
+        repoRootPath: string;
+        currentBranch: string;
+        backendUrl: string;
+      }>
+    >("POST", "/api/commits/hook/install", {
       workspacePath,
       backendUrl: backendUrl ?? this.baseUrl,
     });
     if (!resp.success || !resp.data) {
       throw new BackendApiError(
         200,
-        '/api/commits/hook/install',
-        resp.error ?? '安装钩子失败',
+        "/api/commits/hook/install",
+        resp.error ?? "安装钩子失败",
       );
     }
     return resp.data;
@@ -494,15 +534,15 @@ export class BackendClient {
    */
   async removeGitHook(workspacePath: string): Promise<void> {
     const resp = await this.request<ApiResponse>(
-      'DELETE',
-      '/api/commits/hook/remove',
+      "DELETE",
+      "/api/commits/hook/remove",
       { workspacePath },
     );
     if (!resp.success) {
       throw new BackendApiError(
         200,
-        '/api/commits/hook/remove',
-        resp.error ?? '移除钩子失败',
+        "/api/commits/hook/remove",
+        resp.error ?? "移除钩子失败",
       );
     }
   }
@@ -516,12 +556,70 @@ export class BackendClient {
    */
   async exportSessions(options: ExportOptions): Promise<ExportResult> {
     const resp = await this.request<ApiResponse<ExportResult>>(
-      'POST',
-      '/api/export',
+      "POST",
+      "/api/export",
       { ...options, download: false },
     );
     if (!resp.success || !resp.data) {
-      throw new BackendApiError(200, '/api/export', resp.error ?? '导出失败');
+      throw new BackendApiError(200, "/api/export", resp.error ?? "导出失败");
+    }
+    return resp.data;
+  }
+
+  // ─────────────────────────────────────────────
+  // Commit 上下文与解释 API
+  // ─────────────────────────────────────────────
+
+  /**
+   * 生成指定 Commit 的 AI 交互上下文文档。
+   *
+   * @param commitHash    Git Commit Hash（完整或短 hash）
+   * @param workspacePath 工作区路径（可选，用于从 git 获取实时 commit 信息）
+   * @param options       上下文选项（format / language / include* / max* 等）
+   */
+  async generateCommitContext(
+    commitHash: string,
+    workspacePath?: string,
+    options: CommitContextOptions = {},
+  ): Promise<CommitContextResult> {
+    const resp = await this.request<ApiResponse<CommitContextResult>>(
+      "POST",
+      `/api/commits/${encodeURIComponent(commitHash)}/context`,
+      { workspacePath, ...options },
+    );
+    if (!resp.success || !resp.data) {
+      throw new BackendApiError(
+        200,
+        `/api/commits/${commitHash}/context`,
+        resp.error ?? "生成上下文失败",
+      );
+    }
+    return resp.data;
+  }
+
+  /**
+   * 生成指定 Commit 的 AI 交互解释摘要。
+   *
+   * @param commitHash    Git Commit Hash
+   * @param workspacePath 工作区路径（可选）
+   * @param language      输出语言，默认 'zh'
+   */
+  async generateCommitExplain(
+    commitHash: string,
+    workspacePath?: string,
+    language?: ExportLanguage,
+  ): Promise<CommitExplainResult> {
+    const resp = await this.request<ApiResponse<CommitExplainResult>>(
+      "POST",
+      `/api/commits/${encodeURIComponent(commitHash)}/explain`,
+      { workspacePath, language },
+    );
+    if (!resp.success || !resp.data) {
+      throw new BackendApiError(
+        200,
+        `/api/commits/${commitHash}/explain`,
+        resp.error ?? "生成解释摘要失败",
+      );
     }
     return resp.data;
   }
@@ -534,9 +632,13 @@ export class BackendClient {
   ): Promise<ExportResult & { isTruncated: boolean }> {
     const resp = await this.request<
       ApiResponse<ExportResult & { isTruncated: boolean }>
-    >('POST', '/api/export/preview', options);
+    >("POST", "/api/export/preview", options);
     if (!resp.success || !resp.data) {
-      throw new BackendApiError(200, '/api/export/preview', resp.error ?? '预览失败');
+      throw new BackendApiError(
+        200,
+        "/api/export/preview",
+        resp.error ?? "预览失败",
+      );
     }
     return resp.data;
   }
@@ -556,7 +658,7 @@ let _defaultClient: BackendClient | null = null;
 export function getBackendClient(): BackendClient {
   if (!_defaultClient) {
     // 兜底：使用默认地址，避免调用方 null check
-    _defaultClient = new BackendClient({ baseUrl: 'http://localhost:7892' });
+    _defaultClient = new BackendClient({ baseUrl: "http://localhost:7892" });
   }
   return _defaultClient;
 }
@@ -565,7 +667,9 @@ export function getBackendClient(): BackendClient {
  * 使用最新配置初始化（或重建）默认 BackendClient 单例。
  * 应在插件激活时以及配置变更时调用。
  */
-export function initBackendClient(config: Pick<AgentLogConfig, 'backendUrl' | 'debug'>): BackendClient {
+export function initBackendClient(
+  config: Pick<AgentLogConfig, "backendUrl" | "debug">,
+): BackendClient {
   _defaultClient = new BackendClient({
     baseUrl: config.backendUrl,
     timeoutMs: config.debug ? 10_000 : 5_000,
@@ -593,18 +697,22 @@ function buildQueryString(params: Record<string, unknown>): string {
   const parts: string[] = [];
 
   for (const [key, value] of Object.entries(params)) {
-    if (value === undefined || value === null || value === '') continue;
+    if (value === undefined || value === null || value === "") continue;
 
     if (Array.isArray(value)) {
       for (const item of value) {
-        if (item !== undefined && item !== null && item !== '') {
-          parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(item))}`);
+        if (item !== undefined && item !== null && item !== "") {
+          parts.push(
+            `${encodeURIComponent(key)}=${encodeURIComponent(String(item))}`,
+          );
         }
       }
     } else {
-      parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`);
+      parts.push(
+        `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`,
+      );
     }
   }
 
-  return parts.length > 0 ? `?${parts.join('&')}` : '';
+  return parts.length > 0 ? `?${parts.join("&")}` : "";
 }

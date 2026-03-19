@@ -352,3 +352,176 @@ export interface TranscriptContentBlock {
   input?: Record<string, unknown>;
   content?: string | TranscriptContentBlock[];
 }
+
+// ─────────────────────────────────────────────
+// Commit 上下文与解释（Context & Explain）
+// ─────────────────────────────────────────────
+
+/** 上下文输出格式 */
+export type ContextFormat = "markdown" | "json" | "xml";
+
+/** 生成 Commit 上下文文档的选项 */
+export interface CommitContextOptions {
+  /** 输出格式，默认 'markdown' */
+  format?: ContextFormat;
+
+  /** 输出语言，默认 'zh' */
+  language?: ExportLanguage;
+
+  /** 是否包含用户 Prompt，默认 true */
+  includePrompts?: boolean;
+
+  /** 是否包含模型 Response，默认 true */
+  includeResponses?: boolean;
+
+  /** 是否包含推理过程（Reasoning / Thinking），默认 true */
+  includeReasoning?: boolean;
+
+  /** 是否包含变更文件列表，默认 true */
+  includeChangedFiles?: boolean;
+
+  /**
+   * 单条 Prompt / Response / Reasoning 内容的最大字符长度。
+   * 超出部分将被截断并标注。0 表示不截断。
+   * 默认 2000。
+   */
+  maxContentLength?: number;
+
+  /**
+   * 最多包含的 AI 会话数量。
+   * 0 表示不限制。默认 0。
+   */
+  maxSessions?: number;
+}
+
+/** 上下文文档中的单条会话摘要 */
+export interface ContextSessionItem {
+  /** 会话 ID */
+  sessionId: string;
+
+  /** 会话创建时间（ISO 8601） */
+  createdAt: string;
+
+  /** 模型名称 */
+  model: string;
+
+  /** 模型提供商 */
+  provider: ModelProvider;
+
+  /** 调用来源 */
+  source: AgentSource;
+
+  /** 用户 Prompt（可能被截断） */
+  prompt?: string;
+
+  /** 推理过程（可能被截断） */
+  reasoning?: string;
+
+  /** 模型 Response（可能被截断） */
+  response?: string;
+
+  /** 涉及的文件列表 */
+  affectedFiles: string[];
+
+  /** 标签 */
+  tags?: string[];
+
+  /** 备注 */
+  note?: string;
+
+  /** 耗时（毫秒） */
+  durationMs: number;
+}
+
+/** Commit 上下文文档的生成结果 */
+export interface CommitContextResult {
+  /** Commit Hash */
+  commitHash: string;
+
+  /** Commit Message */
+  commitMessage: string;
+
+  /** 提交者 */
+  authorName: string;
+
+  /** 提交时间（ISO 8601） */
+  committedAt: string;
+
+  /** 变更文件列表 */
+  changedFiles: string[];
+
+  /** 输出格式 */
+  format: ContextFormat;
+
+  /** 关联的 AI 会话数量 */
+  sessionCount: number;
+
+  /** 渲染后的上下文文档内容（Markdown / JSON / XML 文本） */
+  content: string;
+
+  /** 生成时间（ISO 8601） */
+  generatedAt: string;
+}
+
+/** 解释摘要中的单条会话要点 */
+export interface SessionExplainItem {
+  /** 会话 ID */
+  sessionId: string;
+
+  /** 会话创建时间（ISO 8601） */
+  createdAt: string;
+
+  /** 模型名称 */
+  model: string;
+
+  /** 调用来源 */
+  source: AgentSource;
+
+  /** Prompt 的一句话概括 */
+  promptSummary: string;
+
+  /** Response 的一句话概括 */
+  responseSummary: string;
+
+  /** 是否包含推理过程 */
+  hasReasoning: boolean;
+
+  /** 涉及的文件列表 */
+  affectedFiles: string[];
+
+  /** 标签 */
+  tags?: string[];
+}
+
+/** Commit 解释摘要的生成结果 */
+export interface CommitExplainResult {
+  /** Commit Hash */
+  commitHash: string;
+
+  /** Commit Message */
+  commitMessage: string;
+
+  /** 提交者 */
+  authorName: string;
+
+  /** 提交时间（ISO 8601） */
+  committedAt: string;
+
+  /** 总体摘要：对本次 commit 的 AI 交互做一个简短总结 */
+  overallSummary: string;
+
+  /** 逐条会话的解释要点 */
+  sessions: SessionExplainItem[];
+
+  /** 涉及文件的聚合列表 */
+  allAffectedFiles: string[];
+
+  /** 输出语言 */
+  language: ExportLanguage;
+
+  /** 渲染后的解释文档内容（Markdown 文本） */
+  content: string;
+
+  /** 生成时间（ISO 8601） */
+  generatedAt: string;
+}

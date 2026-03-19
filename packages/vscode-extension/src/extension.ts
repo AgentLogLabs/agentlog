@@ -20,6 +20,7 @@ import * as cp from "child_process";
 import * as path from "path";
 import type {
   AgentLogConfig,
+  ContextFormat,
   ExportFormat,
   ExportLanguage,
 } from "@agentlog/shared";
@@ -35,6 +36,7 @@ import {
   SessionTreeProvider,
   CommitBindingsTreeProvider,
   SessionItem,
+  CommitGroupItem,
 } from "./providers/sessionTreeProvider";
 import {
   SessionDetailPanel,
@@ -658,6 +660,267 @@ function registerCommands(
 
   register("agentlog.exportPrDescription", async () => {
     await exportInteractive("pr-description", config);
+  });
+
+  // ── Commit 上下文 & 解释 ──────────────────
+
+  register("agentlog.generateCommitContext", async (item: unknown) => {
+    // 1. 解析 commitHash — 可能来自 TreeView 右键菜单，也可能手动输入
+    let commitHash: string | undefined;
+
+    if (item instanceof CommitGroupItem) {
+      commitHash = item.commitHash;
+    }
+
+    if (!commitHash) {
+      commitHash = await vscode.window.showInputBox({
+        prompt: "请输入 Git Commit Hash",
+        placeHolder: "完整或短 SHA（例如：abc1234）",
+        validateInput: (v) =>
+          v.trim().length < 4 ? "Commit Hash 至少需要 4 位" : undefined,
+      });
+    }
+
+    if (!commitHash) return;
+    commitHash = commitHash.trim();
+
+    // 2. 选择输出格式
+    const formatOptions: Array<{
+      label: string;
+      value: ContextFormat;
+      description: string;
+    }> = [
+      {
+        label: "Markdown",
+        value: "markdown",
+        description: "适合直接粘贴到 AI 对话或文档中",
+      },
+      {
+        label: "JSON",
+        value: "json",
+        description: "结构化 JSON，适合程序处理",
+      },
+      {
+        label: "XML",
+        value: "xml",
+        description: "XML 格式，适合作为 AI 上下文标签",
+      },
+    ];
+
+    const pickedFormat = await vscode.window.showQuickPick(formatOptions, {
+      placeHolder: "选择上下文文档的输出格式",
+    });
+    if (!pickedFormat) return;
+
+    // 3. 读取语言配置
+    const currentConfig = readConfig();
+    const language: ExportLanguage =
+      (currentConfig as AgentLogConfig & { exportLanguage?: ExportLanguage })
+        .exportLanguage ?? "zh";
+
+    // 4. 调用后台生成
+    await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: "正在生成 Commit 上下文文档…",
+        cancellable: false,
+      },
+      async () => {
+        try {
+          const client = getBackendClient();
+          const workspacePath = resolveWorkspacePath();
+
+          const result = await client.generateCommitContext(
+            commitHash!,
+            workspacePath,
+            {
+              format: pickedFormat.value,
+              language,
+            },
+          );
+
+          if (result.sessionCount === 0) {
+            vscode.window.showWarningMessage(
+              `Commit ${commitHash!.slice(0, 8)} 没有关联的 AI 交互记录`,
+            );
+            return;
+          }
+
+          // 在编辑器中打开结果
+          const langMap: Record<ContextFormat, string> = {
+            markdown: "markdown",
+            json: "json",
+            xml: "xml",
+          };
+
+          const doc = await vscode.workspace.openTextDocument({
+            content: result.content,
+            language: langMap[pickedFormat.value] ?? "plaintext",
+          });
+
+          await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
+
+          vscode.window
+            .showInformationMessage(
+              `✅ 上下文文档已生成：Commit ${commitHash!.slice(0, 8)}，包含 ${result.sessionCount} 条 AI 会话`,
+              "复制到剪贴板",
+              "保存到文件",
+            )
+            .then(async (action) => {
+              if (action === "复制到剪贴板") {
+                await vscode.env.clipboard.writeText(result.content);
+                vscode.window.showInformationMessage("✅ 已复制到剪贴板");
+              } else if (action === "保存到文件") {
+                const ext =
+                  pickedFormat.value === "markdown"
+                    ? "md"
+                    : pickedFormat.value === "json"
+                      ? "json"
+                      : "xml";
+                const defaultName = `agentlog_context_${commitHash!.slice(0, 8)}.${ext}`;
+                const uri = await vscode.window.showSaveDialog({
+                  defaultUri: vscode.Uri.file(defaultName),
+                  filters: { 上下文文档: [ext] },
+                });
+                if (uri) {
+                  await vscode.workspace.fs.writeFile(
+                    uri,
+                    Buffer.from(result.content, "utf-8"),
+                  );
+                  vscode.window.showInformationMessage(
+                    `✅ 已保存到：${uri.fsPath}`,
+                  );
+                }
+              }
+            });
+        } catch (err) {
+          if (err instanceof BackendUnreachableError) {
+            vscode.window
+              .showErrorMessage(
+                "AgentLog 后台服务未启动，无法生成上下文",
+                "启动服务",
+              )
+              .then((action) => {
+                if (action === "启动服务") {
+                  vscode.commands.executeCommand("agentlog.startBackend");
+                }
+              });
+          } else {
+            vscode.window.showErrorMessage(
+              `生成上下文失败：${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+        }
+      },
+    );
+  });
+
+  register("agentlog.generateCommitExplain", async (item: unknown) => {
+    // 1. 解析 commitHash
+    let commitHash: string | undefined;
+
+    if (item instanceof CommitGroupItem) {
+      commitHash = item.commitHash;
+    }
+
+    if (!commitHash) {
+      commitHash = await vscode.window.showInputBox({
+        prompt: "请输入 Git Commit Hash",
+        placeHolder: "完整或短 SHA（例如：abc1234）",
+        validateInput: (v) =>
+          v.trim().length < 4 ? "Commit Hash 至少需要 4 位" : undefined,
+      });
+    }
+
+    if (!commitHash) return;
+    commitHash = commitHash.trim();
+
+    // 2. 读取语言配置
+    const currentConfig = readConfig();
+    const language: ExportLanguage =
+      (currentConfig as AgentLogConfig & { exportLanguage?: ExportLanguage })
+        .exportLanguage ?? "zh";
+
+    // 3. 调用后台生成
+    await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: "正在生成 Commit AI 交互解释…",
+        cancellable: false,
+      },
+      async () => {
+        try {
+          const client = getBackendClient();
+          const workspacePath = resolveWorkspacePath();
+
+          const result = await client.generateCommitExplain(
+            commitHash!,
+            workspacePath,
+            language,
+          );
+
+          if (result.sessions.length === 0) {
+            vscode.window.showWarningMessage(
+              `Commit ${commitHash!.slice(0, 8)} 没有关联的 AI 交互记录`,
+            );
+            return;
+          }
+
+          // 在编辑器中打开结果（解释始终为 Markdown）
+          const doc = await vscode.workspace.openTextDocument({
+            content: result.content,
+            language: "markdown",
+          });
+
+          await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
+
+          vscode.window
+            .showInformationMessage(
+              `✅ 解释摘要已生成：Commit ${commitHash!.slice(0, 8)}，包含 ${result.sessions.length} 条 AI 会话`,
+              "复制到剪贴板",
+              "保存到文件",
+            )
+            .then(async (action) => {
+              if (action === "复制到剪贴板") {
+                await vscode.env.clipboard.writeText(result.content);
+                vscode.window.showInformationMessage("✅ 已复制到剪贴板");
+              } else if (action === "保存到文件") {
+                const defaultName = `agentlog_explain_${commitHash!.slice(0, 8)}.md`;
+                const uri = await vscode.window.showSaveDialog({
+                  defaultUri: vscode.Uri.file(defaultName),
+                  filters: { 解释摘要: ["md"] },
+                });
+                if (uri) {
+                  await vscode.workspace.fs.writeFile(
+                    uri,
+                    Buffer.from(result.content, "utf-8"),
+                  );
+                  vscode.window.showInformationMessage(
+                    `✅ 已保存到：${uri.fsPath}`,
+                  );
+                }
+              }
+            });
+        } catch (err) {
+          if (err instanceof BackendUnreachableError) {
+            vscode.window
+              .showErrorMessage(
+                "AgentLog 后台服务未启动，无法生成解释",
+                "启动服务",
+              )
+              .then((action) => {
+                if (action === "启动服务") {
+                  vscode.commands.executeCommand("agentlog.startBackend");
+                }
+              });
+          } else {
+            vscode.window.showErrorMessage(
+              `生成解释失败：${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+        }
+      },
+    );
   });
 }
 

@@ -7,37 +7,45 @@
  *  DELETE /api/commits/unbind/:sessionId  解绑单条会话
  *  GET    /api/commits/:hash          查询指定 Commit 的绑定信息
  *  GET    /api/commits/:hash/sessions 获取 Commit 关联的所有会话
+ *  GET    /api/commits/:hash/context  生成 Commit 的 AI 交互上下文文档
+ *  POST   /api/commits/:hash/context  生成 Commit 的 AI 交互上下文文档（带选项）
+ *  GET    /api/commits/:hash/explain  生成 Commit 的 AI 交互解释摘要
+ *  POST   /api/commits/:hash/explain  生成 Commit 的 AI 交互解释摘要（带选项）
  *  GET    /api/commits                列出所有已记录的 Commit 绑定（分页）
  *  POST   /api/commits/hook/install   向指定工作区注入 post-commit 钩子
  *  DELETE /api/commits/hook/remove    移除指定工作区的 post-commit 钩子
  */
 
-import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
+import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import type {
   BindCommitRequest,
   CommitBinding,
+  CommitContextOptions,
+  CommitContextResult,
+  CommitExplainResult,
+  ContextFormat,
+  ExportLanguage,
   ApiResponse,
   PaginatedResponse,
-} from '@agentlog/shared';
+} from "@agentlog/shared";
 import {
   bindSessionsToCommit,
   getUnboundSessions,
   getSessionsByCommitHash,
   getSessionById,
-} from '../services/logService';
+} from "../services/logService";
 import {
   getCommitInfo,
   getRepoInfo,
   injectPostCommitHook,
   removePostCommitHook,
   isGitRepo,
-} from '../services/gitService';
+} from "../services/gitService";
+import { getDatabase, fromJson, toJson, type CommitRow } from "../db/database";
 import {
-  getDatabase,
-  fromJson,
-  toJson,
-  type CommitRow,
-} from '../db/database';
+  generateCommitContext,
+  generateCommitExplain,
+} from "../services/contextService";
 
 // ─────────────────────────────────────────────
 // 行 → 实体 映射
@@ -68,19 +76,21 @@ function upsertCommitBinding(binding: CommitBinding): CommitBinding {
   const db = getDatabase();
 
   const existing = db
-    .prepare('SELECT * FROM commit_bindings WHERE commit_hash = ?')
+    .prepare("SELECT * FROM commit_bindings WHERE commit_hash = ?")
     .get(binding.commitHash) as CommitRow | undefined;
 
   if (existing) {
     const existingIds = fromJson<string[]>(existing.session_ids, []);
     const mergedIds = [...new Set([...existingIds, ...binding.sessionIds])];
 
-    db.prepare(`
+    db.prepare(
+      `
       UPDATE commit_bindings
       SET session_ids = ?, message = ?, committed_at = ?,
           author_name = ?, author_email = ?, changed_files = ?
       WHERE commit_hash = ?
-    `).run(
+    `,
+    ).run(
       toJson(mergedIds),
       binding.message,
       binding.committedAt,
@@ -90,12 +100,14 @@ function upsertCommitBinding(binding: CommitBinding): CommitBinding {
       binding.commitHash,
     );
   } else {
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO commit_bindings (
         commit_hash, session_ids, message, committed_at,
         author_name, author_email, changed_files, workspace_path
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    `,
+    ).run(
       binding.commitHash,
       toJson(binding.sessionIds),
       binding.message,
@@ -108,7 +120,7 @@ function upsertCommitBinding(binding: CommitBinding): CommitBinding {
   }
 
   const updated = db
-    .prepare('SELECT * FROM commit_bindings WHERE commit_hash = ?')
+    .prepare("SELECT * FROM commit_bindings WHERE commit_hash = ?")
     .get(binding.commitHash) as CommitRow;
   return rowToCommitBinding(updated);
 }
@@ -120,7 +132,7 @@ function removeSessionFromCommitBinding(
 ): void {
   const db = getDatabase();
   const row = db
-    .prepare('SELECT * FROM commit_bindings WHERE commit_hash = ?')
+    .prepare("SELECT * FROM commit_bindings WHERE commit_hash = ?")
     .get(commitHash) as CommitRow | undefined;
 
   if (!row) return;
@@ -128,10 +140,9 @@ function removeSessionFromCommitBinding(
   const ids = fromJson<string[]>(row.session_ids, []).filter(
     (id) => id !== sessionId,
   );
-  db.prepare('UPDATE commit_bindings SET session_ids = ? WHERE commit_hash = ?').run(
-    toJson(ids),
-    commitHash,
-  );
+  db.prepare(
+    "UPDATE commit_bindings SET session_ids = ? WHERE commit_hash = ?",
+  ).run(toJson(ids), commitHash);
 }
 
 /** 分页查询所有 commit_bindings，按提交时间倒序 */
@@ -141,7 +152,7 @@ function listCommitBindings(
   workspacePath?: string,
 ): PaginatedResponse<CommitBinding> {
   const db = getDatabase();
-  const where = workspacePath ? 'WHERE workspace_path = @workspace_path' : '';
+  const where = workspacePath ? "WHERE workspace_path = @workspace_path" : "";
   const params: Record<string, unknown> = workspacePath
     ? { workspace_path: workspacePath }
     : {};
@@ -172,7 +183,6 @@ function listCommitBindings(
 // ─────────────────────────────────────────────
 
 const commitsRouter: FastifyPluginAsync = async (fastify: FastifyInstance) => {
-
   // ──────────────────────────────────────────
   // POST /api/commits/hook
   // post-commit 钩子接收端
@@ -187,15 +197,15 @@ const commitsRouter: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   fastify.post<{
     Body: { commitHash: string; workspacePath: string };
   }>(
-    '/hook',
+    "/hook",
     {
       schema: {
         body: {
-          type: 'object',
-          required: ['commitHash', 'workspacePath'],
+          type: "object",
+          required: ["commitHash", "workspacePath"],
           properties: {
-            commitHash: { type: 'string', minLength: 4 },
-            workspacePath: { type: 'string', minLength: 1 },
+            commitHash: { type: "string", minLength: 4 },
+            workspacePath: { type: "string", minLength: 1 },
           },
         },
       },
@@ -286,20 +296,20 @@ const commitsRouter: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   fastify.post<{
     Body: BindCommitRequest & { workspacePath?: string };
   }>(
-    '/bind',
+    "/bind",
     {
       schema: {
         body: {
-          type: 'object',
-          required: ['sessionIds', 'commitHash'],
+          type: "object",
+          required: ["sessionIds", "commitHash"],
           properties: {
             sessionIds: {
-              type: 'array',
-              items: { type: 'string' },
+              type: "array",
+              items: { type: "string" },
               minItems: 1,
             },
-            commitHash: { type: 'string', minLength: 4 },
-            workspacePath: { type: 'string' },
+            commitHash: { type: "string", minLength: 4 },
+            workspacePath: { type: "string" },
           },
         },
       },
@@ -312,7 +322,7 @@ const commitsRouter: FastifyPluginAsync = async (fastify: FastifyInstance) => {
       if (missing.length > 0) {
         return reply.code(404).send({
           success: false,
-          error: `以下会话 ID 不存在：${missing.join(', ')}`,
+          error: `以下会话 ID 不存在：${missing.join(", ")}`,
         } satisfies ApiResponse);
       }
 
@@ -338,12 +348,12 @@ const commitsRouter: FastifyPluginAsync = async (fastify: FastifyInstance) => {
         const binding = upsertCommitBinding({
           commitHash,
           sessionIds,
-          message: commitInfo?.message ?? '',
+          message: commitInfo?.message ?? "",
           committedAt: commitInfo?.committedAt ?? new Date().toISOString(),
-          authorName: commitInfo?.authorName ?? '',
-          authorEmail: commitInfo?.authorEmail ?? '',
+          authorName: commitInfo?.authorName ?? "",
+          authorEmail: commitInfo?.authorEmail ?? "",
           changedFiles: commitInfo?.changedFiles ?? [],
-          workspacePath: workspacePath ?? '',
+          workspacePath: workspacePath ?? "",
         });
 
         fastify.log.info(
@@ -370,46 +380,43 @@ const commitsRouter: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   // ──────────────────────────────────────────
   fastify.delete<{
     Params: { sessionId: string };
-  }>(
-    '/unbind/:sessionId',
-    async (request, reply) => {
-      const { sessionId } = request.params;
+  }>("/unbind/:sessionId", async (request, reply) => {
+    const { sessionId } = request.params;
 
-      const session = getSessionById(sessionId);
-      if (!session) {
-        return reply.code(404).send({
-          success: false,
-          error: `会话不存在：${sessionId}`,
-        } satisfies ApiResponse);
-      }
-
-      if (!session.commitHash) {
-        return reply.code(400).send({
-          success: false,
-          error: `会话 ${sessionId} 尚未绑定任何 Commit`,
-        } satisfies ApiResponse);
-      }
-
-      const commitHash = session.commitHash;
-
-      // 从 agent_sessions 表解绑
-      const db = getDatabase();
-      db.prepare(
-        'UPDATE agent_sessions SET commit_hash = NULL WHERE id = ?',
-      ).run(sessionId);
-
-      // 从 commit_bindings 表中移除此 sessionId
-      removeSessionFromCommitBinding(sessionId, commitHash);
-
-      fastify.log.info(
-        `[Commits Unbind] 会话 ${sessionId.slice(0, 8)} 已从 commit ${commitHash.slice(0, 8)} 解绑`,
-      );
-
-      return reply.code(200).send({
-        success: true,
+    const session = getSessionById(sessionId);
+    if (!session) {
+      return reply.code(404).send({
+        success: false,
+        error: `会话不存在：${sessionId}`,
       } satisfies ApiResponse);
-    },
-  );
+    }
+
+    if (!session.commitHash) {
+      return reply.code(400).send({
+        success: false,
+        error: `会话 ${sessionId} 尚未绑定任何 Commit`,
+      } satisfies ApiResponse);
+    }
+
+    const commitHash = session.commitHash;
+
+    // 从 agent_sessions 表解绑
+    const db = getDatabase();
+    db.prepare("UPDATE agent_sessions SET commit_hash = NULL WHERE id = ?").run(
+      sessionId,
+    );
+
+    // 从 commit_bindings 表中移除此 sessionId
+    removeSessionFromCommitBinding(sessionId, commitHash);
+
+    fastify.log.info(
+      `[Commits Unbind] 会话 ${sessionId.slice(0, 8)} 已从 commit ${commitHash.slice(0, 8)} 解绑`,
+    );
+
+    return reply.code(200).send({
+      success: true,
+    } satisfies ApiResponse);
+  });
 
   // ──────────────────────────────────────────
   // GET /api/commits
@@ -422,26 +429,22 @@ const commitsRouter: FastifyPluginAsync = async (fastify: FastifyInstance) => {
       page?: string;
       pageSize?: string;
     };
-  }>(
-    '/',
-    async (request, reply) => {
-      const {
-        workspacePath,
-        page = '1',
-        pageSize = '20',
-      } = request.query;
+  }>("/", async (request, reply) => {
+    const { workspacePath, page = "1", pageSize = "20" } = request.query;
 
-      const pageNum = Math.max(1, parseInt(page, 10) || 1);
-      const pageSizeNum = Math.min(100, Math.max(1, parseInt(pageSize, 10) || 20));
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const pageSizeNum = Math.min(
+      100,
+      Math.max(1, parseInt(pageSize, 10) || 20),
+    );
 
-      const result = listCommitBindings(pageNum, pageSizeNum, workspacePath);
+    const result = listCommitBindings(pageNum, pageSizeNum, workspacePath);
 
-      return reply.code(200).send({
-        success: true,
-        data: result,
-      } satisfies ApiResponse<PaginatedResponse<CommitBinding>>);
-    },
-  );
+    return reply.code(200).send({
+      success: true,
+      data: result,
+    } satisfies ApiResponse<PaginatedResponse<CommitBinding>>);
+  });
 
   // ──────────────────────────────────────────
   // GET /api/commits/:hash
@@ -449,34 +452,32 @@ const commitsRouter: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   // ──────────────────────────────────────────
   fastify.get<{
     Params: { hash: string };
-  }>(
-    '/:hash',
-    async (request, reply) => {
-      const { hash } = request.params;
-      const db = getDatabase();
+  }>("/:hash", async (request, reply) => {
+    const { hash } = request.params;
+    const db = getDatabase();
 
-      // 支持短 hash 前缀匹配（至少 4 位）
-      const row = hash.length >= 40
+    // 支持短 hash 前缀匹配（至少 4 位）
+    const row =
+      hash.length >= 40
         ? (db
-            .prepare('SELECT * FROM commit_bindings WHERE commit_hash = ?')
+            .prepare("SELECT * FROM commit_bindings WHERE commit_hash = ?")
             .get(hash) as CommitRow | undefined)
         : (db
-            .prepare('SELECT * FROM commit_bindings WHERE commit_hash LIKE ?')
+            .prepare("SELECT * FROM commit_bindings WHERE commit_hash LIKE ?")
             .get(`${hash}%`) as CommitRow | undefined);
 
-      if (!row) {
-        return reply.code(404).send({
-          success: false,
-          error: `未找到 Commit 绑定记录：${hash}`,
-        } satisfies ApiResponse);
-      }
+    if (!row) {
+      return reply.code(404).send({
+        success: false,
+        error: `未找到 Commit 绑定记录：${hash}`,
+      } satisfies ApiResponse);
+    }
 
-      return reply.code(200).send({
-        success: true,
-        data: rowToCommitBinding(row),
-      } satisfies ApiResponse<CommitBinding>);
-    },
-  );
+    return reply.code(200).send({
+      success: true,
+      data: rowToCommitBinding(row),
+    } satisfies ApiResponse<CommitBinding>);
+  });
 
   // ──────────────────────────────────────────
   // GET /api/commits/:hash/sessions
@@ -484,17 +485,237 @@ const commitsRouter: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   // ──────────────────────────────────────────
   fastify.get<{
     Params: { hash: string };
-  }>(
-    '/:hash/sessions',
-    async (request, reply) => {
-      const { hash } = request.params;
+  }>("/:hash/sessions", async (request, reply) => {
+    const { hash } = request.params;
 
-      const sessions = getSessionsByCommitHash(hash);
+    const sessions = getSessionsByCommitHash(hash);
+
+    return reply.code(200).send({
+      success: true,
+      data: sessions,
+    } satisfies ApiResponse<typeof sessions>);
+  });
+
+  // ──────────────────────────────────────────
+  // GET /api/commits/:hash/context
+  // 生成 Commit 的 AI 交互上下文文档（使用默认选项）
+  //
+  // Query: workspacePath?, format?, language?, includePrompts?, includeResponses?,
+  //        includeReasoning?, includeChangedFiles?, maxContentLength?, maxSessions?
+  // ──────────────────────────────────────────
+  fastify.get<{
+    Params: { hash: string };
+    Querystring: {
+      workspacePath?: string;
+      format?: ContextFormat;
+      language?: ExportLanguage;
+      includePrompts?: string;
+      includeResponses?: string;
+      includeReasoning?: string;
+      includeChangedFiles?: string;
+      maxContentLength?: string;
+      maxSessions?: string;
+    };
+  }>("/:hash/context", async (request, reply) => {
+    const { hash } = request.params;
+    const q = request.query;
+
+    const options: CommitContextOptions = {
+      format: q.format,
+      language: q.language,
+      includePrompts:
+        q.includePrompts !== undefined
+          ? q.includePrompts !== "false"
+          : undefined,
+      includeResponses:
+        q.includeResponses !== undefined
+          ? q.includeResponses !== "false"
+          : undefined,
+      includeReasoning:
+        q.includeReasoning !== undefined
+          ? q.includeReasoning !== "false"
+          : undefined,
+      includeChangedFiles:
+        q.includeChangedFiles !== undefined
+          ? q.includeChangedFiles !== "false"
+          : undefined,
+      maxContentLength: q.maxContentLength
+        ? parseInt(q.maxContentLength, 10)
+        : undefined,
+      maxSessions: q.maxSessions ? parseInt(q.maxSessions, 10) : undefined,
+    };
+
+    // 移除 undefined 值，让 service 层使用默认值
+    const cleanOptions = Object.fromEntries(
+      Object.entries(options).filter(([, v]) => v !== undefined),
+    ) as CommitContextOptions;
+
+    try {
+      const result = await generateCommitContext(
+        hash,
+        q.workspacePath,
+        cleanOptions,
+      );
 
       return reply.code(200).send({
         success: true,
-        data: sessions,
-      } satisfies ApiResponse<typeof sessions>);
+        data: result,
+      } satisfies ApiResponse<CommitContextResult>);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return reply.code(500).send({
+        success: false,
+        error: `生成上下文失败：${message}`,
+      } satisfies ApiResponse);
+    }
+  });
+
+  // ──────────────────────────────────────────
+  // POST /api/commits/:hash/context
+  // 生成 Commit 的 AI 交互上下文文档（使用请求体传递选项）
+  //
+  // Body: { workspacePath?, format?, language?, includePrompts?, includeResponses?,
+  //         includeReasoning?, includeChangedFiles?, maxContentLength?, maxSessions? }
+  // ──────────────────────────────────────────
+  fastify.post<{
+    Params: { hash: string };
+    Body: {
+      workspacePath?: string;
+      format?: ContextFormat;
+      language?: ExportLanguage;
+      includePrompts?: boolean;
+      includeResponses?: boolean;
+      includeReasoning?: boolean;
+      includeChangedFiles?: boolean;
+      maxContentLength?: number;
+      maxSessions?: number;
+    };
+  }>(
+    "/:hash/context",
+    {
+      schema: {
+        body: {
+          type: "object",
+          properties: {
+            workspacePath: { type: "string" },
+            format: { type: "string", enum: ["markdown", "json", "xml"] },
+            language: { type: "string", enum: ["zh", "en"] },
+            includePrompts: { type: "boolean" },
+            includeResponses: { type: "boolean" },
+            includeReasoning: { type: "boolean" },
+            includeChangedFiles: { type: "boolean" },
+            maxContentLength: { type: "integer", minimum: 0 },
+            maxSessions: { type: "integer", minimum: 0 },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    async (request, reply) => {
+      const { hash } = request.params;
+      const { workspacePath, ...options } = request.body;
+
+      try {
+        const result = await generateCommitContext(
+          hash,
+          workspacePath,
+          options,
+        );
+
+        return reply.code(200).send({
+          success: true,
+          data: result,
+        } satisfies ApiResponse<CommitContextResult>);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return reply.code(500).send({
+          success: false,
+          error: `生成上下文失败：${message}`,
+        } satisfies ApiResponse);
+      }
+    },
+  );
+
+  // ──────────────────────────────────────────
+  // GET /api/commits/:hash/explain
+  // 生成 Commit 的 AI 交互解释摘要（使用默认选项）
+  //
+  // Query: workspacePath?, language?
+  // ──────────────────────────────────────────
+  fastify.get<{
+    Params: { hash: string };
+    Querystring: {
+      workspacePath?: string;
+      language?: ExportLanguage;
+    };
+  }>("/:hash/explain", async (request, reply) => {
+    const { hash } = request.params;
+    const { workspacePath, language } = request.query;
+
+    try {
+      const result = await generateCommitExplain(hash, workspacePath, language);
+
+      return reply.code(200).send({
+        success: true,
+        data: result,
+      } satisfies ApiResponse<CommitExplainResult>);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return reply.code(500).send({
+        success: false,
+        error: `生成解释摘要失败：${message}`,
+      } satisfies ApiResponse);
+    }
+  });
+
+  // ──────────────────────────────────────────
+  // POST /api/commits/:hash/explain
+  // 生成 Commit 的 AI 交互解释摘要（使用请求体传递选项）
+  //
+  // Body: { workspacePath?, language? }
+  // ──────────────────────────────────────────
+  fastify.post<{
+    Params: { hash: string };
+    Body: {
+      workspacePath?: string;
+      language?: ExportLanguage;
+    };
+  }>(
+    "/:hash/explain",
+    {
+      schema: {
+        body: {
+          type: "object",
+          properties: {
+            workspacePath: { type: "string" },
+            language: { type: "string", enum: ["zh", "en"] },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    async (request, reply) => {
+      const { hash } = request.params;
+      const { workspacePath, language } = request.body;
+
+      try {
+        const result = await generateCommitExplain(
+          hash,
+          workspacePath,
+          language,
+        );
+
+        return reply.code(200).send({
+          success: true,
+          data: result,
+        } satisfies ApiResponse<CommitExplainResult>);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return reply.code(500).send({
+          success: false,
+          error: `生成解释摘要失败：${message}`,
+        } satisfies ApiResponse);
+      }
     },
   );
 
@@ -507,24 +728,22 @@ const commitsRouter: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   fastify.post<{
     Body: { workspacePath: string; backendUrl?: string };
   }>(
-    '/hook/install',
+    "/hook/install",
     {
       schema: {
         body: {
-          type: 'object',
-          required: ['workspacePath'],
+          type: "object",
+          required: ["workspacePath"],
           properties: {
-            workspacePath: { type: 'string', minLength: 1 },
-            backendUrl: { type: 'string' },
+            workspacePath: { type: "string", minLength: 1 },
+            backendUrl: { type: "string" },
           },
         },
       },
     },
     async (request, reply) => {
-      const {
-        workspacePath,
-        backendUrl = 'http://localhost:7892',
-      } = request.body;
+      const { workspacePath, backendUrl = "http://localhost:7892" } =
+        request.body;
 
       try {
         const isRepo = await isGitRepo(workspacePath);
@@ -573,14 +792,14 @@ const commitsRouter: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   fastify.delete<{
     Body: { workspacePath: string };
   }>(
-    '/hook/remove',
+    "/hook/remove",
     {
       schema: {
         body: {
-          type: 'object',
-          required: ['workspacePath'],
+          type: "object",
+          required: ["workspacePath"],
           properties: {
-            workspacePath: { type: 'string', minLength: 1 },
+            workspacePath: { type: "string", minLength: 1 },
           },
         },
       },

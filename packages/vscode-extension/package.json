@@ -64,6 +64,16 @@
         "icon": "$(git-pull-request)"
       },
       {
+        "command": "agentlog.generateCommitContext",
+        "title": "AgentLog: 生成 Commit 上下文文档",
+        "icon": "$(book)"
+      },
+      {
+        "command": "agentlog.generateCommitExplain",
+        "title": "AgentLog: 生成 Commit AI 交互解释",
+        "icon": "$(comment-discussion)"
+      },
+      {
         "command": "agentlog.bindCommit",
         "title": "AgentLog: 手动绑定 Commit",
         "icon": "$(git-commit)"
@@ -186,6 +196,16 @@
           "command": "agentlog.exportPrDescription",
           "when": "view == agentlog.sessionList",
           "group": "export"
+        },
+        {
+          "command": "agentlog.generateCommitContext",
+          "when": "view == agentlog.commitBindings",
+          "group": "export"
+        },
+        {
+          "command": "agentlog.generateCommitExplain",
+          "when": "view == agentlog.commitBindings",
+          "group": "export"
         }
       ],
       "view/item/context": [
@@ -203,6 +223,16 @@
           "command": "agentlog.deleteSession",
           "when": "view == agentlog.sessionList && viewItem == session",
           "group": "agentlog@2"
+        },
+        {
+          "command": "agentlog.generateCommitContext",
+          "when": "view == agentlog.commitBindings && viewItem == commit",
+          "group": "agentlog@3"
+        },
+        {
+          "command": "agentlog.generateCommitExplain",
+          "when": "view == agentlog.commitBindings && viewItem == commit",
+          "group": "agentlog@4"
         }
       ],
       "commandPalette": [

@@ -64,12 +64,13 @@ AgentLog/
 │   │       │   └── database.ts    # SQLite 初始化 + Schema + 迁移系统
 │   │       ├── routes/
 │   │       │   ├── sessions.ts    # /api/sessions CRUD + 查询 + 统计
-│   │       │   ├── commits.ts     # /api/commits 绑定 + Git Hook 管理
+│   │       │   ├── commits.ts     # /api/commits 绑定 + Git Hook + 上下文/解释
 │   │       │   └── export.ts      # /api/export 导出（周报/PR/JSONL/CSV）
 │   │       └── services/
 │   │           ├── logService.ts  # AgentSession CRUD 业务逻辑
 │   │           ├── gitService.ts  # Git 集成（simple-git + 钩子注入）
-│   │           └── exportService.ts # 报告渲染（Markdown / CSV）
+│   │           ├── exportService.ts # 报告渲染（Markdown / CSV）
+│   │           └── contextService.ts # Commit 上下文文档 & 解释摘要生成
 │   │
 │   └── vscode-extension/          # VS Code/Cursor 插件
 │       └── src/
@@ -171,6 +172,10 @@ pnpm build
 | `GET` | `/api/commits` | 列出所有绑定记录 |
 | `GET` | `/api/commits/:hash` | 查询指定 Commit 的绑定信息 |
 | `GET` | `/api/commits/:hash/sessions` | 获取 Commit 关联的所有会话 |
+| `GET` | `/api/commits/:hash/context` | 生成 Commit 的 AI 交互上下文文档（Query 传参） |
+| `POST` | `/api/commits/:hash/context` | 生成 Commit 的 AI 交互上下文文档（Body 传参） |
+| `GET` | `/api/commits/:hash/explain` | 生成 Commit 的 AI 交互解释摘要（Query 传参） |
+| `POST` | `/api/commits/:hash/explain` | 生成 Commit 的 AI 交互解释摘要（Body 传参） |
 | `POST` | `/api/commits/hook/install` | 注入 Git 钩子 |
 | `DELETE` | `/api/commits/hook/remove` | 移除 Git 钩子 |
 
@@ -223,6 +228,25 @@ interface CommitBinding {
 }
 ```
 
+### Commit 上下文与解释
+
+通过 `/api/commits/:hash/context` 和 `/api/commits/:hash/explain` 接口，可以将指定 Commit 关联的所有 AI 交互记录汇总为结构化文档，直接用于新 AI 对话的上下文注入。
+
+**Context（上下文文档）**支持 Markdown / JSON / XML 三种格式输出，可通过以下选项控制内容：
+
+| 选项 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `format` | `'markdown' \| 'json' \| 'xml'` | `'markdown'` | 输出格式 |
+| `language` | `'zh' \| 'en'` | `'zh'` | 输出语言 |
+| `includePrompts` | `boolean` | `true` | 是否包含用户 Prompt |
+| `includeResponses` | `boolean` | `true` | 是否包含模型 Response |
+| `includeReasoning` | `boolean` | `true` | 是否包含推理过程 |
+| `includeChangedFiles` | `boolean` | `true` | 是否包含变更文件列表 |
+| `maxContentLength` | `number` | `2000` | 单条内容最大字符数（0 = 不截断） |
+| `maxSessions` | `number` | `0` | 最多包含的会话数量（0 = 不限制） |
+
+**Explain（解释摘要）**输出 Markdown 格式，包含总体概述、逐条会话要点（用户意图 / AI 回应 / 是否包含推理）以及涉及文件汇总。
+
 ---
 
 ## 配置项
@@ -266,8 +290,20 @@ interface CommitBinding {
 - [x] Git post-commit 钩子注入
 - [x] 中文周报 / PR 说明导出
 
+### 已完成
+
+- [x] Commit 上下文文档生成（Markdown / JSON / XML）
+- [x] Commit AI 交互解释摘要生成
+- [x] Context & Explain REST API（GET/POST）
+- [x] 中英文国际化支持
+- [x] 内容截断 / 会话数量限制等精细控制选项
+
 ### 后续计划
 
+- [x] VS Code 扩展集成：新增「生成 Commit 上下文」「生成 Commit 解释」命令
+- [x] 侧边栏 / Webview 中展示上下文文档与解释摘要，支持一键复制
+- [ ] 将上下文文档无缝注入新 AI 对话（粘贴到 Cline / Cursor / Continue 对话框）
+- [ ] Context & Explain 单元测试与集成测试
 - [ ] Webview 仪表板 UI 完善（React + VS Code UI Toolkit）
 - [ ] 支持 Cline 扩展的 API 调用深度集成
 - [ ] 基于 AI 的会话自动打标签（bugfix / 重构 / 新功能）
