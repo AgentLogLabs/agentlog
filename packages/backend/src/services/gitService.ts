@@ -9,9 +9,13 @@
  *  5. 为"自动绑定"场景提供"最近未绑定会话"的 Commit 候选列表
  */
 
-import fs from 'fs';
-import path from 'path';
-import simpleGit, { DefaultLogFields, ListLogLine, SimpleGit } from 'simple-git';
+import fs from "fs";
+import path from "path";
+import simpleGit, {
+  DefaultLogFields,
+  ListLogLine,
+  SimpleGit,
+} from "simple-git";
 
 // ─────────────────────────────────────────────
 // 类型定义
@@ -55,7 +59,7 @@ export interface GitRepoInfo {
  */
 function git(workspacePath: string): SimpleGit {
   return simpleGit(workspacePath, {
-    binary: 'git',
+    binary: "git",
     maxConcurrentProcesses: 4,
     trimmed: true,
   });
@@ -66,12 +70,12 @@ function git(workspacePath: string): SimpleGit {
  */
 function mapLogEntry(
   entry: DefaultLogFields & ListLogLine,
-): Omit<CommitInfo, 'changedFiles'> {
+): Omit<CommitInfo, "changedFiles"> {
   return {
     hash: entry.hash,
     shortHash: entry.hash.slice(0, 8),
     message: entry.message,
-    body: entry.body ?? '',
+    body: entry.body ?? "",
     authorName: entry.author_name,
     authorEmail: entry.author_email,
     committedAt: new Date(entry.date).toISOString(),
@@ -99,18 +103,28 @@ export async function isGitRepo(workspacePath: string): Promise<boolean> {
  *
  * @throws 若不是 Git 仓库则抛出 Error
  */
-export async function getRepoInfo(
-  workspacePath: string,
-): Promise<GitRepoInfo> {
+export async function getRepoInfo(workspacePath: string): Promise<GitRepoInfo> {
   const g = git(workspacePath);
 
-  const [rootPath, branch, remotes] = await Promise.all([
-    g.revparse(['--show-toplevel']),
-    g.revparse(['--abbrev-ref', 'HEAD']),
+  const [rootPath, remotes] = await Promise.all([
+    g.revparse(["--show-toplevel"]),
     g.getRemotes(true),
   ]);
 
-  const originRemote = remotes.find((r) => r.name === 'origin');
+  // 获取当前分支名：优先用 rev-parse（需要至少一个 commit），
+  // 若失败（空仓库）则回退到 symbolic-ref（即使无 commit 也能工作）。
+  let branch: string;
+  try {
+    branch = await g.revparse(["--abbrev-ref", "HEAD"]);
+  } catch {
+    try {
+      branch = (await g.raw(["symbolic-ref", "--short", "HEAD"])).trim();
+    } catch {
+      branch = "unknown";
+    }
+  }
+
+  const originRemote = remotes.find((r) => r.name === "origin");
 
   return {
     rootPath: rootPath.trim(),
@@ -127,17 +141,15 @@ export async function getRepoInfo(
  */
 export async function getCommitInfo(
   workspacePath: string,
-  commitRef = 'HEAD',
+  commitRef = "HEAD",
 ): Promise<CommitInfo> {
   const g = git(workspacePath);
 
   // 获取 log 条目
-  const log = await g.log({
-    maxCount: 1,
-    from: commitRef,
-    to: commitRef,
-    '--': undefined,
-  });
+  // 注意：不能用 { from: commitRef, to: commitRef }，因为 simple-git 会生成
+  // git log commitRef..commitRef 范围查询，而 X..X 永远是空集。
+  // 正确做法：将 commitRef 作为位置参数传入，等价于 git log -1 <commitRef>。
+  const log = await g.log([commitRef, "--max-count=1"]);
 
   if (!log.latest) {
     throw new Error(`[GitService] 找不到 commit：${commitRef}`);
@@ -159,7 +171,7 @@ export async function getCommitInfo(
  */
 export async function getChangedFiles(
   workspacePath: string,
-  commitRef = 'HEAD',
+  commitRef = "HEAD",
 ): Promise<string[]> {
   const g = git(workspacePath);
 
@@ -167,19 +179,15 @@ export async function getChangedFiles(
   // 对于初始 commit（没有父节点），使用 4b825dc 空树
   let diffOutput: string;
   try {
-    diffOutput = await g.diff([
-      '--name-only',
-      `${commitRef}^`,
-      commitRef,
-    ]);
+    diffOutput = await g.diff(["--name-only", `${commitRef}^`, commitRef]);
   } catch {
     // 初始 commit 没有父节点，使用空树
-    const emptyTree = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
-    diffOutput = await g.diff(['--name-only', emptyTree, commitRef]);
+    const emptyTree = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
+    diffOutput = await g.diff(["--name-only", emptyTree, commitRef]);
   }
 
   return diffOutput
-    .split('\n')
+    .split("\n")
     .map((f) => f.trim())
     .filter(Boolean);
 }
@@ -193,7 +201,7 @@ export async function getChangedFiles(
 export async function getRecentCommits(
   workspacePath: string,
   maxCount = 20,
-): Promise<Omit<CommitInfo, 'changedFiles'>[]> {
+): Promise<Omit<CommitInfo, "changedFiles">[]> {
   const g = git(workspacePath);
 
   const log = await g.log({ maxCount });
@@ -205,16 +213,14 @@ export async function getRecentCommits(
  * 获取当前工作区暂存区（Staged）的文件列表。
  * 可在用户执行 git commit 之前，预判哪些文件即将被提交。
  */
-export async function getStagedFiles(
-  workspacePath: string,
-): Promise<string[]> {
+export async function getStagedFiles(workspacePath: string): Promise<string[]> {
   const g = git(workspacePath);
 
   // --cached：只看暂存区 diff；--name-only：只列文件名
-  const output = await g.diff(['--cached', '--name-only']);
+  const output = await g.diff(["--cached", "--name-only"]);
 
   return output
-    .split('\n')
+    .split("\n")
     .map((f) => f.trim())
     .filter(Boolean);
 }
@@ -241,7 +247,34 @@ export async function getModifiedFiles(
 // Git Hook 注入（post-commit 自动触发绑定）
 // ─────────────────────────────────────────────
 
-const HOOK_MARKER = '# agentlog-hook';
+const HOOK_MARKER = "# agentlog-hook";
+
+/**
+ * 获取仓库实际使用的 hooks 目录绝对路径。
+ * 优先通过 git rev-parse --git-path hooks 解析（自动尊重 core.hooksPath），
+ * 未配置时回退到默认的 .git/hooks。
+ *
+ * 适配 husky / lefthook 等工具将 core.hooksPath 指向自定义目录的场景。
+ */
+async function getHooksDir(workspacePath: string): Promise<string> {
+  const g = git(workspacePath);
+
+  try {
+    // git rev-parse --git-path hooks 能正确处理 core.hooksPath
+    const hooksPath = (
+      await g.raw(["rev-parse", "--git-path", "hooks"])
+    ).trim();
+    if (path.isAbsolute(hooksPath)) {
+      return hooksPath;
+    }
+    // 相对路径基于 simple-git 工作目录解析为绝对路径
+    return path.resolve(workspacePath, hooksPath);
+  } catch {
+    // 兜底：使用默认 hooks 目录
+    const rootPath = (await g.revparse(["--show-toplevel"])).trim();
+    return path.join(rootPath, ".git", "hooks");
+  }
+}
 
 /**
  * 向仓库注入 post-commit 钩子脚本。
@@ -254,11 +287,10 @@ const HOOK_MARKER = '# agentlog-hook';
  */
 export async function injectPostCommitHook(
   workspacePath: string,
-  backendUrl = 'http://localhost:7892',
+  backendUrl = "http://localhost:7892",
 ): Promise<void> {
-  const repoInfo = await getRepoInfo(workspacePath);
-  const hooksDir = path.join(repoInfo.rootPath, '.git', 'hooks');
-  const hookFile = path.join(hooksDir, 'post-commit');
+  const hooksDir = await getHooksDir(workspacePath);
+  const hookFile = path.join(hooksDir, "post-commit");
 
   if (!fs.existsSync(hooksDir)) {
     fs.mkdirSync(hooksDir, { recursive: true });
@@ -266,9 +298,9 @@ export async function injectPostCommitHook(
 
   // 如果钩子已经包含我们的标记，跳过
   if (fs.existsSync(hookFile)) {
-    const existing = fs.readFileSync(hookFile, 'utf-8');
+    const existing = fs.readFileSync(hookFile, "utf-8");
     if (existing.includes(HOOK_MARKER)) {
-      console.log('[GitService] post-commit 钩子已存在，跳过注入');
+      console.log("[GitService] post-commit 钩子已存在，跳过注入");
       return;
     }
   }
@@ -277,9 +309,9 @@ export async function injectPostCommitHook(
 
   // 若已有钩子文件，追加；否则新建
   if (fs.existsSync(hookFile)) {
-    fs.appendFileSync(hookFile, `\n${hookScript}\n`, 'utf-8');
+    fs.appendFileSync(hookFile, `\n${hookScript}\n`, "utf-8");
   } else {
-    fs.writeFileSync(hookFile, `#!/bin/sh\n${hookScript}\n`, 'utf-8');
+    fs.writeFileSync(hookFile, `#!/bin/sh\n${hookScript}\n`, "utf-8");
   }
 
   // 确保可执行
@@ -294,23 +326,23 @@ export async function injectPostCommitHook(
 export async function removePostCommitHook(
   workspacePath: string,
 ): Promise<void> {
-  const repoInfo = await getRepoInfo(workspacePath);
-  const hookFile = path.join(repoInfo.rootPath, '.git', 'hooks', 'post-commit');
+  const hooksDir = await getHooksDir(workspacePath);
+  const hookFile = path.join(hooksDir, "post-commit");
 
   if (!fs.existsSync(hookFile)) return;
 
-  const content = fs.readFileSync(hookFile, 'utf-8');
+  const content = fs.readFileSync(hookFile, "utf-8");
   if (!content.includes(HOOK_MARKER)) return;
 
   // 移除 agentlog 注入的段落（从 marker 开始到下一个空行或文件结尾）
   const cleaned = content
-    .split('\n')
+    .split("\n")
     .reduce<{ lines: string[]; inBlock: boolean }>(
       (acc, line) => {
         if (line.trim() === HOOK_MARKER) {
           return { ...acc, inBlock: true };
         }
-        if (acc.inBlock && line.trim() === '') {
+        if (acc.inBlock && line.trim() === "") {
           return { lines: acc.lines, inBlock: false };
         }
         if (!acc.inBlock) {
@@ -320,9 +352,9 @@ export async function removePostCommitHook(
       },
       { lines: [], inBlock: false },
     )
-    .lines.join('\n');
+    .lines.join("\n");
 
-  fs.writeFileSync(hookFile, cleaned, 'utf-8');
+  fs.writeFileSync(hookFile, cleaned, "utf-8");
   console.log(`[GitService] post-commit 钩子已移除：${hookFile}`);
 }
 
@@ -341,8 +373,11 @@ function buildPostCommitScript(
   return `${HOOK_MARKER}
 AGENTLOG_COMMIT_HASH=$(git rev-parse HEAD)
 AGENTLOG_WORKSPACE='${safeWorkspacePath}'
+AGENTLOG_LOG="\${TMPDIR:-/tmp}/agentlog-hook.log"
+echo "[$(date '+%Y-%m-%dT%H:%M:%S')] post-commit fired: hash=$AGENTLOG_COMMIT_HASH workspace=$AGENTLOG_WORKSPACE" >> "$AGENTLOG_LOG" 2>/dev/null
 curl -s -X POST '${endpoint}' \\
   -H 'Content-Type: application/json' \\
   -d "{\\\"commitHash\\\":\\\"$AGENTLOG_COMMIT_HASH\\\",\\\"workspacePath\\\":\\\"$AGENTLOG_WORKSPACE\\\"}" \\
-  --max-time 3 > /dev/null 2>&1 || true`;
+  --max-time 3 >> "$AGENTLOG_LOG" 2>&1 || true
+echo "" >> "$AGENTLOG_LOG" 2>/dev/null`;
 }
