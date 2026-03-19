@@ -337,7 +337,8 @@
     "vscode:prepublish": "npm run build",
     "package": "vsce package",
     "lint": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "test:fetch": "node --import tsx --test test/fetchInterception.test.ts"
   },
   "dependencies": {
     "@agentlog/shared": "workspace:*"
@@ -346,6 +347,7 @@
     "@types/node": "^20.11.30",
     "@types/vscode": "^1.85.0",
     "@vscode/vsce": "^2.24.0",
+    "tsx": "^4.7.2",
     "typescript": "^5.4.5"
   }
 }
