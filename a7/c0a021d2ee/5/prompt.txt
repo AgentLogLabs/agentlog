@@ -1,0 +1,5 @@
+现在VSCode Cline插件无法通过@packages/vscode-extension/src/interceptors/apiInterceptor.ts 获取deepseek-resoner模型修改了哪些文件，并且上报后端的推理过程记录和AI回复记录是重复的，请更正这两个问题。
+
+---
+
+我使用nvm use 22
