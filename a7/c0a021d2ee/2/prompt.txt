@@ -1,0 +1,19 @@
+请调用 record_agent_intent 工具，参数：task="测试 MCP 连接", reasoning="验证 OpenCode 到 AgentLog MCP Server 的端到端通信是否正常", affected_files=["opencode.json"]
+然后用 sqlite3 检查是否入库：
+sqlite3 ~/.agentlog/agentlog.db "SELECT id, prompt, reasoning FROM agent_sessions WHERE source='mcp-tool-call' ORDER BY created_at DESC LIMIT 1;"
+---
+如果 OpenCode 加载时报 MCP 连接错误，可以查看日志：
+ls ~/.local/share/opencode/log/
+# 查看最新的日志文件
+
+---
+
+我在~/Projects/AgentLogTest项目下测试这个MCP调用成功，但是VSCode 的AgentLog插件侧边栏看不到新提交的记录，这个MCP直接修改数据库是否和原来backend使用HTTP接收的字段一致，是否可以仍然使用backend的HTTP接口，具体接口见@README.md
+
+---
+
+数据库中id为：2BHZqu3Oo5ONH4wsBBNuu 的记录 workspace_path是AgentLogTest项目路径，为什么也看不到？
+
+---
+
+是的，改造mcp.ts

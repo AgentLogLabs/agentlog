@@ -3,13 +3,15 @@
   "checkpoint_id": "a7c0a021d2ee",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 2,
+  "checkpoints_count": 6,
   "files_touched": [
     "packages/backend/package.json",
+    "packages/backend/src/mcp.ts",
     "packages/shared/src/types.ts",
     "packages/vscode-extension/package.json",
     "packages/vscode-extension/src/extension.ts",
     "packages/vscode-extension/src/interceptors/apiInterceptor.ts",
+    "packages/vscode-extension/src/providers/sessionTreeProvider.ts",
     "pnpm-lock.yaml"
   ],
   "sessions": [
@@ -24,13 +26,19 @@
       "transcript": "/a7/c0a021d2ee/1/full.jsonl",
       "content_hash": "/a7/c0a021d2ee/1/content_hash.txt",
       "prompt": "/a7/c0a021d2ee/1/prompt.txt"
+    },
+    {
+      "metadata": "/a7/c0a021d2ee/2/metadata.json",
+      "transcript": "/a7/c0a021d2ee/2/full.jsonl",
+      "content_hash": "/a7/c0a021d2ee/2/content_hash.txt",
+      "prompt": "/a7/c0a021d2ee/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 15,
-    "cache_creation_tokens": 58364,
-    "cache_read_tokens": 207369,
-    "output_tokens": 6174,
-    "api_call_count": 11
+    "input_tokens": 68,
+    "cache_creation_tokens": 137939,
+    "cache_read_tokens": 2173356,
+    "output_tokens": 21183,
+    "api_call_count": 56
   }
 }
