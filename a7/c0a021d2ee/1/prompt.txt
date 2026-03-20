@@ -1,0 +1,15 @@
+Search the AgentLog codebase at /Users/hobo/Projects/AgentLog for the MCP server implementation. I need to find:
+1. The MCP tool definition for "record_agent_intent" - how it writes to the database, what fields it inserts
+2. The backend POST /api/sessions route handler and the logService that handles session creation - what fields it expects and writes
+
+Look in:
+- Any MCP-related files (mcp-server, mcp, tools, etc.)
+- packages/backend/src/routes/sessions.ts
+- packages/backend/src/services/logService.ts
+- packages/backend/src/db/database.ts
+
+Return the full relevant source code for:
+1. The MCP tool's record_agent_intent implementation (the INSERT query or database write)
+2. The POST /api/sessions route handler
+3. The logService.createSession function
+4. The database schema/migration for the sessions table
