@@ -1,0 +1,9 @@
+Explore the AgentLog project's existing test infrastructure. I need to understand:
+
+1. What test files exist (look for `test/`, `*.test.ts`, `*.spec.ts` patterns)
+2. What test framework/runner is used (Node.js native test runner? Jest? Vitest?)
+3. How the existing backend integration test works (read `packages/backend/test/integration.test.ts` if it exists)
+4. What test utilities or fixtures exist
+5. How the database is set up for tests (temp DB? in-memory?)
+
+Search thoroughly across all packages. Return all findings in detail.
