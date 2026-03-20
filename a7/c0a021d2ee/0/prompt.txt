@@ -1,0 +1,13 @@
+In the AgentLog codebase at /Users/hobo/Projects/AgentLog, I need to understand why the VSCode sidebar (TreeView) might not display sessions written by the MCP tool.
+
+Please investigate:
+
+1. `packages/vscode-extension/src/providers/sessionTreeProvider.ts` - How does the TreeView fetch sessions? Does it call the backend HTTP API? What filters/queries does it use?
+
+2. `packages/vscode-extension/src/client/backendClient.ts` - How does the extension communicate with the backend? Does it fetch from `/api/sessions`?
+
+3. Does the TreeView filter by `source`, `provider`, or `workspace_path`? The MCP tool writes `source='mcp-tool-call'`, `provider='mcp'`, `workspace_path=process.cwd()` (which was /Users/hobo/Projects/AgentLog). The test was run from ~/Projects/AgentLogTest.
+
+4. Does the backend GET /api/sessions endpoint filter by workspace_path? Check `packages/backend/src/routes/sessions.ts` for the GET handler and `packages/backend/src/services/logService.ts` for the query logic.
+
+Return the relevant code for ALL of these, especially any WHERE clauses or filter conditions.

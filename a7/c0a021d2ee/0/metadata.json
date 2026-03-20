@@ -1,0 +1,39 @@
+{
+  "cli_version": "0.5.0",
+  "checkpoint_id": "a7c0a021d2ee",
+  "session_id": "ses_2f44677a4ffeCv4TIaMqI5oE0l",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-20T15:05:47.917448Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "packages/backend/package.json",
+    "packages/shared/src/types.ts",
+    "packages/vscode-extension/package.json",
+    "packages/vscode-extension/src/extension.ts",
+    "packages/vscode-extension/src/interceptors/apiInterceptor.ts",
+    "pnpm-lock.yaml"
+  ],
+  "agent": "OpenCode",
+  "model": "claude-opus-4-6",
+  "turn_id": "635779949feb",
+  "token_usage": {
+    "input_tokens": 6,
+    "cache_creation_tokens": 31857,
+    "cache_read_tokens": 90027,
+    "output_tokens": 2145,
+    "api_call_count": 4
+  },
+  "session_metrics": {
+    "turn_count": 1
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-20T15:05:47.864418Z",
+    "agent_lines": 507,
+    "human_added": 335,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 842,
+    "agent_percentage": 60.21377672209026
+  }
+}
