@@ -10,9 +10,11 @@
  *  2. 按需启动本地后台子进程（@agentlog/backend）
  *  3. 注册所有 VS Code Command
  *  4. 注册侧边栏 TreeView（会话列表 + Commit 绑定）
- *  5. 启动 HTTP 拦截器，自动捕获 AI 交互
- *  6. 维护状态栏徽章（捕获状态 / 服务在线状态）
- *  7. 监听配置变更，热更新相关模块
+ *  5. 维护状态栏徽章（服务在线状态）
+ *  6. 监听配置变更，热更新相关模块
+ *
+ * 注意：AI 交互数据通过 MCP Server（stdio）由 Agent 主动上报，
+ *       不再使用 HTTP 拦截方式。
  */
 
 import * as vscode from "vscode";
@@ -31,7 +33,6 @@ import {
   getBackendClient,
   BackendUnreachableError,
 } from "./client/backendClient";
-import { InterceptorManager } from "./interceptors/apiInterceptor";
 import {
   SessionTreeProvider,
   CommitBindingsTreeProvider,
@@ -62,9 +63,6 @@ let statusBarItem: vscode.StatusBarItem;
 /** 本地后台子进程句柄 */
 let backendProcess: cp.ChildProcess | null = null;
 
-/** HTTP 拦截器管理器 */
-let interceptorManager: InterceptorManager;
-
 /** 会话列表 TreeView 提供者 */
 let sessionTreeProvider: SessionTreeProvider;
 
@@ -86,9 +84,6 @@ function readConfig(): AgentLogConfig {
   const cfg = vscode.workspace.getConfiguration("agentlog");
   return {
     backendUrl: cfg.get<string>("backendUrl") ?? DEFAULT_CONFIG.backendUrl,
-    autoCapture: cfg.get<boolean>("autoCapture") ?? DEFAULT_CONFIG.autoCapture,
-    captureReasoning:
-      cfg.get<boolean>("captureReasoning") ?? DEFAULT_CONFIG.captureReasoning,
     autoBindOnCommit:
       cfg.get<boolean>("autoBindOnCommit") ?? DEFAULT_CONFIG.autoBindOnCommit,
     retentionDays:
@@ -114,17 +109,11 @@ function initStatusBar(): void {
 
 type StatusBarState =
   | "idle"
-  | "capturing"
   | "backend-offline"
   | "backend-starting";
 
 function updateStatusBar(state: StatusBarState, count?: number): void {
   switch (state) {
-    case "capturing":
-      statusBarItem.text = `$(record) AgentLog ${count !== undefined ? `(${count})` : ""}`;
-      statusBarItem.tooltip = `AgentLog 正在捕获 AI 交互 · 共 ${count ?? 0} 条记录\n点击查看后台状态`;
-      statusBarItem.backgroundColor = undefined;
-      break;
     case "backend-offline":
       statusBarItem.text = `$(warning) AgentLog 离线`;
       statusBarItem.tooltip = "AgentLog 后台服务未连接，点击查看详情";
@@ -173,7 +162,7 @@ async function startBackendProcess(
     log(
       `[后台] 检测到已有运行中的后台实例（v${health.version}），跳过本地启动`,
     );
-    updateStatusBar("capturing");
+    updateStatusBar("idle");
     return;
   }
 
@@ -251,7 +240,7 @@ async function startBackendProcess(
   const ready = await waitForBackend(config.backendUrl, 10_000, 500);
   if (ready) {
     log("[后台] 服务已就绪");
-    updateStatusBar(config.autoCapture ? "capturing" : "idle");
+    updateStatusBar("idle");
     vscode.window.showInformationMessage("✅ AgentLog 后台服务已启动");
   } else {
     log("[后台] 服务启动超时");
@@ -350,7 +339,7 @@ function registerCommands(
       const health = await client.ping(true);
 
       if (health.status === "ok") {
-        updateStatusBar("capturing");
+        updateStatusBar("idle");
 
         const action = await vscode.window.showInformationMessage(
           `✅ AgentLog 后台在线 | 版本 ${health.version ?? "unknown"} | 运行 ${formatUptime(health.uptime ?? 0)}`,
@@ -387,20 +376,6 @@ function registerCommands(
         `[状态检查] 失败：${err instanceof Error ? err.message : String(err)}`,
       );
     }
-  });
-
-  // ── 捕获控制 ──────────────────────────────
-
-  register("agentlog.startCapture", () => {
-    interceptorManager.start();
-    updateStatusBar("capturing");
-    vscode.window.showInformationMessage("✅ AgentLog 已开始捕获 AI 交互");
-  });
-
-  register("agentlog.stopCapture", () => {
-    interceptorManager.stop();
-    updateStatusBar("idle");
-    vscode.window.showInformationMessage("AgentLog 已停止捕获 AI 交互");
   });
 
   // ── 会话管理 ──────────────────────────────
@@ -1122,16 +1097,6 @@ function registerConfigWatcher(): void {
       // 重建 BackendClient（backendUrl 可能已变更）
       initBackendClient(newConfig);
 
-      // 重启拦截器（debug 级别可能变更）
-      if (interceptorManager) {
-        interceptorManager.restart(newConfig.debug);
-        if (newConfig.autoCapture) {
-          interceptorManager.start();
-        } else {
-          interceptorManager.stop();
-        }
-      }
-
       // 刷新视图
       sessionTreeProvider?.refresh();
       commitBindingsProvider?.refresh();
@@ -1139,7 +1104,7 @@ function registerConfigWatcher(): void {
       // 更新状态栏
       const health = await getBackendClient().ping(true);
       if (health.status === "ok") {
-        updateStatusBar(newConfig.autoCapture ? "capturing" : "idle");
+        updateStatusBar("idle");
       } else {
         updateStatusBar("backend-offline");
       }
@@ -1180,7 +1145,6 @@ export async function activate(
   registerConfigWatcher();
 
   // 8. 注册 @agentlog Chat Participant（通过 Copilot 模型捕获对话）
-  //    放在 InterceptorManager 之前，避免拦截器初始化失败时阻断注册
   try {
     const chatParticipant = registerCopilotChatParticipant(outputChannel);
     disposables.push(chatParticipant);
@@ -1191,25 +1155,7 @@ export async function activate(
     );
   }
 
-  // 9. 启动拦截器
-  try {
-    interceptorManager = new InterceptorManager(outputChannel, config.debug);
-    interceptorManager.onSessionReported(() => {
-      sessionTreeProvider?.refresh();
-      const count = sessionTreeProvider?.totalCount;
-      updateStatusBar(config.autoCapture ? "capturing" : "idle", count);
-    });
-
-    if (config.autoCapture) {
-      interceptorManager.start();
-    }
-  } catch (err) {
-    log(
-      `[激活] 拦截器初始化失败：${err instanceof Error ? err.message : String(err)}`,
-    );
-  }
-
-  // 10. 按需自动启动后台
+  // 9. 按需自动启动后台
   const autoStart = vscode.workspace
     .getConfiguration("agentlog")
     .get<boolean>("autoStartBackend", true);
@@ -1226,7 +1172,7 @@ export async function activate(
       .ping(true)
       .then((health) => {
         if (health.status === "ok") {
-          updateStatusBar(config.autoCapture ? "capturing" : "idle");
+          updateStatusBar("idle");
         } else {
           updateStatusBar("backend-offline");
         }
@@ -1234,7 +1180,7 @@ export async function activate(
       .catch(() => updateStatusBar("backend-offline"));
   }
 
-  // 11. 将所有可 dispose 的资源交给 context 管理
+  // 10. 将所有可 dispose 的资源交给 context 管理
   context.subscriptions.push(...disposables);
 
   log("AgentLog 插件激活完成");
@@ -1247,7 +1193,6 @@ export async function activate(
 export function deactivate(): void {
   log("AgentLog 插件正在停用…");
 
-  interceptorManager?.dispose();
   stopBackendProcess();
   destroyBackendClient();
 

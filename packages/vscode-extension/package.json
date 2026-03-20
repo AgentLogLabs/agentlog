@@ -39,16 +39,6 @@
   "contributes": {
     "commands": [
       {
-        "command": "agentlog.startCapture",
-        "title": "AgentLog: 开始捕获 AI 交互",
-        "icon": "$(record)"
-      },
-      {
-        "command": "agentlog.stopCapture",
-        "title": "AgentLog: 停止捕获 AI 交互",
-        "icon": "$(debug-stop)"
-      },
-      {
         "command": "agentlog.openDashboard",
         "title": "AgentLog: 打开交互日志面板",
         "icon": "$(history)"
@@ -262,18 +252,6 @@
           "description": "AgentLog 本地后台服务地址。修改后需重启插件生效。",
           "order": 1
         },
-        "agentlog.autoCapture": {
-          "type": "boolean",
-          "default": true,
-          "description": "是否自动捕获 AI 交互记录（Prompt / Reasoning / Response）。",
-          "order": 2
-        },
-        "agentlog.captureReasoning": {
-          "type": "boolean",
-          "default": true,
-          "description": "是否捕获 AI 的中间推理过程（如 DeepSeek-R1 的 <think> 内容）。关闭可减少存储占用。",
-          "order": 3
-        },
         "agentlog.autoBindOnCommit": {
           "type": "boolean",
           "default": true,
@@ -312,18 +290,6 @@
           ],
           "description": "导出周报 / PR 描述时使用的语言。",
           "order": 8
-        },
-        "agentlog.interceptors.cline": {
-          "type": "boolean",
-          "default": true,
-          "description": "是否拦截并捕获来自 Cline 插件的 AI 请求。",
-          "order": 10
-        },
-        "agentlog.interceptors.cursor": {
-          "type": "boolean",
-          "default": true,
-          "description": "是否拦截并捕获来自 Cursor IDE 的 AI 请求。",
-          "order": 11
         }
       }
     },

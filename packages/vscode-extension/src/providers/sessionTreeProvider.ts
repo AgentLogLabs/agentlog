@@ -38,7 +38,7 @@ const PAGE_SIZE = 50;
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
 
 /** 模型提供商对应的 Emoji 图标 */
-const PROVIDER_EMOJI: Record<ModelProvider | "unknown", string> = {
+const PROVIDER_EMOJI: Record<ModelProvider, string> = {
   deepseek: "🐋",
   qwen: "🌊",
   kimi: "🌙",
@@ -47,6 +47,7 @@ const PROVIDER_EMOJI: Record<ModelProvider | "unknown", string> = {
   openai: "🤖",
   anthropic: "🅰️",
   ollama: "🦙",
+  mcp: "🔌",
   unknown: "❓",
 };
 

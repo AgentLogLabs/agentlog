@@ -18,6 +18,7 @@ export type ModelProvider =
   | "openai" // OpenAI（兼容模式）
   | "anthropic" // Anthropic Claude（兼容模式）
   | "ollama" // 本地 Ollama
+  | "mcp" // MCP 工具调用（Agent 主动上报）
   | "unknown";
 
 /** 调用来源（从哪个工具发起的 AI 请求） */
@@ -28,6 +29,7 @@ export type AgentSource =
   | "copilot" // GitHub Copilot
   | "continue" // Continue 插件
   | "direct-api" // 直接调用 HTTP API
+  | "mcp-tool-call" // MCP 工具主动上报（Agent 意图记录）
   | "unknown";
 
 /** 导出格式 */
@@ -253,10 +255,8 @@ export interface AgentLogConfig {
   backendUrl: string;
 
   /** 是否自动捕获 AI 交互（默认 true） */
-  autoCapture: boolean;
 
   /** 是否捕获 Reasoning 字段（默认 true） */
-  captureReasoning: boolean;
 
   /**
    * 是否在 git commit 时自动关联最近的未绑定会话。
@@ -274,8 +274,6 @@ export interface AgentLogConfig {
 /** AgentLogConfig 的默认值 */
 export const DEFAULT_CONFIG: AgentLogConfig = {
   backendUrl: "http://localhost:7892",
-  autoCapture: true,
-  captureReasoning: true,
   autoBindOnCommit: true,
   retentionDays: 90,
   debug: false,

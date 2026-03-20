@@ -1,0 +1,13 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "agentlog": {
+      "type": "local",
+      "command": [
+        "/Users/hobo/.nvm/versions/node/v22.22.0/bin/node",
+        "/Users/hobo/Projects/AgentLog/packages/backend/dist/mcp.js"
+      ],
+      "enabled": true
+    }
+  }
+}
