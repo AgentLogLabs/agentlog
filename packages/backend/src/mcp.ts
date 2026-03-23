@@ -27,6 +27,48 @@ const BACKEND_PORT = parseInt(process.env.AGENTLOG_PORT ?? "7892", 10);
 const BACKEND_BASE = process.env.AGENTLOG_BACKEND_URL ?? `http://localhost:${BACKEND_PORT}`;
 
 // ─────────────────────────────────────────────
+// 客户端信息推断
+// ─────────────────────────────────────────────
+
+/**
+ * 根据 MCP clientInfo.name 推断 source（调用工具的 Agent 名称）。
+ * clientInfo 在 MCP initialize 握手阶段由客户端主动上报，工具调用时实时读取。
+ */
+function inferSource(clientName: string): string {
+  const name = clientName.toLowerCase();
+
+  if (name.includes("opencode")) return "opencode";
+  if (name.includes("cline") || name.includes("roo")) return "cline";
+  if (name.includes("cursor")) return "cursor";
+  if (name.includes("claude")) return "claude-code";
+  if (name.includes("copilot") || name.includes("vscode")) return "copilot";
+  if (name.includes("continue")) return "continue";
+
+  return "mcp-tool-call";
+}
+
+/**
+ * 根据模型名称推断 provider。
+ * model 由 Agent 在工具调用参数中传入，比 clientInfo 更能反映实际使用的服务商。
+ */
+function inferProvider(modelName: string): string {
+  const m = modelName.toLowerCase();
+
+  if (m.includes("claude")) return "anthropic";
+  if (m.includes("gpt") || m.includes("o1") || m.includes("o3") || m.includes("o4")) return "openai";
+  if (m.includes("deepseek")) return "deepseek";
+  if (m.includes("qwen") || m.includes("tongyi")) return "qwen";
+  if (m.includes("minimax") || m.includes("abab") || m.startsWith("mini-")) return "minimax";
+  if (m.includes("kimi") || m.includes("moonshot")) return "kimi";
+  if (m.includes("doubao") || m.includes("skylark")) return "doubao";
+  if (m.includes("glm") || m.includes("chatglm") || m.includes("zhipu")) return "zhipu";
+  if (m.includes("gemini") || m.includes("gemma")) return "google";
+  if (m.includes("llama") || m.includes("mistral") || m.includes("qwq") || m.includes("phi")) return "ollama";
+
+  return "unknown";
+}
+
+// ─────────────────────────────────────────────
 // HTTP 工具函数
 // ─────────────────────────────────────────────
 
@@ -81,6 +123,8 @@ async function main(): Promise<void> {
     },
   );
 
+
+
   // ── 工具列表 ────────────────────────────────
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -112,6 +156,11 @@ async function main(): Promise<void> {
                 description:
                   "工作区根目录的绝对路径（可选，默认使用 MCP 进程工作目录）",
               },
+              model: {
+                type: "string",
+                description:
+                  "当前 Agent 使用的模型名称（如 claude-sonnet-4-5）。调用时应传入实际使用的模型 ID。",
+              },
             },
             required: ["task", "reasoning"],
           },
@@ -130,6 +179,19 @@ async function main(): Promise<void> {
         (request.params.arguments?.affected_files as string[]) || [];
       const workspacePath =
         (request.params.arguments?.workspace_path as string) || process.cwd();
+      const model =
+        (request.params.arguments?.model as string) ||
+        process.env.AGENTLOG_MODEL ||
+        "unknown";
+      // source：从握手时的 clientInfo.name 实时推断（工具调用时读，握手已完成）
+      const clientName = server.getClientVersion()?.name ?? "";
+      const source =
+        process.env.AGENTLOG_SOURCE ||
+        inferSource(clientName);
+      // provider：从 model 名称推断，比 clientInfo 更能反映实际使用的服务商
+      const provider =
+        process.env.AGENTLOG_PROVIDER ||
+        inferProvider(model);
 
       try {
         process.stderr.write(`[agentlog-mcp] record_agent_intent 被调用\n`);
@@ -137,11 +199,14 @@ async function main(): Promise<void> {
         process.stderr.write(`[agentlog-mcp]   reasoning=${reasoning?.slice(0, 80)}...\n`);
         process.stderr.write(`[agentlog-mcp]   affected_files=${JSON.stringify(affectedFiles)}\n`);
         process.stderr.write(`[agentlog-mcp]   workspace_path=${workspacePath}\n`);
+        process.stderr.write(`[agentlog-mcp]   model=${model}\n`);
+        process.stderr.write(`[agentlog-mcp]   provider=${provider}\n`);
+        process.stderr.write(`[agentlog-mcp]   source=${source}\n`);
 
         const id = await postSession({
-          provider: "mcp",
-          model: "unknown",
-          source: "mcp-tool-call",
+          provider,
+          model,
+          source,
           workspacePath,
           prompt: task,
           reasoning,
