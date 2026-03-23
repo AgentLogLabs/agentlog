@@ -1,0 +1,1 @@
+我在vscode 的cline插件中调用本MCP, model使用的是minmax，为什么记录下来model是claude-sonnet-4-5,provider是anthropic
