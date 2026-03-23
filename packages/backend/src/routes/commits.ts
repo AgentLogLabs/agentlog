@@ -30,6 +30,7 @@ import type {
 } from "@agentlog/shared";
 import {
   bindSessionsToCommit,
+  createSession,
   getUnboundSessions,
   getSessionsByCommitHash,
   getSessionById,
@@ -231,13 +232,31 @@ const commitsRouter: FastifyPluginAsync = async (fastify: FastifyInstance) => {
 
         if (unboundSessions.length === 0) {
           fastify.log.info(
-            `[Commits Hook] commit=${commitHash.slice(0, 8)} 工作区无未绑定会话，跳过自动绑定`,
+            `[Commits Hook] commit=${commitHash.slice(0, 8)} 工作区无未绑定会话，尝试兜底补写`,
           );
 
-          // 即使没有会话，也记录 commit 信息
+          // ── 兜底逻辑（Spec 4.2 分支 B）──
+          // 当没有游离 Session 时，尝试根据 Commit 信息生成一条简要的 Session 记录。
+          // TODO: 未来版本可在此处集成轻量 LLM（读取 git diff → 调用 API → 生成意图摘要），
+          //       目前先根据 commit message + changed_files 生成一条基础记录。
+          const fallbackSession = createSession({
+            provider: "unknown",
+            model: "git-hook-fallback",
+            source: "unknown",
+            workspacePath,
+            prompt: commitInfo.message,
+            response: `Auto-generated from git commit ${commitInfo.hash.slice(0, 8)}.\nChanged files: ${commitInfo.changedFiles.join(", ") || "(none)"}`,
+            affectedFiles: commitInfo.changedFiles,
+            durationMs: 0,
+            tags: ["auto-generated", "git-hook-fallback"],
+          });
+
+          // 绑定这条兜底 Session
+          bindSessionsToCommit([fallbackSession.id], commitInfo.hash);
+
           const binding = upsertCommitBinding({
             commitHash: commitInfo.hash,
-            sessionIds: [],
+            sessionIds: [fallbackSession.id],
             message: commitInfo.message,
             committedAt: commitInfo.committedAt,
             authorName: commitInfo.authorName,
@@ -245,6 +264,10 @@ const commitsRouter: FastifyPluginAsync = async (fastify: FastifyInstance) => {
             changedFiles: commitInfo.changedFiles,
             workspacePath,
           });
+
+          fastify.log.info(
+            `[Commits Hook] commit=${commitHash.slice(0, 8)} 兜底补写了 1 条会话并绑定`,
+          );
 
           return reply.code(200).send({
             success: true,

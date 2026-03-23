@@ -38,6 +38,7 @@ import {
   CommitBindingsTreeProvider,
   SessionItem,
   CommitGroupItem,
+  CommitSessionItem,
 } from "./providers/sessionTreeProvider";
 import {
   SessionDetailPanel,
@@ -441,6 +442,119 @@ function registerCommands(
       vscode.window.showErrorMessage(
         `删除失败：${err instanceof Error ? err.message : String(err)}`,
       );
+    }
+  });
+
+  // ── 上下文复活（Resume Context）──────────
+
+  register("agentlog.resumeContext", async (item: unknown) => {
+    // 1. 解析 sessionId —— 可能来自 TreeView 节点（SessionItem / CommitSessionItem）或字符串
+    let sessionId: string | undefined;
+
+    if (item instanceof SessionItem) {
+      sessionId = item.session.id;
+    } else if (item instanceof CommitSessionItem) {
+      sessionId = item.session.id;
+    } else if (
+      typeof item === "object" &&
+      item !== null &&
+      "id" in item &&
+      typeof (item as { id: unknown }).id === "string"
+    ) {
+      sessionId = (item as { id: string }).id;
+    } else if (typeof item === "string") {
+      sessionId = item;
+    }
+
+    if (!sessionId) {
+      sessionId = await vscode.window.showInputBox({
+        prompt: "请输入要复活上下文的会话 ID",
+        placeHolder: "nanoid（例如：V1StGXR8_Z5j）",
+      });
+      if (!sessionId) return;
+    }
+
+    // 2. 从后台获取完整会话数据
+    try {
+      const client = getBackendClient();
+      const session = await client.getSession(sessionId);
+
+      // 3. 组装上下文 Prompt
+      const parts: string[] = [];
+
+      parts.push("【历史 AI 上下文复活 — Resume Context】");
+      parts.push("");
+      parts.push(`## 原始任务 (Original Task)`);
+      parts.push(session.prompt);
+      parts.push("");
+
+      if (session.reasoning) {
+        parts.push(`## 历史推理过程 (Reasoning / Chain-of-Thought)`);
+        parts.push(session.reasoning);
+        parts.push("");
+      }
+
+      parts.push(`## AI 最终响应 (Response)`);
+      parts.push(session.response);
+      parts.push("");
+
+      if (session.affectedFiles && session.affectedFiles.length > 0) {
+        parts.push(`## 涉及文件 (Affected Files)`);
+        for (const f of session.affectedFiles) {
+          parts.push(`- ${f}`);
+        }
+        parts.push("");
+      }
+
+      if (session.transcript && session.transcript.length > 0) {
+        parts.push(`## 逐轮对话记录 (Transcript)`);
+        for (const turn of session.transcript) {
+          const roleLabel =
+            turn.role === "user"
+              ? "User"
+              : turn.role === "assistant"
+                ? "Assistant"
+                : `Tool(${turn.toolName ?? "unknown"})`;
+          parts.push(`### ${roleLabel}`);
+          parts.push(turn.content);
+          parts.push("");
+        }
+      }
+
+      parts.push("---");
+      parts.push("请基于以上历史上下文继续工作。");
+
+      const contextText = parts.join("\n");
+
+      // 4. 写入系统剪贴板
+      await vscode.env.clipboard.writeText(contextText);
+
+      // 5. 弹出 Toast 提示
+      const promptPreview = session.prompt.replace(/\n/g, " ").slice(0, 40);
+      vscode.window.showInformationMessage(
+        `上下文已复制到剪贴板，请粘贴到 Cline / Cursor / Copilot 的聊天框中继续工作。\n会话：${promptPreview}${session.prompt.length > 40 ? "…" : ""}`,
+      );
+
+      log(
+        `[resumeContext] 已将会话 ${sessionId} 的上下文复制到剪贴板（${contextText.length} 字符）`,
+      );
+    } catch (err) {
+      if (err instanceof BackendUnreachableError) {
+        vscode.window
+          .showErrorMessage(
+            "AgentLog 后台服务未启动，无法复活上下文",
+            "启动服务",
+          )
+          .then((action) => {
+            if (action === "启动服务") {
+              vscode.commands.executeCommand("agentlog.startBackend");
+            }
+          });
+      } else {
+        vscode.window.showErrorMessage(
+          `复活上下文失败：${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
     }
   });
 

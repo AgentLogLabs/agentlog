@@ -117,6 +117,11 @@
         "command": "agentlog.uninstallHooks",
         "title": "AgentLog: 移除 Claude Code Hook",
         "icon": "$(trash)"
+      },
+      {
+        "command": "agentlog.resumeContext",
+        "title": "AgentLog: 复活上下文 (Resume Context)",
+        "icon": "$(debug-restart)"
       }
     ],
     "chatParticipants": [
@@ -210,8 +215,18 @@
           "group": "agentlog@1"
         },
         {
+          "command": "agentlog.resumeContext",
+          "when": "view == agentlog.sessionList && viewItem == session",
+          "group": "agentlog@2"
+        },
+        {
           "command": "agentlog.deleteSession",
           "when": "view == agentlog.sessionList && viewItem == session",
+          "group": "agentlog@3"
+        },
+        {
+          "command": "agentlog.resumeContext",
+          "when": "view == agentlog.commitBindings && viewItem == commit-session",
           "group": "agentlog@2"
         },
         {
