@@ -2,7 +2,16 @@
  * @agentlog/backend — MCP Server 入口（stdio 模式）
  *
  * 通过 Model Context Protocol 为 AI Agent（Cline / Roo Code / OpenCode 等）
- * 提供 record_agent_intent 工具，Agent 主动上报重构意图与决策逻辑。
+ * 提供两个工具：
+ *
+ *  1. log_turn   — 逐轮上报每一条消息（user / assistant / tool），
+ *                  首次调用自动创建会话，后续调用追加到同一会话。
+ *                  这是推荐的主要调用方式，能记录完整的交互过程。
+ *
+ *  2. log_intent — 任务结束后调用一次，记录整体意图、决策逻辑、
+ *                  受影响文件等汇总信息，并可携带完整 transcript。
+ *                  若之前已通过 log_turn 建立了会话，可传入 session_id
+ *                  将汇总信息合并到已有会话；否则创建新会话。
  *
  * 数据通过 HTTP 提交给 AgentLog Backend（POST /api/sessions），
  * 由 Backend 统一写入 SQLite，避免多进程直接操作数据库导致 WAL 隔离问题。
@@ -106,6 +115,53 @@ async function postSession(body: Record<string, unknown>): Promise<string> {
   return json.data.id;
 }
 
+/**
+ * 向 Backend 追加 transcript 消息到已有会话。
+ */
+async function patchTranscript(
+  sessionId: string,
+  body: Record<string, unknown>,
+): Promise<void> {
+  const url = `${BACKEND_BASE}/api/sessions/${sessionId}/transcript`;
+
+  process.stderr.write(`[agentlog-mcp] PATCH ${url}\n`);
+
+  const resp = await fetch(url, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(`Backend 返回 HTTP ${resp.status}：${text}`);
+  }
+}
+
+/**
+ * 向 Backend 回写 intent 字段（response / affectedFiles）。
+ * reasoning 由后端从 transcript 自动生成，无需传入。
+ */
+async function patchIntent(
+  sessionId: string,
+  body: { response?: string; affectedFiles?: string[] },
+): Promise<void> {
+  const url = `${BACKEND_BASE}/api/sessions/${sessionId}/intent`;
+
+  process.stderr.write(`[agentlog-mcp] PATCH ${url}\n`);
+
+  const resp = await fetch(url, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(`Backend 返回 HTTP ${resp.status}：${text}`);
+  }
+}
+
 // ─────────────────────────────────────────────
 // MCP Server 主流程
 // ─────────────────────────────────────────────
@@ -114,7 +170,7 @@ async function main(): Promise<void> {
   const server = new Server(
     {
       name: "agentlog-mcp",
-      version: "0.2.0",
+      version: "0.3.0",
     },
     {
       capabilities: {
@@ -130,21 +186,78 @@ async function main(): Promise<void> {
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     return {
       tools: [
+        // ── log_turn ──────────────────────────────────────────────────────
+        {
+          name: "log_turn",
+          description:
+            "逐轮记录 AI 交互消息（user / assistant / tool）。" +
+            "首次调用时自动创建会话并返回 session_id，后续每轮调用传入相同 session_id 持续追加。" +
+            "请在每条消息产生后立即调用，以完整保留对话历史。",
+          inputSchema: {
+            type: "object" as const,
+            properties: {
+              session_id: {
+                type: "string",
+                description:
+                  "会话 ID（由首次调用返回）。首次调用时省略此参数，后续调用必须传入。",
+              },
+              role: {
+                type: "string",
+                enum: ["user", "assistant", "tool"],
+                description: "消息角色：user（用户输入）、assistant（模型回复）、tool（工具执行结果）",
+              },
+              content: {
+                type: "string",
+                description: "消息内容。tool 角色可填执行结果摘要（过长时截断）。",
+              },
+              tool_name: {
+                type: "string",
+                description: "role=tool 时的工具名称（如 bash、read、edit）",
+              },
+              tool_input: {
+                type: "string",
+                description: "role=tool 时的工具输入参数摘要（可选）",
+              },
+              // 首次调用时的会话元数据
+              model: {
+                type: "string",
+                description:
+                  "调用此工具的 AI 模型完整名称（如实填写）。仅首次调用时需要。",
+              },
+              workspace_path: {
+                type: "string",
+                description: "工作区根目录绝对路径（可选，默认当前目录）。仅首次调用时有效。",
+              },
+              // Token 用量（可选，每轮累计值）
+              token_usage: {
+                type: "object",
+                description: "当前累计 Token 用量（可选）",
+                properties: {
+                  input_tokens: { type: "number" },
+                  output_tokens: { type: "number" },
+                  cache_creation_tokens: { type: "number" },
+                  cache_read_tokens: { type: "number" },
+                  api_call_count: { type: "number" },
+                },
+              },
+            },
+            required: ["role", "content"],
+          },
+        },
+
+        // ── log_intent ────────────────────────────────────────────────────
         {
           name: "log_intent",
           description:
-            "记录 AI 重构或编写代码的上下文意图。在完成一项任务后调用此工具，将决策逻辑持久化到本地数据库。",
+            "在完成一项任务后调用，记录任务目标和受影响文件。" +
+            "推理过程（reasoning）由系统从 transcript 自动生成，无需手动填写。" +
+            "推荐与 log_turn 配合：先用 log_turn 逐轮记录，最后调用此工具汇总。",
           inputSchema: {
             type: "object" as const,
             properties: {
               task: {
                 type: "string",
                 description: "当前执行的任务或目标（简要概述）",
-              },
-              reasoning: {
-                type: "string",
-                description:
-                  "重构或修改代码的深度决策逻辑和原因（越详细越好）",
               },
               affected_files: {
                 type: "array",
@@ -161,8 +274,42 @@ async function main(): Promise<void> {
                 description:
                   "调用此工具的 AI 模型的完整名称（如实填写，不得使用示例值）。",
               },
+              session_id: {
+                type: "string",
+                description:
+                  "已有会话的 ID（由 log_turn 首次调用返回）。" +
+                  "传入时回写到该会话；不传时创建新会话。",
+              },
+              transcript: {
+                type: "array",
+                description:
+                  "完整的逐轮对话记录（未使用 log_turn 时一次性提交）。" +
+                  "每条消息包含 role、content，以及 tool 角色的 tool_name。",
+                items: {
+                  type: "object",
+                  properties: {
+                    role: { type: "string", enum: ["user", "assistant", "tool"] },
+                    content: { type: "string" },
+                    tool_name: { type: "string" },
+                    tool_input: { type: "string" },
+                    timestamp: { type: "string" },
+                  },
+                  required: ["role", "content"],
+                },
+              },
+              token_usage: {
+                type: "object",
+                description: "本次会话的最终 Token 用量统计（可选）",
+                properties: {
+                  input_tokens: { type: "number" },
+                  output_tokens: { type: "number" },
+                  cache_creation_tokens: { type: "number" },
+                  cache_read_tokens: { type: "number" },
+                  api_call_count: { type: "number" },
+                },
+              },
             },
-            required: ["task", "reasoning", "model"],
+            required: ["task", "model"],
           },
         },
       ],
@@ -172,57 +319,180 @@ async function main(): Promise<void> {
   // ── 工具调用处理 ────────────────────────────
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    if (request.params.name === "log_intent") {
-      const task = request.params.arguments?.task as string;
-      const reasoning = request.params.arguments?.reasoning as string;
-      const affectedFiles =
-        (request.params.arguments?.affected_files as string[]) || [];
-      const workspacePath =
-        (request.params.arguments?.workspace_path as string) || process.cwd();
-      const model =
-        (request.params.arguments?.model as string) ||
-        "unknown";
-      // source：从握手时的 clientInfo.name 实时推断（工具调用时读，握手已完成）
-      const clientVersion = server.getClientVersion();
-      const clientName = clientVersion?.name ?? "";
-      const source =
-        process.env.AGENTLOG_SOURCE ||
-        inferSource(clientName);
-      // provider：从 model 名称推断，比 clientInfo 更能反映实际使用的服务商
-      const provider =
-        process.env.AGENTLOG_PROVIDER ||
-        inferProvider(model);
+    const clientVersion = server.getClientVersion();
+    const clientName = clientVersion?.name ?? "";
+    const source =
+      process.env.AGENTLOG_SOURCE ||
+      inferSource(clientName);
+
+    // ── log_turn ────────────────────────────────────────────────────────
+    if (request.params.name === "log_turn") {
+      const args = request.params.arguments ?? {};
+      const sessionId = args.session_id as string | undefined;
+      const role = args.role as "user" | "assistant" | "tool";
+      const content = args.content as string;
+      const toolName = args.tool_name as string | undefined;
+      const toolInput = args.tool_input as string | undefined;
+      const model = (args.model as string | undefined) ?? "unknown";
+      const workspacePath = (args.workspace_path as string | undefined) ?? process.cwd();
+
+      // 解析 token_usage（snake_case → camelCase）
+      const rawTokenUsage = args.token_usage as Record<string, number> | undefined;
+      const tokenUsage = rawTokenUsage
+        ? {
+            inputTokens: rawTokenUsage.input_tokens ?? 0,
+            outputTokens: rawTokenUsage.output_tokens ?? 0,
+            cacheCreationTokens: rawTokenUsage.cache_creation_tokens,
+            cacheReadTokens: rawTokenUsage.cache_read_tokens,
+            apiCallCount: rawTokenUsage.api_call_count,
+          }
+        : undefined;
+
+      const turn = {
+        role,
+        content,
+        timestamp: new Date().toISOString(),
+        ...(toolName ? { toolName } : {}),
+        ...(toolInput ? { toolInput } : {}),
+      };
 
       try {
-        process.stderr.write(`[agentlog-mcp] record_agent_intent 被调用\n`);
-        process.stderr.write(`[agentlog-mcp]   task=${task}\n`);
-        process.stderr.write(`[agentlog-mcp]   reasoning=${reasoning?.slice(0, 80)}...\n`);
-        process.stderr.write(`[agentlog-mcp]   affected_files=${JSON.stringify(affectedFiles)}\n`);
-        process.stderr.write(`[agentlog-mcp]   workspace_path=${workspacePath}\n`);
-        process.stderr.write(`[agentlog-mcp]   model=${model}\n`);
-        process.stderr.write(`[agentlog-mcp]   clientInfo.name(raw)=${JSON.stringify(clientVersion)}\n`);
-        process.stderr.write(`[agentlog-mcp]   provider=${provider}\n`);
-        process.stderr.write(`[agentlog-mcp]   source=${source}\n`);
+        process.stderr.write(`[agentlog-mcp] log_turn: role=${role}, session_id=${sessionId ?? "(new)"}\n`);
 
-        const id = await postSession({
-          provider,
-          model,
-          source,
-          workspacePath,
-          prompt: task,
-          reasoning,
-          response: `[MCP] ${task}`,
-          affectedFiles,
-          durationMs: 0,
-        });
+        let resultSessionId: string;
 
-        process.stderr.write(`[agentlog-mcp] 写入成功 id=${id}\n`);
+        if (sessionId) {
+          // 追加到已有会话
+          await patchTranscript(sessionId, {
+            turns: [turn],
+            ...(tokenUsage ? { tokenUsage } : {}),
+          });
+          resultSessionId = sessionId;
+        } else {
+          // 创建新会话（首条消息）
+          const provider = inferProvider(model);
+          resultSessionId = await postSession({
+            provider,
+            model,
+            source,
+            workspacePath,
+            // prompt/response 用首条消息内容填充，后续通过 log_intent 或 transcript 完善
+            prompt: role === "user" ? content : "(pending)",
+            response: role === "assistant" ? content : "(pending)",
+            affectedFiles: [],
+            durationMs: 0,
+            transcript: [turn],
+            ...(tokenUsage ? { tokenUsage } : {}),
+          });
+        }
+
+        process.stderr.write(`[agentlog-mcp] log_turn 写入成功 session_id=${resultSessionId}\n`);
 
         return {
           content: [
             {
               type: "text" as const,
-              text: `意图记录成功（id=${id}），请继续工作。`,
+              text: `消息已记录（session_id=${resultSessionId}）。后续调用请传入此 session_id。`,
+            },
+          ],
+        };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        process.stderr.write(`[agentlog-mcp] log_turn 失败：${msg}\n`);
+        return {
+          isError: true,
+          content: [{ type: "text" as const, text: `记录失败：${msg}` }],
+        };
+      }
+    }
+
+    // ── log_intent ──────────────────────────────────────────────────────
+    if (request.params.name === "log_intent") {
+      const args = request.params.arguments ?? {};
+      const task = args.task as string;
+      const affectedFiles = (args.affected_files as string[]) || [];
+      const workspacePath = (args.workspace_path as string) || process.cwd();
+      const model = (args.model as string) || "unknown";
+      const existingSessionId = args.session_id as string | undefined;
+
+      // transcript（可选，未使用 log_turn 时一次性提交）
+      const rawTranscript = args.transcript as Array<Record<string, string>> | undefined;
+      const transcript = rawTranscript?.map((t) => ({
+        role: t.role as "user" | "assistant" | "tool",
+        content: t.content,
+        ...(t.tool_name ? { toolName: t.tool_name } : {}),
+        ...(t.tool_input ? { toolInput: t.tool_input } : {}),
+        ...(t.timestamp ? { timestamp: t.timestamp } : {}),
+      }));
+
+      // token_usage（snake_case → camelCase）
+      const rawTokenUsage = args.token_usage as Record<string, number> | undefined;
+      const tokenUsage = rawTokenUsage
+        ? {
+            inputTokens: rawTokenUsage.input_tokens ?? 0,
+            outputTokens: rawTokenUsage.output_tokens ?? 0,
+            cacheCreationTokens: rawTokenUsage.cache_creation_tokens,
+            cacheReadTokens: rawTokenUsage.cache_read_tokens,
+            apiCallCount: rawTokenUsage.api_call_count,
+          }
+        : undefined;
+
+      const provider =
+        process.env.AGENTLOG_PROVIDER || inferProvider(model);
+
+      try {
+        process.stderr.write(`[agentlog-mcp] log_intent 被调用\n`);
+        process.stderr.write(`[agentlog-mcp]   task=${task}\n`);
+        process.stderr.write(`[agentlog-mcp]   affected_files=${JSON.stringify(affectedFiles)}\n`);
+        process.stderr.write(`[agentlog-mcp]   workspace_path=${workspacePath}\n`);
+        process.stderr.write(`[agentlog-mcp]   model=${model}\n`);
+        process.stderr.write(`[agentlog-mcp]   session_id=${existingSessionId ?? "(new)"}\n`);
+        process.stderr.write(`[agentlog-mcp]   transcript_turns=${transcript?.length ?? 0}\n`);
+        process.stderr.write(`[agentlog-mcp]   provider=${provider}\n`);
+        process.stderr.write(`[agentlog-mcp]   source=${source}\n`);
+
+        let resultId: string;
+
+        if (existingSessionId) {
+          // 已有会话：回写 response/affectedFiles，reasoning 由后端从 transcript 自动生成
+          const intentBody: { response?: string; affectedFiles?: string[] } = {};
+          if (task) intentBody.response = task;
+          if (affectedFiles.length > 0) intentBody.affectedFiles = affectedFiles;
+
+          await patchIntent(existingSessionId, intentBody);
+
+          if (transcript && transcript.length > 0) {
+            await patchTranscript(existingSessionId, {
+              turns: transcript,
+              ...(tokenUsage ? { tokenUsage } : {}),
+            });
+          } else if (tokenUsage) {
+            await patchTranscript(existingSessionId, { turns: [], tokenUsage });
+          }
+          resultId = existingSessionId;
+        } else {
+          // 新建会话（reasoning 由 createSession 从 transcript 自动生成）
+          resultId = await postSession({
+            provider,
+            model,
+            source,
+            workspacePath,
+            prompt: task,
+            response: task,
+            affectedFiles,
+            durationMs: 0,
+            ...(transcript && transcript.length > 0 ? { transcript } : {}),
+            ...(tokenUsage ? { tokenUsage } : {}),
+          });
+        }
+
+        process.stderr.write(`[agentlog-mcp] 写入成功 id=${resultId}\n`);
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `意图记录成功（id=${resultId}），请继续工作。`,
             },
           ],
         };

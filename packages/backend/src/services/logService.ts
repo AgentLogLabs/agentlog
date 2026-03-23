@@ -10,9 +10,39 @@ import { nanoid } from 'nanoid';
 import type {
   AgentSession,
   CreateSessionRequest,
+  AppendTranscriptRequest,
   PaginatedResponse,
   SessionQueryFilter,
+  TranscriptTurn,
+  TokenUsage,
 } from '@agentlog/shared';
+
+// ─────────────────────────────────────────────
+// 工具函数
+// ─────────────────────────────────────────────
+
+/**
+ * 将 transcript 数组序列化为可读文本，作为 reasoning 字段存储。
+ * 格式与 entire CLI 的 `entire explain` 输出对齐：
+ *   [User] 消息内容
+ *   [Assistant] 回复内容
+ *   [Tool:bash] 执行结果
+ */
+function transcriptToReasoning(turns: TranscriptTurn[]): string {
+  if (turns.length === 0) return '';
+  return turns
+    .map((t) => {
+      const label =
+        t.role === 'tool'
+          ? `[Tool${t.toolName ? `:${t.toolName}` : ''}]`
+          : t.role === 'user'
+            ? '[User]'
+            : '[Assistant]';
+      const inputHint = t.toolInput ? `\n  Input: ${t.toolInput}` : '';
+      return `${label}${inputHint}\n${t.content}`;
+    })
+    .join('\n\n');
+}
 import {
   closeDatabase,
   fromJson,
@@ -26,6 +56,11 @@ import {
 // ─────────────────────────────────────────────
 
 function rowToSession(row: SessionRow): AgentSession {
+  const transcript = fromJson<TranscriptTurn[]>(row.transcript, []);
+  const tokenUsage = row.token_usage
+    ? fromJson<TokenUsage>(row.token_usage, undefined as unknown as TokenUsage)
+    : undefined;
+
   return {
     id: row.id,
     createdAt: row.created_at,
@@ -41,6 +76,8 @@ function rowToSession(row: SessionRow): AgentSession {
     durationMs: row.duration_ms,
     tags: fromJson<string[]>(row.tags, []),
     note: row.note ?? undefined,
+    transcript: transcript.length > 0 ? transcript : undefined,
+    tokenUsage: tokenUsage ?? undefined,
     metadata: fromJson<Record<string, unknown>>(row.metadata, {}),
   };
 }
@@ -59,15 +96,22 @@ export function createSession(req: CreateSessionRequest): AgentSession {
   const id = nanoid();
   const createdAt = new Date().toISOString();
 
+  // 若创建时就携带了 transcript，自动从中生成 reasoning
+  const transcriptTurns = req.transcript ?? [];
+  const autoReasoning =
+    transcriptTurns.length > 0
+      ? transcriptToReasoning(transcriptTurns)
+      : (req.reasoning ?? null);
+
   db.prepare(`
     INSERT INTO agent_sessions (
       id, created_at, provider, model, source, workspace_path,
       prompt, reasoning, response, affected_files,
-      duration_ms, tags, note, metadata
+      duration_ms, tags, note, metadata, transcript, token_usage
     ) VALUES (
       @id, @created_at, @provider, @model, @source, @workspace_path,
       @prompt, @reasoning, @response, @affected_files,
-      @duration_ms, @tags, @note, @metadata
+      @duration_ms, @tags, @note, @metadata, @transcript, @token_usage
     )
   `).run({
     id,
@@ -77,13 +121,15 @@ export function createSession(req: CreateSessionRequest): AgentSession {
     source: req.source,
     workspace_path: req.workspacePath,
     prompt: req.prompt,
-    reasoning: req.reasoning ?? null,
+    reasoning: autoReasoning,
     response: req.response,
     affected_files: toJson(req.affectedFiles ?? []),
     duration_ms: req.durationMs,
     tags: toJson(req.tags ?? []),
     note: req.note ?? null,
     metadata: toJson(req.metadata ?? {}),
+    transcript: toJson(transcriptTurns),
+    token_usage: req.tokenUsage ? toJson(req.tokenUsage) : null,
   });
 
   // 重新读取以确保返回值与数据库完全一致
@@ -301,6 +347,56 @@ export function updateSessionTags(
   return getSessionById(sessionId);
 }
 
+/**
+ * 更新会话的核心内容字段（由 log_intent 在任务完成后回写）。
+ *
+ * - response：填入 task 描述（当前值为占位符时替换）
+ * - reasoning：从该会话当前 transcript 自动生成，如实呈现完整交互过程
+ * - affectedFiles：替换为传入的文件列表
+ *
+ * reasoning 不接受外部传入，始终由 transcript 生成，确保记录真实而非总结。
+ */
+export function updateSessionIntent(
+  sessionId: string,
+  fields: {
+    response?: string;
+    affectedFiles?: string[];
+  },
+): AgentSession | null {
+  const db = getDatabase();
+
+  const existing = getSessionById(sessionId);
+  if (!existing) return null;
+
+  const setClauses: string[] = [];
+  const params: Record<string, unknown> = { id: sessionId };
+
+  if (fields.response !== undefined && fields.response.trim() !== '') {
+    setClauses.push('response = @response');
+    params.response = fields.response;
+  }
+
+  // reasoning 始终从当前 transcript 生成
+  const currentTranscript = existing.transcript ?? [];
+  if (currentTranscript.length > 0) {
+    setClauses.push('reasoning = @reasoning');
+    params.reasoning = transcriptToReasoning(currentTranscript);
+  }
+
+  if (fields.affectedFiles !== undefined && fields.affectedFiles.length > 0) {
+    setClauses.push('affected_files = @affected_files');
+    params.affected_files = toJson(fields.affectedFiles);
+  }
+
+  if (setClauses.length === 0) return existing;
+
+  db.prepare(
+    `UPDATE agent_sessions SET ${setClauses.join(', ')} WHERE id = @id`,
+  ).run(params);
+
+  return getSessionById(sessionId);
+}
+
 /** 更新会话的备注 */
 export function updateSessionNote(
   sessionId: string,
@@ -312,6 +408,45 @@ export function updateSessionNote(
     .run(note || null, sessionId);
 
   if (result.changes === 0) return null;
+  return getSessionById(sessionId);
+}
+
+/**
+ * 向已有会话追加 transcript 消息，并可选更新 token 用量。
+ *
+ * transcript 以 JSON 数组存储，此函数将新 turns 合并到现有数组末尾。
+ * token_usage 如传入则以传入值完整覆盖（调用方应传累计值）。
+ *
+ * @returns 更新后的会话，不存在时返回 null
+ */
+export function appendTranscript(
+  sessionId: string,
+  req: AppendTranscriptRequest,
+): AgentSession | null {
+  const db = getDatabase();
+
+  const existing = getSessionById(sessionId);
+  if (!existing) return null;
+
+  const merged: TranscriptTurn[] = [
+    ...(existing.transcript ?? []),
+    ...req.turns,
+  ];
+
+  const tokenUsageJson = req.tokenUsage
+    ? toJson(req.tokenUsage)
+    : null;
+
+  if (tokenUsageJson !== null) {
+    db.prepare(
+      'UPDATE agent_sessions SET transcript = ?, token_usage = ? WHERE id = ?',
+    ).run(toJson(merged), tokenUsageJson, sessionId);
+  } else {
+    db.prepare(
+      'UPDATE agent_sessions SET transcript = ? WHERE id = ?',
+    ).run(toJson(merged), sessionId);
+  }
+
   return getSessionById(sessionId);
 }
 

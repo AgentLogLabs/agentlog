@@ -44,6 +44,7 @@ const PROVIDER_EMOJI: Record<ModelProvider, string> = {
   kimi: "🌙",
   doubao: "🫘",
   zhipu: "🧠",
+  minimax: "🎯",
   openai: "🤖",
   anthropic: "🅰️",
   ollama: "🦙",
@@ -142,6 +143,19 @@ export class SessionItem extends AgentLogTreeItem {
       parts.push(formatDuration(session.durationMs));
     }
 
+    // Token 用量总计（input+output+cache）
+    if (session.tokenUsage) {
+      const u = session.tokenUsage;
+      const total =
+        (u.inputTokens || 0) +
+        (u.outputTokens || 0) +
+        (u.cacheCreationTokens || 0) +
+        (u.cacheReadTokens || 0);
+      if (total > 0) {
+        parts.push(formatTokenCount(total));
+      }
+    }
+
     // 绑定状态
     if (session.commitHash) {
       parts.push(`✓ ${session.commitHash.slice(0, 7)}`);
@@ -196,6 +210,35 @@ export class SessionItem extends AgentLogTreeItem {
     md.appendMarkdown(
       `> ${session.prompt.slice(0, 200).replace(/\n/g, "\n> ")}${session.prompt.length > 200 ? "…" : ""}\n`,
     );
+
+    // Token 用量
+    if (session.tokenUsage) {
+      const u = session.tokenUsage;
+      const total =
+        (u.inputTokens || 0) +
+        (u.outputTokens || 0) +
+        (u.cacheCreationTokens || 0) +
+        (u.cacheReadTokens || 0);
+      if (total > 0) {
+        const parts: string[] = [
+          `输入 ${u.inputTokens?.toLocaleString() ?? 0}`,
+          `输出 ${u.outputTokens?.toLocaleString() ?? 0}`,
+        ];
+        if (u.cacheReadTokens) {
+          parts.push(`缓存命中 ${u.cacheReadTokens.toLocaleString()}`);
+        }
+        md.appendMarkdown(
+          `\n- **Token**：${formatTokenCount(total)}（${parts.join(" / ")}）\n`,
+        );
+      }
+    }
+
+    // Transcript 轮数
+    if (session.transcript && session.transcript.length > 0) {
+      md.appendMarkdown(
+        `- **交互记录**：${session.transcript.length} 轮\n`,
+      );
+    }
 
     // 推理标识
     if (session.reasoning) {
@@ -835,6 +878,16 @@ function formatDateTime(iso: string): string {
 function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
   return `${(ms / 1000).toFixed(1)}s`;
+}
+
+/**
+ * 将 token 数量格式化为可读缩写。
+ * 1234 → "1.2K"，123456 → "123K"，等
+ */
+function formatTokenCount(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M tok`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K tok`;
+  return `${n} tok`;
 }
 
 /**

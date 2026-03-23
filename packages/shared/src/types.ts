@@ -45,6 +45,60 @@ export type ExportFormat =
 export type ExportLanguage = "zh" | "en";
 
 // ─────────────────────────────────────────────
+// Transcript（逐轮对话记录）
+// ─────────────────────────────────────────────
+
+/**
+ * 对话 transcript 中的单条消息。
+ * 对应 entire CLI 的 SessionEntry，记录每一轮 user/assistant/tool 交互。
+ */
+export interface TranscriptTurn {
+  /** 消息角色 */
+  role: "user" | "assistant" | "tool";
+
+  /**
+   * 消息内容文本。
+   * - user / assistant：纯文本
+   * - tool：工具执行结果摘要
+   */
+  content: string;
+
+  /** 消息时间戳（ISO 8601，可选） */
+  timestamp?: string;
+
+  /** role=tool 时的工具名称（如 "bash"、"read"、"edit"） */
+  toolName?: string;
+
+  /** role=tool 时的工具输入参数摘要（可选，避免过大） */
+  toolInput?: string;
+}
+
+// ─────────────────────────────────────────────
+// Token 用量
+// ─────────────────────────────────────────────
+
+/**
+ * 本次会话的 Token 用量统计。
+ * 对应 entire CLI 的 TokenUsage，支持缓存分别计量。
+ */
+export interface TokenUsage {
+  /** 新鲜输入 tokens（非缓存命中部分） */
+  inputTokens: number;
+
+  /** 缓存写入 tokens（本次写入提示缓存，按缓存写入价格计费） */
+  cacheCreationTokens?: number;
+
+  /** 缓存命中 tokens（从提示缓存读取，按折扣价计费） */
+  cacheReadTokens?: number;
+
+  /** 输出 tokens */
+  outputTokens: number;
+
+  /** API 调用次数（含工具调用轮次） */
+  apiCallCount?: number;
+}
+
+// ─────────────────────────────────────────────
 // 核心实体
 // ─────────────────────────────────────────────
 
@@ -107,6 +161,19 @@ export interface AgentSession {
 
   /** 用户手动添加的备注说明 */
   note?: string;
+
+  /**
+   * 完整的逐轮对话记录（transcript）。
+   * 每一条消息（user / assistant / tool）按时序追加。
+   * 对应 entire CLI 的 full.jsonl 内容，以结构化 JSON 数组存储。
+   */
+  transcript?: TranscriptTurn[];
+
+  /**
+   * 本次会话的 Token 用量统计。
+   * 由 Agent 在调用 log_intent / log_turn 时上报，或由 hook 自动采集。
+   */
+  tokenUsage?: TokenUsage;
 
   /**
    * 用于存放 provider 特定的扩展字段，不纳入核心模型。
@@ -205,7 +272,18 @@ export interface CreateSessionRequest {
   durationMs: number;
   tags?: string[];
   note?: string;
+  /** 逐轮对话记录（可选，MCP log_intent 或 log_turn 工具上报） */
+  transcript?: TranscriptTurn[];
+  /** Token 用量统计（可选） */
+  tokenUsage?: TokenUsage;
   metadata?: Record<string, unknown>;
+}
+
+/** 追加 transcript 消息的请求体（用于逐轮记录） */
+export interface AppendTranscriptRequest {
+  turns: TranscriptTurn[];
+  /** 同时更新 token 用量（可选，累计值） */
+  tokenUsage?: TokenUsage;
 }
 
 /** 绑定 Commit 的请求体 */

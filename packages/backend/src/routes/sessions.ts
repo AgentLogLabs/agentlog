@@ -9,15 +9,18 @@
  *  GET    /api/sessions/stats        获取统计数据
  *  GET    /api/sessions/unbound      查询未绑定 Commit 的会话
  *  GET    /api/sessions/:id          获取单条会话详情
- *  PATCH  /api/sessions/:id/tags     更新会话标签
- *  PATCH  /api/sessions/:id/note     更新会话备注
- *  PATCH  /api/sessions/:id/commit   手动绑定 Commit
- *  DELETE /api/sessions/:id          删除单条会话
+ *  PATCH  /api/sessions/:id/tags       更新会话标签
+ *  PATCH  /api/sessions/:id/note       更新会话备注
+ *  PATCH  /api/sessions/:id/commit     手动绑定 Commit
+ *  PATCH  /api/sessions/:id/intent     回写 response/reasoning/affectedFiles
+ *  PATCH  /api/sessions/:id/transcript 追加 transcript 消息
+ *  DELETE /api/sessions/:id            删除单条会话
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import type {
   CreateSessionRequest,
+  AppendTranscriptRequest,
   SessionQueryFilter,
   ModelProvider,
   AgentSource,
@@ -29,11 +32,13 @@ import {
   getUnboundSessions,
   updateSessionTags,
   updateSessionNote,
+  updateSessionIntent,
   bindSessionsToCommit,
   unbindSessionFromCommit,
   deleteSession,
   getSessionStats,
   pruneOldSessions,
+  appendTranscript,
 } from '../services/logService';
 
 // ─────────────────────────────────────────────
@@ -58,10 +63,11 @@ export default async function sessionsRoutes(app: FastifyInstance) {
           error: '缺少必填字段：prompt',
         });
       }
-      if (!body?.response || typeof body.response !== 'string') {
+      // response 允许为空字符串（log_turn 首条消息时为 "(pending)"）
+      if (body?.response !== undefined && typeof body.response !== 'string') {
         return reply.status(400).send({
           success: false,
-          error: '缺少必填字段：response',
+          error: 'response 字段必须为字符串',
         });
       }
       if (!body?.provider || typeof body.provider !== 'string') {
@@ -91,11 +97,13 @@ export default async function sessionsRoutes(app: FastifyInstance) {
           workspacePath: body.workspacePath,
           prompt: body.prompt,
           reasoning: body.reasoning,
-          response: body.response,
+          response: body.response ?? '',
           affectedFiles: body.affectedFiles ?? [],
           durationMs: body.durationMs ?? 0,
           tags: body.tags ?? [],
           note: body.note,
+          transcript: body.transcript,
+          tokenUsage: body.tokenUsage,
           metadata: body.metadata,
         });
 
@@ -393,6 +401,81 @@ export default async function sessionsRoutes(app: FastifyInstance) {
         return reply.status(500).send({
           success: false,
           error: '服务器内部错误',
+        });
+      }
+    },
+  );
+
+  // ── PATCH /api/sessions/:id/intent ──────────────────────────────────────
+  // log_intent 完成任务后回写 response / affectedFiles
+  // reasoning 由后端从当前 transcript 自动生成，不接受外部传入
+  app.patch(
+    '/api/sessions/:id/intent',
+    async (
+      req: FastifyRequest<{
+        Params: { id: string };
+        Body: { response?: string; affectedFiles?: string[] };
+      }>,
+      reply: FastifyReply,
+    ) => {
+      const { response, affectedFiles } = req.body ?? {};
+
+      try {
+        const updated = updateSessionIntent(req.params.id, {
+          response,
+          affectedFiles,
+        });
+        if (!updated) {
+          return reply.status(404).send({
+            success: false,
+            error: `会话不存在：${req.params.id}`,
+          });
+        }
+        return reply.send({ success: true, data: updated });
+      } catch (err) {
+        app.log.error(err, '[sessions] updateSessionIntent 失败');
+        return reply.status(500).send({
+          success: false,
+          error: '服务器内部错误，intent 回写失败',
+        });
+      }
+    },
+  );
+
+  // ── PATCH /api/sessions/:id/transcript ─────────────────────────────────
+  // 向已有会话追加 transcript 消息，并可选更新 token_usage
+  app.patch(
+    '/api/sessions/:id/transcript',
+    async (
+      req: FastifyRequest<{
+        Params: { id: string };
+        Body: AppendTranscriptRequest;
+      }>,
+      reply: FastifyReply,
+    ) => {
+      const { turns, tokenUsage } = req.body ?? {};
+
+      if (!Array.isArray(turns)) {
+        return reply.status(400).send({
+          success: false,
+          error: '请求体必须包含 turns 数组',
+        });
+      }
+
+      try {
+        const updated = appendTranscript(req.params.id, { turns, tokenUsage });
+        if (!updated) {
+          return reply.status(404).send({
+            success: false,
+            error: `会话不存在：${req.params.id}`,
+          });
+        }
+        return reply.send({ success: true, data: updated });
+      } catch (err) {
+        app.log.error(err, '[sessions] appendTranscript 失败');
+        return reply.status(500).send({
+          success: false,
+          error: '服务器内部错误，追加 transcript 失败',
         });
       }
     },

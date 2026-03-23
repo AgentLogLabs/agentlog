@@ -33,7 +33,7 @@ function resolveDbPath(): string {
  * 当前 Schema 版本。
  * 每次变更 DDL 时递增，迁移系统据此判断是否需要升级。
  */
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 const DDL_SCHEMA_VERSION = `
   CREATE TABLE IF NOT EXISTS schema_version (
@@ -122,13 +122,15 @@ const MIGRATIONS: Array<{ version: number; up: MigrationFn }> = [
       db.exec(DDL_COMMIT_BINDINGS_INDEXES);
     },
   },
-  // 未来新增迁移时，在此追加：
-  // {
-  //   version: 2,
-  //   up: (db) => {
-  //     db.exec(`ALTER TABLE agent_sessions ADD COLUMN new_col TEXT;`);
-  //   },
-  // },
+  {
+    version: 2,
+    up: (db) => {
+      // transcript：逐轮对话记录（JSON 数组，每条为 TranscriptTurn）
+      db.exec(`ALTER TABLE agent_sessions ADD COLUMN transcript TEXT NOT NULL DEFAULT '[]';`);
+      // token_usage：Token 用量统计（JSON 对象，含 inputTokens/outputTokens/cache 等）
+      db.exec(`ALTER TABLE agent_sessions ADD COLUMN token_usage TEXT;`);
+    },
+  },
 ];
 
 function getCurrentSchemaVersion(db: Database.Database): number {
@@ -251,6 +253,8 @@ export type SessionRow = {
   tags: string; // JSON
   note: string | null;
   metadata: string; // JSON
+  transcript: string; // JSON array of TranscriptTurn
+  token_usage: string | null; // JSON object of TokenUsage
 };
 
 export type CommitRow = {

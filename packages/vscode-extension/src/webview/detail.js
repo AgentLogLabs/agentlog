@@ -78,12 +78,99 @@ function renderSession(s) {
     .join(" ");
 
   const reasoningBlock = s.reasoning
-    ? '<div class="section"><div class="section-header" onclick="toggleSection(this)"><h2>💡 推理过程 (' +
+    ? '<div class="section collapsed"><div class="section-header" onclick="toggleSection(this)"><h2>💡 推理过程 (' +
       s.reasoning.length +
-      " 字符)</h2><span>▼</span></div>" +
-      '<div class="section-body"><pre class="reasoning-block">' +
+      " 字符)</h2><span>▶</span></div>" +
+      '<div class="section-body" style="display:none"><pre class="reasoning-block">' +
       escHtml(s.reasoning) +
       "</pre></div></div>"
+    : "";
+
+  // ── transcript block ──────────────────────────────────────────────────
+  const transcriptBlock =
+    s.transcript && s.transcript.length > 0
+      ? '<div class="section"><div class="section-header" onclick="toggleSection(this)"><h2>📜 交互记录 (' +
+        s.transcript.length +
+        " 轮)</h2><span>▼</span></div>" +
+        '<div class="section-body transcript-list">' +
+        s.transcript
+          .map((turn) => {
+            const roleLabel =
+              turn.role === "user"
+                ? '<span class="turn-role role-user">User</span>'
+                : turn.role === "assistant"
+                  ? '<span class="turn-role role-assistant">Assistant</span>'
+                  : '<span class="turn-role role-tool">' +
+                    escHtml(turn.toolName ? "Tool:" + turn.toolName : "Tool") +
+                    "</span>";
+            const timestamp = turn.timestamp
+              ? '<span class="turn-ts">' +
+                escHtml(formatTime(turn.timestamp)) +
+                "</span>"
+              : "";
+            const inputHint =
+              turn.toolInput
+                ? '<div class="turn-input"><span class="turn-input-label">Input</span><code>' +
+                  escHtml(turn.toolInput.slice(0, 200)) +
+                  (turn.toolInput.length > 200 ? "…" : "") +
+                  "</code></div>"
+                : "";
+            return (
+              '<div class="turn-item turn-' +
+              escHtml(turn.role) +
+              '">' +
+              '<div class="turn-meta">' + roleLabel + timestamp + "</div>" +
+              inputHint +
+              '<pre class="turn-content">' +
+              escHtml(turn.content) +
+              "</pre></div>"
+            );
+          })
+          .join("") +
+        "</div></div>"
+      : "";
+
+  // ── tokenUsage block ──────────────────────────────────────────────────
+  const tokenUsageBlock = s.tokenUsage
+    ? (function () {
+        const u = s.tokenUsage;
+        const total =
+          (u.inputTokens || 0) +
+          (u.outputTokens || 0) +
+          (u.cacheCreationTokens || 0) +
+          (u.cacheReadTokens || 0);
+        const rows = [
+          ["总计", total.toLocaleString()],
+          ["输入", (u.inputTokens || 0).toLocaleString()],
+          ["输出", (u.outputTokens || 0).toLocaleString()],
+        ];
+        if (u.cacheCreationTokens) {
+          rows.push(["缓存写入", u.cacheCreationTokens.toLocaleString()]);
+        }
+        if (u.cacheReadTokens) {
+          rows.push(["缓存命中", u.cacheReadTokens.toLocaleString()]);
+        }
+        if (u.apiCallCount) {
+          rows.push(["API 调用", String(u.apiCallCount)]);
+        }
+        return (
+          '<div class="section"><div class="section-header" onclick="toggleSection(this)"><h2>🪙 Token 用量</h2><span>▼</span></div>' +
+          '<div class="section-body"><table class="token-table">' +
+          rows
+            .map(
+              (r, i) =>
+                '<tr' +
+                (i === 0 ? ' class="token-total"' : "") +
+                "><td>" +
+                escHtml(r[0]) +
+                "</td><td>" +
+                escHtml(r[1]) +
+                "</td></tr>",
+            )
+            .join("") +
+          "</table></div></div>"
+        );
+      })()
     : "";
 
   const affectedFilesBlock =
@@ -120,6 +207,10 @@ function renderSession(s) {
       </div>
 
       ${reasoningBlock}
+
+      ${transcriptBlock}
+
+      ${tokenUsageBlock}
 
       <div class="section">
         <div class="section-header" onclick="toggleSection(this)"><h2>🤖 AI 回复</h2><span>▼</span></div>

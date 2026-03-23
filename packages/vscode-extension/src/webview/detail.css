@@ -307,3 +307,127 @@ textarea:focus {
 .status-dot.offline {
     background: #ef4444;
 }
+
+/* ── Transcript ─────────────────────────────────────────── */
+
+.transcript-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+}
+
+.turn-item {
+    border-radius: var(--radius);
+    border: 1px solid var(--vscode-widget-border);
+    overflow: hidden;
+}
+
+.turn-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 10px;
+    background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+    border-bottom: 1px solid var(--vscode-widget-border);
+}
+
+.turn-role {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.role-user {
+    background: #1a6bb5;
+    color: #fff;
+}
+
+.role-assistant {
+    background: #d97757;
+    color: #fff;
+}
+
+.role-tool {
+    background: #4b5563;
+    color: #fff;
+}
+
+.turn-ts {
+    font-size: 10px;
+    color: var(--vscode-descriptionForeground);
+    margin-left: auto;
+}
+
+.turn-input {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 4px 10px;
+    background: var(--vscode-textCodeBlock-background);
+    border-bottom: 1px solid var(--vscode-widget-border);
+    font-size: 11px;
+}
+
+.turn-input-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--vscode-descriptionForeground);
+    flex-shrink: 0;
+}
+
+.turn-input code {
+    background: transparent;
+    padding: 0;
+    word-break: break-all;
+}
+
+.turn-content {
+    margin: 0;
+    padding: 8px 10px;
+    max-height: 300px;
+    background: var(--vscode-editor-background);
+    border-radius: 0;
+    font-size: 12px;
+}
+
+/* ── Token usage table ──────────────────────────────────── */
+
+.token-table {
+    border-collapse: collapse;
+    font-size: 12px;
+    min-width: 160px;
+}
+
+.token-table td {
+    padding: 4px 12px 4px 0;
+    color: var(--vscode-foreground);
+}
+
+.token-table td:last-child {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    text-align: right;
+    padding-right: 0;
+}
+
+.token-table tr.token-total td {
+    font-size: 13px;
+    font-weight: 700;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--vscode-widget-border);
+    margin-bottom: 4px;
+}
+
+.token-table tr.token-total + tr td {
+    padding-top: 8px;
+}
+
+.token-table tr:not(.token-total) td:first-child {
+    color: var(--vscode-descriptionForeground);
+}
