@@ -15,6 +15,7 @@ export type ModelProvider =
   | "kimi" // 月之暗面 Kimi
   | "doubao" // 字节跳动豆包
   | "zhipu" // 智谱 ChatGLM
+  | "minimax" // MiniMax（mini-max 系列模型）
   | "openai" // OpenAI（兼容模式）
   | "anthropic" // Anthropic Claude（兼容模式）
   | "ollama" // 本地 Ollama
@@ -28,6 +29,7 @@ export type AgentSource =
   | "cursor" // Cursor IDE 内置 AI
   | "copilot" // GitHub Copilot
   | "continue" // Continue 插件
+  | "opencode" // OpenCode CLI AI Agent
   | "direct-api" // 直接调用 HTTP API
   | "mcp-tool-call" // MCP 工具主动上报（Agent 意图记录）
   | "unknown";

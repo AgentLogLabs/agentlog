@@ -131,7 +131,7 @@ async function main(): Promise<void> {
     return {
       tools: [
         {
-          name: "record_agent_intent",
+          name: "log_intent",
           description:
             "记录 AI 重构或编写代码的上下文意图。在完成一项任务后调用此工具，将决策逻辑持久化到本地数据库。",
           inputSchema: {
@@ -159,10 +159,10 @@ async function main(): Promise<void> {
               model: {
                 type: "string",
                 description:
-                  "当前 Agent 使用的模型名称（如 claude-sonnet-4-5）。调用时应传入实际使用的模型 ID。",
+                  "调用此工具的 AI 模型的完整名称（如实填写，不得使用示例值）。",
               },
             },
-            required: ["task", "reasoning"],
+            required: ["task", "reasoning", "model"],
           },
         },
       ],
@@ -172,7 +172,7 @@ async function main(): Promise<void> {
   // ── 工具调用处理 ────────────────────────────
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    if (request.params.name === "record_agent_intent") {
+    if (request.params.name === "log_intent") {
       const task = request.params.arguments?.task as string;
       const reasoning = request.params.arguments?.reasoning as string;
       const affectedFiles =
@@ -181,10 +181,10 @@ async function main(): Promise<void> {
         (request.params.arguments?.workspace_path as string) || process.cwd();
       const model =
         (request.params.arguments?.model as string) ||
-        process.env.AGENTLOG_MODEL ||
         "unknown";
       // source：从握手时的 clientInfo.name 实时推断（工具调用时读，握手已完成）
-      const clientName = server.getClientVersion()?.name ?? "";
+      const clientVersion = server.getClientVersion();
+      const clientName = clientVersion?.name ?? "";
       const source =
         process.env.AGENTLOG_SOURCE ||
         inferSource(clientName);
@@ -200,6 +200,7 @@ async function main(): Promise<void> {
         process.stderr.write(`[agentlog-mcp]   affected_files=${JSON.stringify(affectedFiles)}\n`);
         process.stderr.write(`[agentlog-mcp]   workspace_path=${workspacePath}\n`);
         process.stderr.write(`[agentlog-mcp]   model=${model}\n`);
+        process.stderr.write(`[agentlog-mcp]   clientInfo.name(raw)=${JSON.stringify(clientVersion)}\n`);
         process.stderr.write(`[agentlog-mcp]   provider=${provider}\n`);
         process.stderr.write(`[agentlog-mcp]   source=${source}\n`);
 
