@@ -1,0 +1,25 @@
+{
+  "cli_version": "0.5.0",
+  "checkpoint_id": "592dbe83e8fc",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 4,
+  "files_touched": [
+    "packages/backend/src/mcp.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/59/2dbe83e8fc/0/metadata.json",
+      "transcript": "/59/2dbe83e8fc/0/full.jsonl",
+      "content_hash": "/59/2dbe83e8fc/0/content_hash.txt",
+      "prompt": "/59/2dbe83e8fc/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 84,
+    "cache_creation_tokens": 155844,
+    "cache_read_tokens": 3192521,
+    "output_tokens": 22017,
+    "api_call_count": 76
+  }
+}

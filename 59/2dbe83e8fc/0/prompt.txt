@@ -1,0 +1,13 @@
+通过MCP记录的后台数据库model字段记录为unknown，没有正确记录为使用了什么模型，请改正这个错误
+
+---
+
+@packages/backend/src/mcp.ts 151-156行的provider和source写成硬编码了，应该如实记录Agent的provider和source
+
+---
+
+provider和source是mcp和mcp-tool，应该如实记录Agent的provider和source
+
+---
+
+现在我使用opencode和minmax模型，检查这个模糊匹配是否满足
