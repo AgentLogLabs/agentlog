@@ -1,0 +1,28 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "5fd512c2f710",
+  "session_id": "ses_2e2376039ffemZaLTi2rrKEBcT",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-24T03:30:34.690916Z",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "packages/backend/src/mcp.ts",
+    "packages/backend/test/integration.test.ts",
+    "packages/vscode-extension/src/providers/sessionWebviewProvider.ts",
+    "packages/vscode-extension/src/webview/dashboard.css",
+    "packages/vscode-extension/src/webview/dashboard.js"
+  ],
+  "agent": "OpenCode",
+  "model": "claude-sonnet-4-6",
+  "turn_id": "fa9ebfa09135",
+  "initial_attribution": {
+    "calculated_at": "2026-03-24T03:30:34.690447Z",
+    "agent_lines": 524,
+    "human_added": 664,
+    "human_modified": 92,
+    "human_removed": 0,
+    "total_committed": 1280,
+    "agent_percentage": 40.9375
+  }
+}

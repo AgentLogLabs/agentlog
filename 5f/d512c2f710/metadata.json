@@ -6,7 +6,10 @@
   "checkpoints_count": 1,
   "files_touched": [
     "packages/backend/src/mcp.ts",
-    "packages/backend/test/integration.test.ts"
+    "packages/backend/test/integration.test.ts",
+    "packages/vscode-extension/src/providers/sessionWebviewProvider.ts",
+    "packages/vscode-extension/src/webview/dashboard.css",
+    "packages/vscode-extension/src/webview/dashboard.js"
   ],
   "sessions": [
     {
@@ -14,6 +17,12 @@
       "transcript": "/5f/d512c2f710/0/full.jsonl",
       "content_hash": "/5f/d512c2f710/0/content_hash.txt",
       "prompt": "/5f/d512c2f710/0/prompt.txt"
+    },
+    {
+      "metadata": "/5f/d512c2f710/1/metadata.json",
+      "transcript": "/5f/d512c2f710/1/full.jsonl",
+      "content_hash": "/5f/d512c2f710/1/content_hash.txt",
+      "prompt": ""
     }
   ],
   "token_usage": {
