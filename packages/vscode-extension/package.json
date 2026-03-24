@@ -30,12 +30,31 @@
     "git",
     "prompt"
   ],
-  "icon": "assets/icon.png",
   "activationEvents": [
     "onStartupFinished",
-    "onChatParticipant:agentlog.chat"
+    "onChatParticipant:agentlog.chat",
+    "onCommand:agentlog.startBackend",
+    "onCommand:agentlog.stopBackend",
+    "onCommand:agentlog.showBackendStatus",
+    "onCommand:agentlog.openDashboard",
+    "onCommand:agentlog.exportWeeklyReport",
+    "onCommand:agentlog.exportPrDescription",
+    "onCommand:agentlog.generateCommitContext",
+    "onCommand:agentlog.generateCommitExplain",
+    "onCommand:agentlog.bindCommit",
+    "onCommand:agentlog.installGitHook",
+    "onCommand:agentlog.removeGitHook",
+    "onCommand:agentlog.viewSessionDetail",
+    "onCommand:agentlog.deleteSession",
+    "onCommand:agentlog.refreshSessionList",
+    "onCommand:agentlog.installHooks",
+    "onCommand:agentlog.uninstallHooks",
+    "onCommand:agentlog.resumeContext"
   ],
   "main": "./dist/extension.js",
+  "files": [
+    "dist/**/*"
+  ],
   "contributes": {
     "commands": [
       {
@@ -311,11 +330,12 @@
     "statusBar": []
   },
   "scripts": {
-    "compile": "tsc -p ./tsconfig.json",
-    "watch": "tsc -watch -p ./tsconfig.json",
+    "compile": "node build.mjs",
+    "watch": "node build.mjs --watch",
     "copy-webview": "node -e \"const fs=require('fs');const p=require('path');const src='src/webview';const dst='dist/webview';if(!fs.existsSync(dst))fs.mkdirSync(dst,{recursive:true});fs.readdirSync(src).forEach(f=>fs.copyFileSync(p.join(src,f),p.join(dst,f)));\"",
-    "build": "npm run compile && npm run copy-webview",
-    "vscode:prepublish": "npm run build",
+    "copy-backend": "node -e \"const fs=require('fs');const p=require('path');const src='../backend/dist';const dst='dist/backend';if(!fs.existsSync(dst))fs.mkdirSync(dst,{recursive:true});function copyDir(src,dst){const entries=fs.readdirSync(src,{withFileTypes:true});entries.forEach(entry=>{const srcPath=p.join(src,entry.name);const dstPath=p.join(dst,entry.name);if(entry.isDirectory()){if(!fs.existsSync(dstPath))fs.mkdirSync(dstPath,{recursive:true});copyDir(srcPath,dstPath);}else{fs.copyFileSync(srcPath,dstPath);}});}copyDir(src,dst);\"",
+    "build": "node build.mjs",
+    "vscode:prepublish": "node build.mjs",
     "package": "vsce package",
     "lint": "tsc --noEmit",
     "clean": "rm -rf dist",
@@ -328,6 +348,7 @@
     "@types/node": "^20.11.30",
     "@types/vscode": "^1.85.0",
     "@vscode/vsce": "^2.24.0",
+    "esbuild": "^0.27.4",
     "tsx": "^4.7.2",
     "typescript": "^5.4.5"
   }

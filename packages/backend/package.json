@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "dev:mcp": "tsx src/mcp.ts",
-    "build": "tsc",
+    "build": "node build.mjs",
     "start": "node dist/index.js",
     "start:mcp": "node dist/mcp.js",
     "clean": "rm -rf dist",
@@ -29,6 +29,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.8",
     "@types/node": "^20.11.30",
+    "esbuild": "^0.27.4",
     "pino-pretty": "^11.0.0",
     "tsx": "^4.7.2",
     "typescript": "^5.4.5"
