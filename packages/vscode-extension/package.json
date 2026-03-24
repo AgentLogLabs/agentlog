@@ -53,7 +53,8 @@
   ],
   "main": "./dist/extension.js",
   "files": [
-    "dist/**/*"
+    "dist/**/*",
+    "assets/**/*"
   ],
   "contributes": {
     "commands": [
