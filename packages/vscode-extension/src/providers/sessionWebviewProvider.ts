@@ -160,7 +160,7 @@ export class SessionDetailPanel implements vscode.Disposable {
       outputChannel.appendLine(
         `[Debug][SessionDetailPanel.open] 复用已有面板，触发刷新`,
       );
-      existing._panel.reveal(vscode.ViewColumn.Beside);
+      existing._panel.reveal(vscode.ViewColumn.Active);
       await existing._loadSession();
       return existing;
     }
@@ -189,7 +189,7 @@ export class SessionDetailPanel implements vscode.Disposable {
     this._panel = vscode.window.createWebviewPanel(
       SessionDetailPanel.VIEW_TYPE,
       "AgentLog — 会话详情",
-      vscode.ViewColumn.Beside,
+      vscode.ViewColumn.Active,
       {
         enableScripts: true,
         retainContextWhenHidden: true,
