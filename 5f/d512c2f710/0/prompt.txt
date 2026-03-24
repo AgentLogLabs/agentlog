@@ -1,0 +1,10 @@
+Explore the VSCode extension package at /Users/hobo/Projects/AgentLog/packages/vscode-extension/src and give me a thorough understanding of:
+1. The directory structure and all files
+2. The main extension entry point
+3. How the sidebar/webview panels are implemented
+4. How the extension communicates with the backend HTTP API
+5. Any existing search/filter UI
+6. The webview HTML/CSS/JS structure (look at any webview provider files)
+7. The package.json contributes section (commands, views, etc.)
+
+Return a detailed summary of all files, their purposes, and the key patterns used.
