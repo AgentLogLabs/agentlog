@@ -337,7 +337,7 @@
     "copy-backend": "node -e \"const fs=require('fs');const p=require('path');const src='../backend/dist';const dst='dist/backend';if(!fs.existsSync(dst))fs.mkdirSync(dst,{recursive:true});function copyDir(src,dst){const entries=fs.readdirSync(src,{withFileTypes:true});entries.forEach(entry=>{const srcPath=p.join(src,entry.name);const dstPath=p.join(dst,entry.name);if(entry.isDirectory()){if(!fs.existsSync(dstPath))fs.mkdirSync(dstPath,{recursive:true});copyDir(srcPath,dstPath);}else{fs.copyFileSync(srcPath,dstPath);}});}copyDir(src,dst);\"",
     "build": "node build.mjs",
     "vscode:prepublish": "node build.mjs",
-    "package": "vsce package",
+    "package": "vsce package --no-dependencies",
     "lint": "tsc --noEmit",
     "clean": "rm -rf dist",
     "test:fetch": "node --import tsx --test test/fetchInterception.test.ts"

@@ -140,7 +140,23 @@ async function start(): Promise<void> {
         export: "/api/export",
         hooks: "/api/hooks/:agent/:event",
         health: "/health",
+        status: "/api/status",
       },
+    });
+  });
+
+  app.get("/api/status", async (_req, reply) => {
+    const memUsage = process.memoryUsage();
+    return reply.send({
+      status: "running",
+      version: "0.1.0",
+      uptime: Math.floor(process.uptime()),
+      memory: {
+        rss: Math.round(memUsage.rss / 1024 / 1024) + " MB",
+        heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024) + " MB",
+        heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024) + " MB",
+      },
+      timestamp: new Date().toISOString(),
     });
   });
 
