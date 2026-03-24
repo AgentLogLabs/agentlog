@@ -193,6 +193,17 @@ function renderSession(s) {
             ${commitBadge}
             <span style="color:var(--vscode-descriptionForeground);font-size:11px">${escHtml(formatTime(s.createdAt))} · ${formatDuration(s.durationMs)}</span>
           </div>
+          <div class="session-id-bar">
+            <span class="session-id-label">Session ID</span>
+            <code class="session-id-value" id="session-id-text" title="${escHtml(s.id)}">${escHtml(s.id)}</code>
+            <button class="session-id-copy" id="session-id-copy-btn" onclick="copySessionId()" title="复制完整 Session ID">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M4 2a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h5a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H4zm0 1h5a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/>
+                <path d="M10 1h1a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-1v-1h1a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1h-1V1z"/>
+              </svg>
+              复制
+            </button>
+          </div>
         </div>
         <div class="header-actions">
           <button class="secondary" onclick="copyContent()">复制回复</button>
@@ -320,6 +331,25 @@ function deleteSession() {
   });
 }
 
+function copySessionId() {
+  if (!currentSession) return;
+  vscode.postMessage({
+    command: "copyToClipboard",
+    data: { text: currentSession.id },
+  });
+  // 视觉反馈：按钮短暂变为"已复制"
+  const btn = document.getElementById("session-id-copy-btn");
+  if (btn) {
+    const orig = btn.innerHTML;
+    btn.textContent = "✓ 已复制";
+    btn.classList.add("session-id-copy-ok");
+    setTimeout(() => {
+      btn.innerHTML = orig;
+      btn.classList.remove("session-id-copy-ok");
+    }, 1500);
+  }
+}
+
 function copyContent() {
   if (!currentSession) return;
   vscode.postMessage({
@@ -385,5 +415,6 @@ window.saveNote = saveNote;
 window.bindCommit = bindCommit;
 window.unbindCommit = unbindCommit;
 window.deleteSession = deleteSession;
+window.copySessionId = copySessionId;
 window.copyContent = copyContent;
 window.openInEditor = openInEditor;
