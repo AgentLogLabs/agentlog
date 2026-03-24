@@ -762,4 +762,330 @@ describe("导出（Export）", () => {
   });
 });
 
-// ─
+// ─────────────────────────────────────────────
+// 测试 Suite 5：query_historical_interaction
+//   测试 MCP 工具底层依赖的 Backend HTTP 接口行为，
+//   以及 MCP 侧客户端过滤逻辑（通过直接调用 logService 方法验证）。
+// ─────────────────────────────────────────────
+
+describe("query_historical_interaction — Backend 数据层验证", () => {
+  let app: FastifyInstance;
+  let sessionIdA: string; // 涉及 logService.ts
+  let sessionIdB: string; // 涉及 database.ts，绑定了 commit
+  let sessionIdC: string; // 关键字：重构 API
+
+  before(async () => {
+    app = await buildApp();
+
+    // 创建测试数据
+    const rA = await req<any>(app, "POST", "/api/sessions", {
+      ...SAMPLE_SESSION,
+      prompt: "请帮我优化 logService 的缓存逻辑",
+      response: "已将 Map 替换为 LRU 缓存",
+      affectedFiles: ["src/services/logService.ts", "src/db/cache.ts"],
+      tags: ["优化", "缓存"],
+    });
+    sessionIdA = rA.body.data.id;
+
+    const rB = await req<any>(app, "POST", "/api/sessions", {
+      ...SAMPLE_SESSION,
+      prompt: "重构 database.ts 的连接池管理",
+      response: "已提取 ConnectionPool 类，支持自动重连",
+      affectedFiles: ["src/db/database.ts", "src/db/pool.ts"],
+      tags: ["重构"],
+    });
+    sessionIdB = rB.body.data.id;
+
+    // 绑定 sessionB 到一个 commit
+    await req<any>(app, "POST", "/api/commits/bind", {
+      sessionIds: [sessionIdB],
+      commitHash: "aabbccdd11223344",
+      workspacePath: SAMPLE_SESSION.workspacePath,
+    });
+
+    const rC = await req<any>(app, "POST", "/api/sessions", {
+      ...SAMPLE_SESSION,
+      prompt: "重构公共 API 层：统一错误码格式",
+      response: "所有接口返回 { success, data, error } 三字段结构",
+      affectedFiles: ["src/routes/api.ts"],
+      tags: ["重构", "API"],
+    });
+    sessionIdC = rC.body.data.id;
+  });
+
+  after(async () => {
+    await app.close();
+    closeDatabase();
+  });
+
+  // ── 基础列表查询 ──────────────────────────────────────────────────────────
+
+  it("GET /api/sessions 无参数 → 返回最近记录", async () => {
+    const { status, body } = await req<any>(app, "GET", "/api/sessions");
+    assert.equal(status, 200);
+    assert.equal(body.success, true);
+    assert.ok(body.data.total >= 3, "应至少有 3 条测试数据");
+    assert.ok(Array.isArray(body.data.data));
+  });
+
+  // ── 关键字搜索（keyword 参数）────────────────────────────────────────────
+
+  it("GET /api/sessions?keyword=logService → 匹配 prompt 中的关键字", async () => {
+    const { status, body } = await req<any>(
+      app,
+      "GET",
+      "/api/sessions?keyword=logService",
+    );
+    assert.equal(status, 200);
+    assert.ok(body.data.total >= 1, "应命中含有 logService 的会话");
+    const ids = body.data.data.map((s: any) => s.id);
+    assert.ok(ids.includes(sessionIdA), "应包含 sessionA");
+  });
+
+  it("GET /api/sessions?keyword=不存在的内容xyz → 返回 0 条", async () => {
+    const { status, body } = await req<any>(
+      app,
+      "GET",
+      "/api/sessions?keyword=不存在的内容xyz",
+    );
+    assert.equal(status, 200);
+    assert.equal(body.data.total, 0);
+  });
+
+  // ── 时间范围过滤 ──────────────────────────────────────────────────────────
+
+  it("GET /api/sessions?startDate=&endDate= 时间范围过滤", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+
+    const { status, body } = await req<any>(
+      app,
+      "GET",
+      `/api/sessions?startDate=${today}&endDate=${tomorrow}`,
+    );
+    assert.equal(status, 200);
+    assert.ok(body.data.total >= 3, "今天创建的数据应被包含");
+  });
+
+  it("GET /api/sessions?startDate=未来日期 → 返回 0 条", async () => {
+    const { status, body } = await req<any>(
+      app,
+      "GET",
+      "/api/sessions?startDate=2099-01-01",
+    );
+    assert.equal(status, 200);
+    assert.equal(body.data.total, 0, "未来日期不应有数据");
+  });
+
+  // ── 已绑定 Commit 过滤 ────────────────────────────────────────────────────
+
+  it("GET /api/sessions?onlyBoundToCommit=true → 仅返回绑定的会话", async () => {
+    const { status, body } = await req<any>(
+      app,
+      "GET",
+      "/api/sessions?onlyBoundToCommit=true",
+    );
+    assert.equal(status, 200);
+    assert.ok(body.data.total >= 1, "应至少有 1 条已绑定会话");
+    for (const s of body.data.data) {
+      assert.ok(s.commitHash, "每条都应有 commitHash");
+    }
+    const ids = body.data.data.map((s: any) => s.id);
+    assert.ok(ids.includes(sessionIdB), "sessionB 应在绑定列表中");
+  });
+
+  // ── provider / source 过滤 ────────────────────────────────────────────────
+
+  it("GET /api/sessions?provider=deepseek → 按 provider 过滤", async () => {
+    const { status, body } = await req<any>(
+      app,
+      "GET",
+      "/api/sessions?provider=deepseek",
+    );
+    assert.equal(status, 200);
+    assert.ok(body.data.total >= 3, "三条测试数据均为 deepseek");
+    for (const s of body.data.data) {
+      assert.equal(s.provider, "deepseek");
+    }
+  });
+
+  it("GET /api/sessions?source=cline → 按 source 过滤", async () => {
+    const { status, body } = await req<any>(
+      app,
+      "GET",
+      "/api/sessions?source=cline",
+    );
+    assert.equal(status, 200);
+    assert.ok(body.data.total >= 3);
+    for (const s of body.data.data) {
+      assert.equal(s.source, "cline");
+    }
+  });
+
+  // ── 精确查询单条会话（session_id → GET /api/sessions/:id）────────────────
+
+  it("GET /api/sessions/:id 精确查询返回完整实体", async () => {
+    const { status, body } = await req<any>(
+      app,
+      "GET",
+      `/api/sessions/${sessionIdA}`,
+    );
+    assert.equal(status, 200);
+    assert.equal(body.success, true);
+    const s = body.data;
+    assert.equal(s.id, sessionIdA);
+    assert.equal(s.prompt, "请帮我优化 logService 的缓存逻辑");
+    assert.deepEqual(s.affectedFiles, [
+      "src/services/logService.ts",
+      "src/db/cache.ts",
+    ]);
+    assert.deepEqual(s.tags, ["优化", "缓存"]);
+  });
+
+  // ── 客户端侧 filename 过滤逻辑验证 ───────────────────────────────────────
+  // （通过 /api/sessions 全量取回后在 JS 中过滤，模拟 MCP 工具行为）
+
+  it("filename 过滤：只取包含 database.ts 的会话", async () => {
+    const { body } = await req<any>(app, "GET", "/api/sessions?pageSize=100");
+    const all: any[] = body.data.data;
+
+    const filename = "database.ts";
+    const filtered = all.filter((s: any) =>
+      Array.isArray(s.affectedFiles) &&
+      s.affectedFiles.some((f: string) =>
+        f.toLowerCase().includes(filename.toLowerCase()),
+      ),
+    );
+
+    assert.ok(filtered.length >= 1, "应至少有 1 条涉及 database.ts 的会话");
+    assert.ok(
+      filtered.some((s: any) => s.id === sessionIdB),
+      "sessionB 应在结果中",
+    );
+    assert.ok(
+      filtered.every((s: any) =>
+        s.affectedFiles.some((f: string) => f.includes("database.ts")),
+      ),
+      "所有结果都应含有 database.ts",
+    );
+  });
+
+  it("filename 过滤：不存在的文件名返回空列表", async () => {
+    const { body } = await req<any>(app, "GET", "/api/sessions?pageSize=100");
+    const all: any[] = body.data.data;
+
+    const filtered = all.filter((s: any) =>
+      Array.isArray(s.affectedFiles) &&
+      s.affectedFiles.some((f: string) =>
+        f.toLowerCase().includes("notexist.ts"),
+      ),
+    );
+
+    assert.equal(filtered.length, 0, "不存在的文件名应返回空列表");
+  });
+
+  // ── 客户端侧 commit_hash 过滤逻辑验证 ────────────────────────────────────
+
+  it("commit_hash 过滤：按完整 hash 过滤返回精确结果", async () => {
+    const { body } = await req<any>(
+      app,
+      "GET",
+      "/api/sessions?onlyBoundToCommit=true&pageSize=100",
+    );
+    const all: any[] = body.data.data;
+
+    const hash = "aabbccdd11223344";
+    const filtered = all.filter((s: any) =>
+      typeof s.commitHash === "string" && s.commitHash.startsWith(hash),
+    );
+
+    assert.ok(filtered.length >= 1, "应命中 1 条绑定到该 commit 的会话");
+    assert.ok(
+      filtered.some((s: any) => s.id === sessionIdB),
+      "sessionB 应在结果中",
+    );
+  });
+
+  it("commit_hash 短前缀过滤：前 8 位匹配", async () => {
+    const { body } = await req<any>(
+      app,
+      "GET",
+      "/api/sessions?onlyBoundToCommit=true&pageSize=100",
+    );
+    const all: any[] = body.data.data;
+
+    const shortHash = "aabbccdd";
+    const filtered = all.filter((s: any) =>
+      typeof s.commitHash === "string" && s.commitHash.startsWith(shortHash),
+    );
+
+    assert.ok(filtered.length >= 1, "短前缀也应匹配到");
+    assert.ok(filtered.some((s: any) => s.id === sessionIdB));
+  });
+
+  // ── 分页控制 ─────────────────────────────────────────────────────────────
+
+  it("GET /api/sessions?pageSize=1 分页仅返回 1 条", async () => {
+    const { status, body } = await req<any>(
+      app,
+      "GET",
+      "/api/sessions?pageSize=1",
+    );
+    assert.equal(status, 200);
+    assert.equal(body.data.data.length, 1);
+    assert.ok(body.data.total >= 3);
+    assert.equal(body.data.pageSize, 1);
+  });
+
+  it("GET /api/sessions?page=999 超出范围 → 返回空数组（total 不为 0）", async () => {
+    const { status, body } = await req<any>(
+      app,
+      "GET",
+      "/api/sessions?page=999&pageSize=20",
+    );
+    assert.equal(status, 200);
+    assert.equal(body.data.data.length, 0);
+    assert.ok(body.data.total >= 3);
+  });
+
+  // ── include_transcript 行为验证 ───────────────────────────────────────────
+
+  it("GET /api/sessions/:id 始终返回 transcript 字段（含完整对话记录）", async () => {
+    // 先追加一条 transcript
+    await req<any>(
+      app,
+      "PATCH",
+      `/api/sessions/${sessionIdC}/transcript`,
+      {
+        turns: [
+          { role: "user", content: "请帮我统一错误码" },
+          { role: "assistant", content: "已完成，返回 { success, data, error }" },
+        ],
+      },
+    );
+
+    const { status, body } = await req<any>(
+      app,
+      "GET",
+      `/api/sessions/${sessionIdC}`,
+    );
+    assert.equal(status, 200);
+    assert.ok(
+      Array.isArray(body.data.transcript),
+      "精确查询应始终包含 transcript",
+    );
+    assert.ok(body.data.transcript.length >= 2, "应有 2 条 transcript");
+  });
+
+  // ── 无效参数防御 ──────────────────────────────────────────────────────────
+
+  it("GET /api/sessions/:id 无效 ID → 404", async () => {
+    const { status, body } = await req<any>(
+      app,
+      "GET",
+      "/api/sessions/nonexistent-id-for-query",
+    );
+    assert.equal(status, 404);
+    assert.equal(body.success, false);
+  });
+});

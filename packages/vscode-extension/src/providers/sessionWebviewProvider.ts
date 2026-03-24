@@ -19,8 +19,11 @@
 import * as vscode from "vscode";
 import type {
   AgentSession,
+  AgentSource,
   ExportFormat,
   ExportLanguage,
+  ModelProvider,
+  SessionQueryFilter,
 } from "@agentlog/shared";
 import {
   getBackendClient,
@@ -78,6 +81,7 @@ type FromWebviewMessage =
   | { command: "bindCommit"; data: { sessionId: string; commitHash: string } }
   | { command: "unbindCommit"; data: { sessionId: string } }
   | { command: "deleteSession"; data: { sessionId: string } }
+  | { command: "viewSessionDetail"; data: { sessionId: string } }
   | {
       command: "exportSession";
       data: {
@@ -92,9 +96,15 @@ type FromWebviewMessage =
         page: number;
         pageSize: number;
         keyword?: string;
+        /** 文件名模糊匹配（客户端侧过滤 affectedFiles） */
+        filename?: string;
         startDate?: string;
         endDate?: string;
         tags?: string[];
+        provider?: string;
+        source?: string;
+        /** true = 仅未绑定 Commit 的会话 */
+        onlyUnbound?: boolean;
       };
     }
   | {
@@ -580,17 +590,68 @@ export class DashboardPanel implements vscode.Disposable {
           await this._loadDashboard();
           break;
 
+        case "viewSessionDetail": {
+          // 仪表板列表点击"详情"——在侧边打开详情面板
+          const { sessionId } = msg.data;
+          const context = this._context;
+          const outputChannel = this._outputChannel;
+          // 异步打开，不阻塞仪表板响应
+          SessionDetailPanel.open(sessionId, context, outputChannel).catch(
+            (err) =>
+              this._outputChannel.appendLine(
+                `[AgentLog Dashboard] 打开详情失败：${err}`,
+              ),
+          );
+          break;
+        }
+
         case "querySessions": {
           const workspacePath = this._resolveWorkspacePath();
-          const result = await client.querySessions({
-            page: msg.data.page,
-            pageSize: msg.data.pageSize,
-            keyword: msg.data.keyword,
-            startDate: msg.data.startDate,
-            endDate: msg.data.endDate,
-            tags: msg.data.tags,
+          const { filename, onlyUnbound, provider, source, ...rest } =
+            msg.data;
+
+          // 构建传给 backend 的查询过滤参数
+          const filter: SessionQueryFilter = {
+            page: rest.page,
+            pageSize: rest.pageSize,
+            keyword: rest.keyword,
+            startDate: rest.startDate,
+            endDate: rest.endDate,
+            tags: rest.tags,
+            provider: provider as ModelProvider | undefined,
+            source: source as AgentSource | undefined,
             workspacePath,
-          });
+          };
+
+          let result = await client.querySessions(filter);
+
+          // 客户端侧：按 filename 过滤 affectedFiles
+          if (filename && filename.trim()) {
+            const lower = filename.trim().toLowerCase();
+            const filtered = result.data.filter(
+              (s) =>
+                Array.isArray(s.affectedFiles) &&
+                s.affectedFiles.some((f) =>
+                  f.toLowerCase().includes(lower),
+                ),
+            );
+            result = {
+              ...result,
+              data: filtered,
+              total: filtered.length,
+            };
+          }
+
+          // 客户端侧：仅未绑定
+          if (onlyUnbound) {
+            const filtered = result.data.filter((s) => !s.commitHash);
+            result = {
+              ...result,
+              data: filtered,
+              total: filtered.length,
+            };
+          }
+
           this._postMessage({
             type: "loadSessions",
             payload: {

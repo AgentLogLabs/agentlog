@@ -2,7 +2,7 @@
  * @agentlog/backend — MCP Server 入口（stdio 模式）
  *
  * 通过 Model Context Protocol 为 AI Agent（Cline / Roo Code / OpenCode 等）
- * 提供两个工具：
+ * 提供三个工具：
  *
  *  1. log_turn   — 逐轮上报每一条消息（user / assistant / tool），
  *                  首次调用自动创建会话，后续调用追加到同一会话。
@@ -12,6 +12,10 @@
  *                  受影响文件等汇总信息，并可携带完整 transcript。
  *                  若之前已通过 log_turn 建立了会话，可传入 session_id
  *                  将汇总信息合并到已有会话；否则创建新会话。
+ *
+ *  3. query_historical_interaction — 只读工具，允许其他 Agent 检索历史
+ *                  交互记录。支持按文件名、关键字、时间范围、session_id、
+ *                  commit_hash 等多维度过滤，返回原始交互记录。
  *
  * 数据通过 HTTP 提交给 AgentLog Backend（POST /api/sessions），
  * 由 Backend 统一写入 SQLite，避免多进程直接操作数据库导致 WAL 隔离问题。
@@ -163,6 +167,62 @@ async function patchIntent(
 }
 
 // ─────────────────────────────────────────────
+// query_historical_interaction 专用类型与工具函数
+// ─────────────────────────────────────────────
+
+interface QuerySessionsResponse {
+  success: boolean;
+  data?: {
+    data: unknown[];
+    total: number;
+    page: number;
+    pageSize: number;
+  };
+  error?: string;
+}
+
+interface GetSessionResponse {
+  success: boolean;
+  data?: unknown;
+  error?: string;
+}
+
+/**
+ * 向 Backend 查询历史会话列表（分页 + 多维过滤）。
+ * 对应 GET /api/sessions
+ */
+async function fetchSessions(params: Record<string, string>): Promise<QuerySessionsResponse> {
+  const qs = new URLSearchParams(params).toString();
+  const url = `${BACKEND_BASE}/api/sessions${qs ? `?${qs}` : ""}`;
+
+  process.stderr.write(`[agentlog-mcp] GET ${url}\n`);
+
+  const resp = await fetch(url);
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(`Backend 返回 HTTP ${resp.status}：${text}`);
+  }
+  return resp.json() as Promise<QuerySessionsResponse>;
+}
+
+/**
+ * 向 Backend 查询单条会话详情（含完整 transcript）。
+ * 对应 GET /api/sessions/:id
+ */
+async function fetchSessionById(sessionId: string): Promise<GetSessionResponse> {
+  const url = `${BACKEND_BASE}/api/sessions/${encodeURIComponent(sessionId)}`;
+
+  process.stderr.write(`[agentlog-mcp] GET ${url}\n`);
+
+  const resp = await fetch(url);
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(`Backend 返回 HTTP ${resp.status}：${text}`);
+  }
+  return resp.json() as Promise<GetSessionResponse>;
+}
+
+// ─────────────────────────────────────────────
 // MCP Server 主流程
 // ─────────────────────────────────────────────
 
@@ -170,7 +230,7 @@ async function main(): Promise<void> {
   const server = new Server(
     {
       name: "agentlog-mcp",
-      version: "0.3.0",
+      version: "0.4.0",
     },
     {
       capabilities: {
@@ -242,6 +302,86 @@ async function main(): Promise<void> {
               },
             },
             required: ["role", "content"],
+          },
+        },
+
+        // ── query_historical_interaction ──────────────────────────────────
+        {
+          name: "query_historical_interaction",
+          description:
+            "【只读】从 AgentLog 数据库检索历史 AI 交互记录，供其他 Agent 分析或调试使用。\n" +
+            "支持多维过滤：\n" +
+            "  - session_id   精确查询单条会话（返回完整 transcript）\n" +
+            "  - filename     查找涉及指定文件的会话（模糊匹配 affected_files）\n" +
+            "  - keyword      在 prompt / response / note 中全文搜索\n" +
+            "  - start_date   时间范围起始（ISO 8601，含）\n" +
+            "  - end_date     时间范围截止（ISO 8601，含）\n" +
+            "  - commit_hash  查找绑定到指定 Commit 的会话\n" +
+            "  - provider     按模型提供商过滤（如 anthropic / openai / deepseek）\n" +
+            "  - source       按 Agent 来源过滤（如 opencode / cline / cursor）\n" +
+            "  - page / page_size 分页控制（默认第 1 页，每页 20 条）\n" +
+            "  - include_transcript 是否在列表结果中包含完整 transcript（默认 false，可能较大）\n" +
+            "不传任何参数时返回最近 20 条记录。",
+          inputSchema: {
+            type: "object" as const,
+            properties: {
+              session_id: {
+                type: "string",
+                description:
+                  "精确查询指定会话 ID。传入后忽略其他过滤参数，返回该会话的完整详情（含 transcript）。",
+              },
+              filename: {
+                type: "string",
+                description:
+                  "文件名或路径片段（部分匹配）。例如传入 'logService.ts' 可找到所有涉及该文件的会话。",
+              },
+              keyword: {
+                type: "string",
+                description:
+                  "全文关键字，在 prompt、response、note 三个字段中模糊搜索。",
+              },
+              start_date: {
+                type: "string",
+                description:
+                  "查询起始时间（ISO 8601，例如 '2025-01-01' 或 '2025-01-01T00:00:00Z'）。",
+              },
+              end_date: {
+                type: "string",
+                description:
+                  "查询截止时间（ISO 8601，例如 '2025-12-31' 或 '2025-12-31T23:59:59Z'）。",
+              },
+              commit_hash: {
+                type: "string",
+                description:
+                  "Git Commit Hash（完整 SHA 或短 SHA），查找绑定到该 Commit 的会话。",
+              },
+              provider: {
+                type: "string",
+                description:
+                  "模型提供商，例如 'anthropic'、'openai'、'deepseek'、'qwen'。",
+              },
+              source: {
+                type: "string",
+                description:
+                  "Agent 来源，例如 'opencode'、'cline'、'cursor'、'claude-code'。",
+              },
+              page: {
+                type: "number",
+                description: "分页页码，从 1 开始（默认 1）。",
+              },
+              page_size: {
+                type: "number",
+                description: "每页返回条数，最大 100（默认 20）。",
+              },
+              include_transcript: {
+                type: "boolean",
+                description:
+                  "在列表结果中是否包含每条会话的完整 transcript（逐轮对话记录）。" +
+                  "默认 false（仅列表时省略 transcript 以减少响应体积）。" +
+                  "使用 session_id 精确查询时始终返回 transcript。",
+              },
+            },
+            required: [],
           },
         },
 
@@ -324,6 +464,153 @@ async function main(): Promise<void> {
     const source =
       process.env.AGENTLOG_SOURCE ||
       inferSource(clientName);
+
+    // ── query_historical_interaction ────────────────────────────────────
+    if (request.params.name === "query_historical_interaction") {
+      const args = request.params.arguments ?? {};
+
+      try {
+        // 精确查询单条会话
+        const sessionId = args.session_id as string | undefined;
+        if (sessionId) {
+          process.stderr.write(`[agentlog-mcp] query_historical_interaction: session_id=${sessionId}\n`);
+
+          const result = await fetchSessionById(sessionId);
+          if (!result.success || !result.data) {
+            return {
+              isError: true,
+              content: [{ type: "text" as const, text: `未找到会话：${sessionId}` }],
+            };
+          }
+
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify(
+                  {
+                    total: 1,
+                    page: 1,
+                    pageSize: 1,
+                    records: [result.data],
+                  },
+                  null,
+                  2,
+                ),
+              },
+            ],
+          };
+        }
+
+        // 列表查询：构造查询参数
+        const queryParams: Record<string, string> = {};
+
+        const filename = args.filename as string | undefined;
+        const keyword = args.keyword as string | undefined;
+        const startDate = args.start_date as string | undefined;
+        const endDate = args.end_date as string | undefined;
+        const commitHash = args.commit_hash as string | undefined;
+        const provider = args.provider as string | undefined;
+        const source = args.source as string | undefined;
+        const page = (args.page as number | undefined) ?? 1;
+        const pageSize = Math.min((args.page_size as number | undefined) ?? 20, 100);
+        const includeTranscript = (args.include_transcript as boolean | undefined) ?? false;
+
+        // filename → keyword 补充（affected_files 用 LIKE 模糊匹配，
+        // Backend 现有 API 通过 keyword 覆盖 prompt/response/note，
+        // affected_files 暂通过独立参数 affectedFile 传递）
+        if (keyword) queryParams.keyword = keyword;
+        if (startDate) queryParams.startDate = startDate;
+        if (endDate) queryParams.endDate = endDate;
+        if (provider) queryParams.provider = provider;
+        if (source) queryParams.source = source;
+        if (commitHash) queryParams.commitHash = commitHash;
+        queryParams.page = String(page);
+        queryParams.pageSize = String(pageSize);
+
+        // commit_hash 过滤：onlyBoundToCommit 仅作布尔标记，具体 hash 需客户端过滤
+        if (commitHash) {
+          queryParams.onlyBoundToCommit = "true";
+          // 增大 pageSize 以确保客户端有足够数据来过滤（最大 100 条/页）
+          queryParams.pageSize = String(Math.min(pageSize * 5, 100));
+        }
+
+        process.stderr.write(
+          `[agentlog-mcp] query_historical_interaction: params=${JSON.stringify(queryParams)}\n`,
+        );
+
+        const result = await fetchSessions(queryParams);
+        if (!result.success || !result.data) {
+          return {
+            isError: true,
+            content: [
+              {
+                type: "text" as const,
+                text: `查询失败：${result.error ?? "Backend 未返回数据"}`,
+              },
+            ],
+          };
+        }
+
+        let records = result.data.data as Array<Record<string, unknown>>;
+
+        // 客户端侧：按文件名过滤（affected_files 模糊匹配）
+        if (filename) {
+          const lowerFile = filename.toLowerCase();
+          records = records.filter((s) => {
+            const files = s.affectedFiles;
+            if (!Array.isArray(files)) return false;
+            return (files as string[]).some((f) =>
+              f.toLowerCase().includes(lowerFile),
+            );
+          });
+        }
+
+        // 客户端侧：按 commit_hash 精确过滤
+        if (commitHash) {
+          records = records.filter((s) => {
+            const ch = s.commitHash as string | undefined;
+            return ch != null && ch.startsWith(commitHash);
+          });
+        }
+
+        // 若不需要 transcript，从结果中删除（减少响应体积）
+        if (!includeTranscript) {
+          records = records.map((s) => {
+            const { transcript: _t, ...rest } = s;
+            return rest;
+          });
+        }
+
+        // 若有客户端侧过滤，total 以过滤后结果为准
+        const clientFiltered = !!(filename || commitHash);
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  total: clientFiltered ? records.length : result.data.total,
+                  page: result.data.page,
+                  pageSize: result.data.pageSize,
+                  records,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        process.stderr.write(`[agentlog-mcp] query_historical_interaction 失败：${msg}\n`);
+        return {
+          isError: true,
+          content: [{ type: "text" as const, text: `查询失败：${msg}` }],
+        };
+      }
+    }
 
     // ── log_turn ────────────────────────────────────────────────────────
     if (request.params.name === "log_turn") {
