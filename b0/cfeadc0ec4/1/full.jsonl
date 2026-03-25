@@ -1,0 +1,219 @@
+{
+  "info": {
+    "id": "ses_2db3d86ffffeJKZ1dYClTvYduM",
+    "slug": "shiny-meadow",
+    "projectID": "bf4c3e099400a06715a042f25f06edf8caeff610",
+    "directory": "/Users/hobo/Projects/AgentLog",
+    "title": "耗时参数是否记入后台的测试",
+    "version": "1.2.27",
+    "summary": {
+      "additions": 0,
+      "deletions": 0,
+      "files": 0
+    },
+    "time": {
+      "created": 1774438217984,
+      "updated": 1774438224956
+    }
+  },
+  "messages": [
+    {
+      "info": {
+        "role": "user",
+        "time": {
+          "created": 1774438217996
+        },
+        "summary": {
+          "diffs": []
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "opencode",
+          "modelID": "claude-sonnet-4-6"
+        },
+        "id": "msg_d24c279060019XEbkpDqWASgg4",
+        "sessionID": "ses_2db3d86ffffeJKZ1dYClTvYduM"
+      },
+      "parts": [
+        {
+          "type": "text",
+          "text": "测试一下耗时参数是否记入后台了",
+          "id": "prt_d24c27906002iLSXoJ94oq8DcA",
+          "sessionID": "ses_2db3d86ffffeJKZ1dYClTvYduM",
+          "messageID": "msg_d24c279060019XEbkpDqWASgg4"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1774438218001,
+          "completed": 1774438224938
+        },
+        "parentID": "msg_d24c279060019XEbkpDqWASgg4",
+        "modelID": "claude-sonnet-4-6",
+        "providerID": "opencode",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0.0088386,
+        "tokens": {
+          "total": 18564,
+          "input": 3,
+          "output": 143,
+          "reasoning": 0,
+          "cache": {
+            "read": 18082,
+            "write": 336
+          }
+        },
+        "finish": "tool-calls",
+        "id": "msg_d24c27911001KgJhItPYBzEOci",
+        "sessionID": "ses_2db3d86ffffeJKZ1dYClTvYduM"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "snapshot": "64b369f5c5e66b67696d40d24cff7560f08e9922",
+          "id": "prt_d24c28ebc001aRpxyiuRj0Ab5d",
+          "sessionID": "ses_2db3d86ffffeJKZ1dYClTvYduM",
+          "messageID": "msg_d24c27911001KgJhItPYBzEOci"
+        },
+        {
+          "type": "tool",
+          "callID": "toolu_01ST4oSE3pBBCsFDrq2DTf5o",
+          "tool": "agentlog_log_turn",
+          "state": {
+            "status": "completed",
+            "input": {
+              "role": "user",
+              "content": "测试一下耗时参数是否记入后台了",
+              "model": "claude-sonnet-4-6",
+              "workspace_path": "/Users/hobo/Projects/AgentLog"
+            },
+            "output": "消息已记录（session_id=l1Ca4VVz5TJtzF_TzoT-4）。后续调用请传入此 session_id。",
+            "title": "",
+            "metadata": {
+              "truncated": false
+            },
+            "time": {
+              "start": 1774438224557,
+              "end": 1774438224571
+            },
+            "attachments": []
+          },
+          "id": "prt_d24c28ebc002wqWRlzLoF29wrh",
+          "sessionID": "ses_2db3d86ffffeJKZ1dYClTvYduM",
+          "messageID": "msg_d24c27911001KgJhItPYBzEOci"
+        },
+        {
+          "type": "step-finish",
+          "reason": "tool-calls",
+          "snapshot": "64b369f5c5e66b67696d40d24cff7560f08e9922",
+          "cost": 0.0088386,
+          "tokens": {
+            "total": 18564,
+            "input": 3,
+            "output": 143,
+            "reasoning": 0,
+            "cache": {
+              "read": 18082,
+              "write": 336
+            }
+          },
+          "id": "prt_d24c293e6001wXGZdZ6pSvJh6u",
+          "sessionID": "ses_2db3d86ffffeJKZ1dYClTvYduM",
+          "messageID": "msg_d24c27911001KgJhItPYBzEOci"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1774438224939,
+          "completed": 1774438363412
+        },
+        "error": {
+          "name": "MessageAbortedError",
+          "data": {
+            "message": "The operation was aborted."
+          }
+        },
+        "parentID": "msg_d24c279060019XEbkpDqWASgg4",
+        "modelID": "claude-sonnet-4-6",
+        "providerID": "opencode",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "cache": {
+            "read": 0,
+            "write": 0
+          }
+        },
+        "id": "msg_d24c2942b001wg2okDePBADAOT",
+        "sessionID": "ses_2db3d86ffffeJKZ1dYClTvYduM"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "snapshot": "64b369f5c5e66b67696d40d24cff7560f08e9922",
+          "id": "prt_d24c299980012YV3SpW4aPwJfw",
+          "sessionID": "ses_2db3d86ffffeJKZ1dYClTvYduM",
+          "messageID": "msg_d24c2942b001wg2okDePBADAOT"
+        },
+        {
+          "type": "text",
+          "text": "先了解一下\"耗时参数\"在代码中的实现情况，以及后台如何存储。",
+          "time": {
+            "start": 1774438227527,
+            "end": 1774438227527
+          },
+          "id": "prt_d24c29999001QpGIk5LOx6fhTG",
+          "sessionID": "ses_2db3d86ffffeJKZ1dYClTvYduM",
+          "messageID": "msg_d24c2942b001wg2okDePBADAOT"
+        },
+        {
+          "type": "tool",
+          "callID": "toolu_01Db9vRHubU23nhAdV9zXtJR",
+          "tool": "task",
+          "state": {
+            "status": "error",
+            "input": {
+              "description": "Explore duration/timing params",
+              "subagent_type": "explore",
+              "prompt": "In the AgentLog project at /Users/hobo/Projects/AgentLog, find all code related to \"duration\" or \"耗时\" (timing/elapsed time) parameters. Look for:\n1. Database schema definitions (what columns exist for duration/timing)\n2. API route handlers that accept duration parameters\n3. TypeScript types/interfaces that include duration fields\n4. Any log_turn or session-related functions that handle duration\n\nReturn the specific file paths, line numbers, and code snippets for each finding. Be thorough - check packages/backend, packages/shared, and packages/vscode-extension."
+            },
+            "error": "Tool execution aborted",
+            "metadata": {
+              "sessionId": "ses_2db3d4e86ffeEyDnuSwabwhkcv",
+              "model": {
+                "modelID": "claude-sonnet-4-6",
+                "providerID": "opencode"
+              }
+            },
+            "time": {
+              "start": 1774438363411,
+              "end": 1774438363411
+            }
+          },
+          "id": "prt_d24c29e49001c47EfdblnjTRoc",
+          "sessionID": "ses_2db3d86ffffeJKZ1dYClTvYduM",
+          "messageID": "msg_d24c2942b001wg2okDePBADAOT"
+        }
+      ]
+    }
+  ]
+}
