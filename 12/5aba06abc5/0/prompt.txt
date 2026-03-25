@@ -1,0 +1,13 @@
+重新生成vscode插件
+
+---
+
+使用nvm use 22
+
+---
+
+执行@scripts/package.sh 生成
+
+---
+
+请修改
