@@ -415,16 +415,17 @@ export default async function sessionsRoutes(app: FastifyInstance) {
     async (
       req: FastifyRequest<{
         Params: { id: string };
-        Body: { response?: string; affectedFiles?: string[] };
+        Body: { response?: string; affectedFiles?: string[]; durationMs?: number };
       }>,
       reply: FastifyReply,
     ) => {
-      const { response, affectedFiles } = req.body ?? {};
+      const { response, affectedFiles, durationMs } = req.body ?? {};
 
       try {
         const updated = updateSessionIntent(req.params.id, {
           response,
           affectedFiles,
+          durationMs,
         });
         if (!updated) {
           return reply.status(404).send({

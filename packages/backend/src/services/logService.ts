@@ -366,6 +366,7 @@ export function updateSessionIntent(
   fields: {
     response?: string;
     affectedFiles?: string[];
+    durationMs?: number;
   },
 ): AgentSession | null {
   const db = getDatabase();
@@ -391,6 +392,11 @@ export function updateSessionIntent(
   if (fields.affectedFiles !== undefined && fields.affectedFiles.length > 0) {
     setClauses.push('affected_files = @affected_files');
     params.affected_files = toJson(fields.affectedFiles);
+  }
+
+  if (fields.durationMs !== undefined && fields.durationMs > 0) {
+    setClauses.push('duration_ms = @duration_ms');
+    params.duration_ms = fields.durationMs;
   }
 
   if (setClauses.length === 0) return existing;

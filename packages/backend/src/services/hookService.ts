@@ -175,6 +175,44 @@ function inferProvider(model?: string): ModelProvider {
  * payload 包含 transcript_path（完整对话历史 JSONL）和 cwd（工作目录）。
  * 读取 transcript → 提取最后一轮对话 → createSession 入库。
  */
+/**
+ * 从 transcript 条目列表中估算会话耗时（毫秒）。
+ * 优先使用条目的 timestamp 字段，否则使用 JSONL 文件修改时间。
+ */
+function estimateDurationFromEntries(
+  entries: TranscriptEntry[],
+  transcriptPath?: string,
+): number {
+  // 方式 1：从 transcript 条目的 timestamp 字段推算
+  const timestamps = entries
+    .map((e) => e.timestamp)
+    .filter((t): t is string => !!t)
+    .map((t) => new Date(t).getTime())
+    .filter((t) => !isNaN(t));
+
+  if (timestamps.length >= 2) {
+    const first = Math.min(...timestamps);
+    const last = Math.max(...timestamps);
+    if (last > first) return last - first;
+  }
+
+  // 方式 2：使用 JSONL 文件的 birthtime → mtime 差值
+  if (transcriptPath) {
+    try {
+      const stat = fs.statSync(transcriptPath);
+      const birth = stat.birthtimeMs;
+      const mod = stat.mtimeMs;
+      if (mod > birth && mod - birth > 0) {
+        return Math.round(mod - birth);
+      }
+    } catch {
+      // 文件 stat 失败时忽略
+    }
+  }
+
+  return 0;
+}
+
 export function handleClaudeCodeStop(
   payload: ClaudeCodeHookPayload,
 ): AgentSession | null {
@@ -186,6 +224,8 @@ export function handleClaudeCodeStop(
     const turn = parseLastTurn(entries);
 
     if (turn) {
+      const durationMs = estimateDurationFromEntries(entries, payload.transcript_path);
+
       return createSession({
         provider: inferProvider(turn.model),
         model: turn.model ?? "claude",
@@ -195,7 +235,7 @@ export function handleClaudeCodeStop(
         reasoning: turn.reasoning,
         response: turn.response,
         affectedFiles: [],
-        durationMs: 0,
+        durationMs,
         metadata: {
           hookEvent: payload.hook_event_name,
           claudeSessionId: payload.session_id,

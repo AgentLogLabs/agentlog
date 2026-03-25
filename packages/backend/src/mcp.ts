@@ -143,12 +143,12 @@ async function patchTranscript(
 }
 
 /**
- * 向 Backend 回写 intent 字段（response / affectedFiles）。
+ * 向 Backend 回写 intent 字段（response / affectedFiles / durationMs）。
  * reasoning 由后端从 transcript 自动生成，无需传入。
  */
 async function patchIntent(
   sessionId: string,
-  body: { response?: string; affectedFiles?: string[] },
+  body: { response?: string; affectedFiles?: string[]; durationMs?: number },
 ): Promise<void> {
   const url = `${BACKEND_BASE}/api/sessions/${sessionId}/intent`;
 
@@ -456,6 +456,11 @@ async function main(): Promise<void> {
                   api_call_count: { type: "number" },
                 },
               },
+              duration_ms: {
+                type: "number",
+                description:
+                  "本次交互总耗时（毫秒）。可选——若不传，系统将根据会话首条 transcript 时间戳自动计算。",
+              },
             },
             required: ["task", "model"],
           },
@@ -717,6 +722,7 @@ async function main(): Promise<void> {
       const workspacePath = (args.workspace_path as string) || process.cwd();
       const model = (args.model as string) || "unknown";
       const existingSessionId = args.session_id as string | undefined;
+      const explicitDurationMs = args.duration_ms as number | undefined;
 
       // transcript（可选，未使用 log_turn 时一次性提交）
       const rawTranscript = args.transcript as Array<Record<string, string>> | undefined;
@@ -757,10 +763,31 @@ async function main(): Promise<void> {
         let resultId: string;
 
         if (existingSessionId) {
-          // 已有会话：回写 response/affectedFiles，reasoning 由后端从 transcript 自动生成
-          const intentBody: { response?: string; affectedFiles?: string[] } = {};
+          // 已有会话：回写 response/affectedFiles/durationMs，reasoning 由后端从 transcript 自动生成
+          const intentBody: { response?: string; affectedFiles?: string[]; durationMs?: number } = {};
           if (task) intentBody.response = task;
           if (affectedFiles.length > 0) intentBody.affectedFiles = affectedFiles;
+
+          // 耗时计算：优先使用外部传入值，否则从会话创建时间自动推算
+          if (explicitDurationMs && explicitDurationMs > 0) {
+            intentBody.durationMs = Math.round(explicitDurationMs);
+          } else {
+            // 从已有会话的 createdAt 时间戳推算耗时
+            try {
+              const sessionResp = await fetchSessionById(existingSessionId);
+              const sessionData = sessionResp.data as Record<string, unknown> | undefined;
+              const createdAt = sessionData?.createdAt as string | undefined;
+              if (createdAt) {
+                const created = new Date(createdAt).getTime();
+                if (!isNaN(created)) {
+                  intentBody.durationMs = Math.round(Date.now() - created);
+                }
+              }
+            } catch {
+              // 查询失败时跳过自动计算，不影响主流程
+              process.stderr.write(`[agentlog-mcp] 自动计算耗时失败，跳过\n`);
+            }
+          }
 
           await patchIntent(existingSessionId, intentBody);
 
@@ -775,6 +802,20 @@ async function main(): Promise<void> {
           resultId = existingSessionId;
         } else {
           // 新建会话（reasoning 由 createSession 从 transcript 自动生成）
+          // 耗时：优先使用外部传入值，其次从 transcript 首尾时间戳推算
+          let newSessionDurationMs = explicitDurationMs && explicitDurationMs > 0
+            ? Math.round(explicitDurationMs)
+            : 0;
+          if (newSessionDurationMs === 0 && transcript && transcript.length > 0) {
+            const firstTs = transcript[0].timestamp;
+            if (firstTs) {
+              const firstTime = new Date(firstTs).getTime();
+              if (!isNaN(firstTime)) {
+                newSessionDurationMs = Math.round(Date.now() - firstTime);
+              }
+            }
+          }
+
           resultId = await postSession({
             provider,
             model,
@@ -783,7 +824,7 @@ async function main(): Promise<void> {
             prompt: task,
             response: task,
             affectedFiles,
-            durationMs: 0,
+            durationMs: newSessionDurationMs,
             ...(transcript && transcript.length > 0 ? { transcript } : {}),
             ...(tokenUsage ? { tokenUsage } : {}),
           });

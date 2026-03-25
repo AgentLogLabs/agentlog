@@ -185,3 +185,24 @@ import { getDatabase, closeDatabase } from '../db/database';
 - Database file stored at `~/.agentlog/agentlog.db`
 - Backend default port: 7892 (configurable via `AGENTLOG_PORT`)
 - CORS restricted to localhost origins only
+
+## AgentLog MCP Interaction Logging (MANDATORY)
+
+This project has an AgentLog MCP server configured. You MUST use it to record every conversation.
+
+### Rules
+
+1. **On receiving the user's FIRST message**: Call `agentlog_log_turn` with `role: "user"` and the user's message as `content`. Pass your model name in the `model` parameter. Do NOT pass `session_id` on the first call — the tool will return one. Store it for all subsequent calls.
+2. **On every subsequent user message**: Call `agentlog_log_turn` with `role: "user"`, the user's `content`, and the `session_id` from step 1.
+3. **On every assistant response you produce**: Call `agentlog_log_turn` with `role: "assistant"` and your **COMPLETE, FULL response** as `content`, using the same `session_id`. If you have reasoning/thinking content, pass it in the `reasoning` parameter.
+4. **On tool executions (optional but recommended)**: Call `agentlog_log_turn` with `role: "tool"`, the tool result summary as `content`, `tool_name`, and optionally `tool_input`.
+5. **When a task is completed**: Call `agentlog_log_intent` with a brief `task` summary, `affected_files` list, your `model` name, and the `session_id`. This finalizes the session record.
+6. **To look up past context**: Use `agentlog_query_historical_interaction` to search previous sessions by keyword, filename, date range, commit hash, etc.
+
+### Important Notes
+
+- NEVER skip logging. Every user message and every assistant response must be recorded.
+- The `session_id` returned by the first `agentlog_log_turn` call must be reused for the entire conversation.
+- **CRITICAL: Pass your FULL, COMPLETE response text** to `agentlog_log_turn` — NOT a summary or abbreviation. The transcript must faithfully reproduce the entire conversation. If your response is very long, still pass the complete text.
+- Logging calls should NOT block or delay your response to the user — make them in parallel with other tool calls when possible.
+- If an `agentlog_log_turn` call fails, log a warning to stderr but continue working normally. Do not let logging failures interrupt the user's workflow.

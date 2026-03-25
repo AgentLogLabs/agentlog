@@ -139,6 +139,10 @@ export class SessionDetailPanel implements vscode.Disposable {
   private readonly _context: vscode.ExtensionContext;
   private _disposables: vscode.Disposable[] = [];
   private _readyReceived = false;
+  /** 自动刷新定时器（每 10 秒轮询一次） */
+  private _refreshTimer: ReturnType<typeof setInterval> | undefined;
+  /** 上次加载的 transcript 轮数，用于判断是否有新数据 */
+  private _lastTranscriptLength = 0;
 
   // ─── 静态工厂 ───────────────────────────────
 
@@ -231,6 +235,15 @@ export class SessionDetailPanel implements vscode.Disposable {
       }
     }, 3000);
 
+    // 自动刷新：每 10 秒轮询一次，检测 transcript 是否有新增
+    this._refreshTimer = setInterval(() => {
+      this._autoRefresh().catch((err) => {
+        this._outputChannel.appendLine(
+          `[Debug][SessionDetailPanel] 自动刷新失败：${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+    }, 10_000);
+
     // 面板关闭时清理
     this._disposables.push(
       this._panel.onDidDispose(() => {
@@ -260,9 +273,10 @@ export class SessionDetailPanel implements vscode.Disposable {
       );
 
       this._panel.title = `AgentLog — ${session.model} · ${session.id.slice(0, 8)}`;
+      this._lastTranscriptLength = session.transcript?.length ?? 0;
       this._postMessage({ type: "loadSession", payload: session });
       this._outputChannel.appendLine(
-        `[Debug][_loadSession] 已发送 loadSession 消息`,
+        `[Debug][_loadSession] 已发送 loadSession 消息，transcript=${this._lastTranscriptLength} 轮`,
       );
     } catch (err) {
       const message =
@@ -281,6 +295,28 @@ export class SessionDetailPanel implements vscode.Disposable {
         `[Debug][_loadSession] finally 块执行，发送 loading:false`,
       );
       this._postMessage({ type: "loading", payload: { loading: false } });
+    }
+  }
+
+  /**
+   * 自动刷新：仅当 transcript 数量有变化时才重新推送数据到 webview。
+   * 避免频繁的完整重渲染，只在有新 turn 时才更新。
+   */
+  private async _autoRefresh(): Promise<void> {
+    if (!this._readyReceived) return;
+    try {
+      const client = getBackendClient();
+      const session = await client.getSession(this._sessionId);
+      const newLength = session.transcript?.length ?? 0;
+      if (newLength !== this._lastTranscriptLength) {
+        this._lastTranscriptLength = newLength;
+        this._postMessage({ type: "updateSession", payload: session });
+        this._outputChannel.appendLine(
+          `[Debug][_autoRefresh] 检测到新数据，transcript ${newLength} 轮，已刷新`,
+        );
+      }
+    } catch {
+      // 静默忽略——网络不可达等场景下不打断用户
     }
   }
 
@@ -465,6 +501,10 @@ export class SessionDetailPanel implements vscode.Disposable {
   // ─── vscode.Disposable ──────────────────────
 
   dispose(): void {
+    if (this._refreshTimer) {
+      clearInterval(this._refreshTimer);
+      this._refreshTimer = undefined;
+    }
     SessionDetailPanel._openPanels.delete(this._sessionId);
     for (const d of this._disposables) d.dispose();
     this._disposables = [];
