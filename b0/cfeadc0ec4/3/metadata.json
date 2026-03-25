@@ -1,0 +1,29 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "b0cfeadc0ec4",
+  "session_id": "ses_2db581e1bffeydz8Y4H6389Xuf",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-25T11:36:15.090886Z",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "AGENTS.md",
+    "docs/E2E_TEST_CASES.md",
+    "packages/backend/src/mcp.ts",
+    "packages/backend/src/routes/sessions.ts",
+    "packages/backend/src/services/hookService.ts",
+    "packages/backend/src/services/logService.ts",
+    "packages/vscode-extension/src/providers/sessionWebviewProvider.ts"
+  ],
+  "agent": "OpenCode",
+  "turn_id": "c086a8495315",
+  "initial_attribution": {
+    "calculated_at": "2026-03-25T11:36:15.090347Z",
+    "agent_lines": 485,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 485,
+    "agent_percentage": 100
+  }
+}
