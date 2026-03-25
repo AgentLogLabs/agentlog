@@ -115,6 +115,17 @@ function renderSession(s) {
                   (turn.toolInput.length > 200 ? "…" : "") +
                   "</code></div>"
                 : "";
+            // 推理过程：仅 assistant 且有 reasoning 时展示，默认折叠
+            const reasoningHtml =
+              turn.role === "assistant" && turn.reasoning && turn.reasoning.trim()
+                ? '<div class="turn-reasoning">' +
+                  '<div class="turn-reasoning-toggle" onclick="toggleTurnReasoning(this)">' +
+                  "▶ 推理过程 (" + turn.reasoning.length + " 字符)" +
+                  "</div>" +
+                  '<pre class="turn-reasoning-body" style="display:none">' +
+                  escHtml(turn.reasoning) +
+                  "</pre></div>"
+                : "";
             return (
               '<div class="turn-item turn-' +
               escHtml(turn.role) +
@@ -123,7 +134,9 @@ function renderSession(s) {
               inputHint +
               '<pre class="turn-content">' +
               escHtml(turn.content) +
-              "</pre></div>"
+              "</pre>" +
+              reasoningHtml +
+              "</div>"
             );
           })
           .join("") +
@@ -406,8 +419,21 @@ function formatDuration(ms) {
   return ms < 1000 ? ms + "ms" : (ms / 1000).toFixed(1) + "s";
 }
 
+function toggleTurnReasoning(toggle) {
+  const body = toggle.nextElementSibling;
+  if (!body) return;
+  if (body.style.display === "none") {
+    body.style.display = "";
+    toggle.textContent = toggle.textContent.replace("▶", "▼");
+  } else {
+    body.style.display = "none";
+    toggle.textContent = toggle.textContent.replace("▼", "▶");
+  }
+}
+
 // Expose functions to global scope for onclick handlers
 window.toggleSection = toggleSection;
+window.toggleTurnReasoning = toggleTurnReasoning;
 window.addTag = addTag;
 window.addTagOnEnter = addTagOnEnter;
 window.removeTag = removeTag;

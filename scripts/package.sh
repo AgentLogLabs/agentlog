@@ -2,7 +2,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-EXT_DIR="$(dirname "$SCRIPT_DIR")"
+EXT_DIR="$(dirname "$SCRIPT_DIR")/packages/vscode-extension"
 
 export PATH="$HOME/.nvm/versions/node/v22.22.0/bin:$PATH"
 

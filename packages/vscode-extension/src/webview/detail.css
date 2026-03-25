@@ -463,6 +463,41 @@ textarea:focus {
     font-size: 12px;
 }
 
+/* ── 每轮推理过程 ───────────────────────────── */
+
+.turn-reasoning {
+    border-top: 1px solid var(--vscode-widget-border);
+    background: var(--vscode-textCodeBlock-background);
+}
+
+.turn-reasoning-toggle {
+    padding: 5px 10px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--vscode-descriptionForeground);
+    cursor: pointer;
+    user-select: none;
+    border-left: 3px solid var(--vscode-focusBorder);
+}
+
+.turn-reasoning-toggle:hover {
+    color: var(--vscode-foreground);
+}
+
+.turn-reasoning-body {
+    margin: 0;
+    padding: 8px 10px 8px 13px;
+    max-height: 280px;
+    background: var(--vscode-textCodeBlock-background);
+    border-radius: 0;
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+    border-left: 3px solid var(--vscode-focusBorder);
+    border-top: 1px solid var(--vscode-widget-border);
+}
+
 /* ── Token usage table ──────────────────────────────────── */
 
 .token-table {
