@@ -49,7 +49,9 @@
     "onCommand:agentlog.refreshSessionList",
     "onCommand:agentlog.installHooks",
     "onCommand:agentlog.uninstallHooks",
-    "onCommand:agentlog.resumeContext"
+    "onCommand:agentlog.resumeContext",
+    "onCommand:agentlog.configureMcpClient",
+    "onCommand:agentlog.verifyMcpConnection"
   ],
   "main": "./dist/extension.js",
   "files": [
@@ -142,6 +144,16 @@
         "command": "agentlog.resumeContext",
         "title": "AgentLog: 复活上下文 (Resume Context)",
         "icon": "$(debug-restart)"
+      },
+      {
+        "command": "agentlog.configureMcpClient",
+        "title": "AgentLog: 配置 AI Agent MCP 接入",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "agentlog.verifyMcpConnection",
+        "title": "AgentLog: 验证 MCP 连接",
+        "icon": "$(check)"
       }
     ],
     "chatParticipants": [
@@ -183,7 +195,7 @@
     "viewsWelcome": [
       {
         "view": "agentlog.sessionList",
-        "contents": "尚无 AI 交互记录。\n\n确认后台服务已启动，并开始使用 Cline、Cursor 等 AI 工具进行开发。\n\n[启动后台服务](command:agentlog.startBackend)\n[查看服务状态](command:agentlog.showBackendStatus)"
+        "contents": "尚无 AI 交互记录。\n\n确认后台服务已启动，并开始使用 Cline、Cursor 等 AI 工具进行开发。\n\n[启动后台服务](command:agentlog.startBackend)\n[查看服务状态](command:agentlog.showBackendStatus)\n[配置 AI Agent MCP 接入](command:agentlog.configureMcpClient)"
       },
       {
         "view": "agentlog.commitBindings",
@@ -192,6 +204,11 @@
     ],
     "menus": {
       "view/title": [
+        {
+          "command": "agentlog.configureMcpClient",
+          "when": "view == agentlog.sessionList",
+          "group": "navigation"
+        },
         {
           "command": "agentlog.refreshSessionList",
           "when": "view == agentlog.sessionList",
@@ -290,8 +307,17 @@
         "agentlog.mcp.clientConfigPath": {
           "type": "string",
           "default": "",
-          "description": "【可选】外部 AI Agent (MCP 客户端) 的配置文件绝对路径。若填写，插件将自动注册 AgentLog MCP 服务到此文件。例如 OpenCode: ~/.config/opencode/mcp-servers.json",
+          "markdownDescription": "【已废弃】请改用命令 **AgentLog: 配置 AI Agent MCP 接入** 自动完成配置。\n\n（向下兼容）若填写，插件仍将自动注册 AgentLog MCP 到此文件。",
           "order": 2
+        },
+        "agentlog.mcp.configuredClients": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "markdownDescription": "已完成 MCP 配置的 AI 客户端列表（由插件自动维护，请勿手动编辑）。",
+          "order": 3
         },
         "agentlog.autoBindOnCommit": {
           "type": "boolean",

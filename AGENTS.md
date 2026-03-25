@@ -205,4 +205,151 @@ This project has an AgentLog MCP server configured. You MUST use it to record ev
 - The `session_id` returned by the first `agentlog_log_turn` call must be reused for the entire conversation.
 - **CRITICAL: Pass your FULL, COMPLETE response text** to `agentlog_log_turn` — NOT a summary or abbreviation. The transcript must faithfully reproduce the entire conversation. If your response is very long, still pass the complete text.
 - Logging calls should NOT block or delay your response to the user — make them in parallel with other tool calls when possible.
-- If an `agentlog_log_turn` call fails, log a warning to stderr but continue working normally. Do not let logging failures interrupt the user's workflow.
+  - If an `agentlog_log_turn` call fails, log a warning to stderr but continue working normally. Do not let logging failures interrupt the user's workflow.
+
+## MCP Protocol Compliance Checklist and Examples
+
+This section provides detailed examples and checklists to ensure OpenCode (and other MCP clients) fully comply with the AgentLog MCP protocol as defined in `@docs/MCP-CLIENT-GUIDE.md`.
+
+### Complete Call Sequence Example
+
+A standard multi-turn conversation should follow this exact pattern:
+
+```json
+// Step 1: First user message (creates session automatically)
+{
+  "role": "user",
+  "content": "Refactor the parseData function in utils.ts to follow single responsibility principle",
+  "model": "deepseek-r1",
+  "workspace_path": "/Users/dev/my-project"
+}
+// → Returns: "消息已记录（session_id=abc123xyz）"
+
+// Step 2: Assistant reply with reasoning (must include complete thinking process)
+{
+  "session_id": "abc123xyz",
+  "role": "assistant",
+  "content": "I'll split the function into three separate responsibilities...",
+  "reasoning": "The current parseData function handles validation, transformation, and error handling. This violates SRP.\n\nAnalysis:\n1. Validation should check input format and constraints\n2. Transformation should convert data structure\n3. Error handling should provide meaningful messages\n\nImplementation plan:\n- create validateInput()\n- create transformData()\n- create handleParseError()\n- Keep parseData() as a facade for backward compatibility"
+}
+
+// Step 3: Tool execution (file creation)
+{
+  "session_id": "abc123xyz",
+  "role": "tool",
+  "content": "Created src/utils/validateInput.ts (45 lines)",
+  "tool_name": "write",
+  "tool_input": "filePath=src/utils/validateInput.ts"
+}
+
+// Step 4: Tool execution (file edit)
+{
+  "session_id": "abc123xyz",
+  "role": "tool",
+  "content": "Updated src/utils/parseData.ts to use new functions",
+  "tool_name": "edit",
+  "tool_input": "filePath=src/utils/parseData.ts"
+}
+
+// Step 5: Assistant reply (after tools executed)
+{
+  "session_id": "abc123xyz",
+  "role": "assistant",
+  "content": "Refactoring complete. The parseData function now delegates to three specialized functions.",
+  "reasoning": "All three new functions have been created and integrated. Backward compatibility maintained."
+}
+
+// Step 6: Task completion (called once at the end)
+{
+  "session_id": "abc123xyz",
+  "role": "assistant",
+  "content": "Task completed successfully.",
+  "reasoning": "Final verification shows all tests pass and code is cleaner."
+}
+
+// Step 7: Intent logging (final summary)
+{
+  "session_id": "abc123xyz",
+  "task": "Refactor parseData function into three single-responsibility functions",
+  "model": "deepseek-r1",
+  "affected_files": [
+    "src/utils/validateInput.ts",
+    "src/utils/transformData.ts",
+    "src/utils/handleParseError.ts",
+    "src/utils/parseData.ts"
+  ]
+}
+```
+
+### Compliance Validation Checklist
+
+Use the following checklist to verify MCP protocol compliance. Each item **must** be satisfied for complete logging:
+
+#### ✅ Message Recording
+- [ ] **Every** user message → `log_turn(role="user", content="...", model="...", workspace_path="...")`
+- [ ] **Every** assistant response → `log_turn(role="assistant", content="...", reasoning="...")`
+- [ ] **Every** tool execution → `log_turn(role="tool", content="...", tool_name="...", tool_input="...")`
+- [ ] **Session persistence** → Same `session_id` reused throughout entire conversation
+
+#### ✅ Reasoning Requirements
+- [ ] **DeepSeek-R1** → Accumulate `delta.reasoning_content` from streaming response, pass as `reasoning`
+- [ ] **Claude extended thinking** → Pass `thinking` content block as `reasoning`
+- [ ] **Other reasoning models** → Map model's thinking output to `reasoning` field
+- [ ] **No truncation** → Complete thinking process, no summaries or omissions
+
+#### ✅ Tool Execution Tracking
+- [ ] **File operations** → `tool_input` must contain `filePath=` parameter
+- [ ] **Command execution** → `tool_input` should capture command and arguments
+- [ ] **Read operations** → `tool_input` should note which file was read
+- [ ] **Multiple tools** → Each tool call recorded separately, not batched
+
+#### ✅ Timing and Ordering
+- [ ] **Immediate calls** → `log_turn` called right after each message, no batching
+- [ ] **Sequential ordering** → Calls follow message order: user → assistant → tool → assistant → ...
+- [ ] **Single intent call** → `log_intent` called exactly once at task completion
+- [ ] **Affected files** → All modified files listed in `affected_files`
+
+### Common Compliance Failures
+
+| Failure Pattern | Symptom | Root Cause | Fix |
+|----------------|---------|------------|-----|
+| **Missing tool messages** | transcript has user/assistant but no tool records | Tool executions not wrapped in `log_turn(role="tool")` | Call `log_turn` after **every** tool execution |
+| **Empty reasoning** | assistant messages lack `reasoning` field | Thinking process not captured or passed | Ensure model's thinking output is mapped to `reasoning` |
+| **Missing file paths** | `affected_files` empty despite file changes | `tool_input` missing `filePath=` parameter | Always include `filePath=` in tool_input for file operations |
+| **Session ID loss** | Each message creates new session | `session_id` not saved/reused between calls | Parse and cache `session_id` from first response |
+| **Message ratio imbalance** | user:assistant:tool ratio far from 1:1:1 | Selective logging (e.g., only logging some messages) | Log **every** message immediately after it's produced |
+
+### Validation Script
+
+Use the built-in validation script to check compliance:
+
+```bash
+# Run from project root
+node scripts/verify-mcp-compliance.js
+
+# Detailed output
+node scripts/verify-mcp-compliance.js --detailed
+
+# Skip recent session analysis
+node scripts/verify-mcp-compliance.js --no-analyze
+```
+
+The script will:
+1. Verify backend connectivity
+2. Analyze recent session transcripts for compliance issues
+3. Check message ratios (user:assistant:tool)
+4. Identify missing reasoning or tool_input fields
+5. Provide actionable recommendations
+
+### Debugging Session zs_-oCWpzC0KkKRUBfFiv
+
+The session `zs_-oCWpzC0KkKRUBfFiv` shows typical compliance failures:
+- **11 total messages** (should be 20+ for this conversation)
+- **4 assistant messages** (should be 8+)
+- **0 tool messages** (should be 5+)
+- **Missing reasoning** in assistant messages
+- **Missing tool_input** for file operations
+
+**Diagnosis**: OpenCode is not calling `log_turn` for every message, especially tool executions and reasoning content.
+
+**Solution**: Ensure OpenCode's MCP client implementation follows the complete call sequence above, logging **every** user, assistant, and tool message with proper fields.

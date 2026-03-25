@@ -384,9 +384,477 @@ async function waitForBackend(
 // MCP 客户端自动配置
 // ─────────────────────────────────────────────
 
+/** 支持的 MCP 客户端定义 */
+interface McpClientProfile {
+  /** 客户端唯一标识（用于持久化记录） */
+  id: string;
+  /** 用户可见的客户端名称 */
+  label: string;
+  /** 配置文件路径（支持 ~ 展开） */
+  configPath: string;
+  /** 配置文件格式 */
+  format:
+    | "opencode"   // { mcp: { "agentlog-mcp": { type, command, enabled } } }
+    | "mcpServers" // { mcpServers: { "agentlog-mcp": { command, args } } }
+    | "cline";     // { mcpServers: { "agentlog-mcp": { command, args, disabled } } }
+  /** 客户端说明（显示在 QuickPick detail） */
+  detail: string;
+}
+
+const MCP_CLIENT_PROFILES: McpClientProfile[] = [
+  {
+    id: "opencode",
+    label: "OpenCode",
+    configPath: "~/.config/opencode/config.json",
+    format: "opencode",
+    detail: "OpenCode CLI — ~/.config/opencode/config.json",
+  },
+  {
+    id: "cursor",
+    label: "Cursor",
+    configPath: "~/.cursor/mcp.json",
+    format: "mcpServers",
+    detail: "Cursor IDE (全局) — ~/.cursor/mcp.json",
+  },
+  {
+    id: "claude-desktop",
+    label: "Claude Desktop",
+    configPath:
+      process.platform === "win32"
+        ? path.join(
+            process.env.APPDATA ?? os.homedir(),
+            "Claude",
+            "claude_desktop_config.json",
+          )
+        : "~/Library/Application Support/Claude/claude_desktop_config.json",
+    format: "mcpServers",
+    detail:
+      process.platform === "win32"
+        ? "Claude Desktop — %APPDATA%\\Claude\\claude_desktop_config.json"
+        : "Claude Desktop — ~/Library/Application Support/Claude/claude_desktop_config.json",
+  },
+  {
+    id: "cline",
+    label: "Cline (VS Code 插件)",
+    configPath:
+      process.platform === "win32"
+        ? path.join(
+            process.env.APPDATA ?? os.homedir(),
+            "Code",
+            "User",
+            "globalStorage",
+            "saoudrizwan.claude-dev",
+            "settings",
+            "cline_mcp_settings.json",
+          )
+        : process.platform === "darwin"
+          ? "~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json"
+          : "~/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json",
+    format: "cline",
+    detail: "Cline VS Code 插件 — cline_mcp_settings.json",
+  },
+];
+
 /**
- * 自动更新外部 AI Agent (MCP 客户端) 的配置文件，
- * 将本插件内置的 MCP Server 注册进去。
+ * 将 ~ 开头的路径展开为绝对路径
+ */
+function resolveTilde(p: string): string {
+  return p.startsWith("~") ? path.join(os.homedir(), p.slice(1)) : p;
+}
+
+/**
+ * 将 agentlog-mcp 写入指定格式的 JSON 配置文件。
+ * 若文件不存在，自动创建；若已存在，幂等更新。
+ */
+async function writeMcpEntryToConfig(
+  configFilePath: string,
+  format: McpClientProfile["format"],
+  mcpCommand: string,
+  mcpArgs: string[],
+): Promise<void> {
+  const dir = path.dirname(configFilePath);
+  await fs.promises.mkdir(dir, { recursive: true });
+
+  // 读取现有配置（不存在则用空对象）
+  let configJson: Record<string, unknown> = {};
+  if (fs.existsSync(configFilePath)) {
+    const raw = await fs.promises.readFile(configFilePath, "utf-8");
+    configJson = JSON.parse(raw);
+  }
+
+  if (format === "opencode") {
+    // { mcp: { "agentlog-mcp": { type, command, enabled } } }
+    if (
+      !configJson.mcp ||
+      typeof configJson.mcp !== "object" ||
+      Array.isArray(configJson.mcp)
+    ) {
+      configJson.mcp = {};
+    }
+    const mcp = configJson.mcp as Record<string, unknown>;
+    mcp["agentlog-mcp"] = {
+      type: "local",
+      command: [mcpCommand, ...mcpArgs],
+      enabled: true,
+    };
+  } else if (format === "mcpServers" || format === "cline") {
+    // { mcpServers: { "agentlog-mcp": { command, args, ... } } }
+    if (
+      !configJson.mcpServers ||
+      typeof configJson.mcpServers !== "object" ||
+      Array.isArray(configJson.mcpServers)
+    ) {
+      configJson.mcpServers = {};
+    }
+    const servers = configJson.mcpServers as Record<string, unknown>;
+    const entry: Record<string, unknown> = {
+      command: mcpCommand,
+      args: mcpArgs,
+    };
+    if (format === "cline") {
+      entry.disabled = false;
+    }
+    servers["agentlog-mcp"] = entry;
+  }
+
+  await fs.promises.writeFile(
+    configFilePath,
+    JSON.stringify(configJson, null, 2),
+    "utf-8",
+  );
+}
+
+// AgentLog MCP 规则块的起止注释标记
+const AGENTS_MD_RULE_START = "<!-- agentlog-mcp-rules-start -->";
+const AGENTS_MD_RULE_END = "<!-- agentlog-mcp-rules-end -->";
+
+/**
+ * 生成写入 AGENTS.md 的规则块文本（含起止标记）。
+ */
+function buildAgentRulesBlock(): string {
+  return `${AGENTS_MD_RULE_START}
+## AgentLog MCP 使用规则
+
+你已接入 AgentLog MCP Server（工具名前缀：\`agentlog-mcp\`），必须严格按以下规则调用其工具：
+
+### 1. 工具列表
+
+| 工具名                         | 调用时机             | 关键作用 |
+|-------------------------------|----------------------|----------|
+| \`agentlog_log_turn\`         | 每轮消息产生后立即调用 | 记录单条消息（user/assistant/tool），构建完整对话 transcript |
+| \`agentlog_log_intent\`       | 任务整体完成后调用一次 | 记录任务目标、受影响文件，汇总结果 |
+| \`agentlog_query_historical_interaction\` | 需要检索历史记录时调用 | 只读查询，不影响当前会话 |
+
+### 2. 完整调用流程
+
+#### 第 1 步：对话开始（首次调用）
+收到用户第一条消息后立即调用，**不传** \`session_id\`：
+
+\`\`\`json
+{
+  "role": "user",
+  "content": "<用户消息原文>",
+  "model": "<当前模型完整名称>",
+  "workspace_path": "<当前工作目录绝对路径>"
+}
+\`\`\`
+
+**重要**：解析返回值中的 \`session_id\`（格式："消息已记录（session_id=xxx）"），整个对话中持续复用。
+
+#### 第 2 步：每次生成回复后
+每次完成推理并生成回复后立即调用：
+
+\`\`\`json
+{
+  "session_id": "<上一步返回的 session_id>",
+  "role": "assistant",
+  "content": "<完整回复文本>",
+  "reasoning": "<完整思考过程文本（如有）>",
+  "token_usage": {
+    "input_tokens": <累计输入token数>,
+    "output_tokens": <累计输出token数>
+  }
+}
+\`\`\`
+
+**推理模型要求**：
+- DeepSeek-R1：等待流式响应的推理阶段和回答阶段均结束后，将 \`delta.reasoning_content\` 累积内容传入 \`reasoning\`
+- Claude extended thinking：将 \`thinking\` content block 内容传入 \`reasoning\`
+- 普通模型（GPT-4o等）：省略 \`reasoning\` 字段
+- **不得截断或省略**推理文本，这是理解 AI 决策逻辑的核心证据
+
+#### 第 3 步：每次工具执行完毕后
+每次工具调用（bash/read/edit/write/grep 等）执行完毕后立即调用：
+
+\`\`\`json
+{
+  "session_id": "<同上>",
+  "role": "tool",
+  "content": "<执行结果摘要>",
+  "tool_name": "<工具名，如 bash、read、edit>",
+  "tool_input": "<关键参数，如 filePath=src/foo.ts>"
+}
+\`\`\`
+
+**文件操作必须记录路径**：编辑、写入、删除文件时，\`tool_input\` 必须包含文件路径，用于后续 \`affected_files\` 汇总。
+
+#### 第 4 步：任务全部完成后（仅一次）
+整个任务（无论成功或失败）完成后调用一次：
+
+\`\`\`json
+{
+  "session_id": "<同上>",
+  "task": "<任务目标一两句话描述>",
+  "model": "<模型名>",
+  "affected_files": [
+    "src/modified/file1.ts",
+    "src/created/file2.ts"
+  ]
+}
+\`\`\`
+
+### 3. 关键约束（违反将导致记录不全）
+
+1. **session_id 持久化**：首次调用返回的 \`session_id\` 必须缓存并**整个对话中复用**，不可每轮重新创建。
+2. **调用顺序严格**：\`log_turn\` 必须**按消息产生顺序**调用，不可乱序或批量延迟上报。
+3. **每条消息单独记录**：user、assistant、tool 每条消息都需单独调用 \`log_turn\`。
+4. **工具调用不漏**：每次工具执行（无论成功失败）都必须调用 \`log_turn(role="tool")\`。
+5. **推理文本完整**：推理模型的完整思考过程必须传入 \`reasoning\`，不得截断。
+6. **文件路径必填**：文件操作必须在 \`tool_input\` 中记录路径。
+
+### 4. 字段速查
+
+| 字段 | 必填 | 说明 | 示例 |
+|------|------|------|------|
+| \`role\` | 是 | \`user\` / \`assistant\` / \`tool\` | \`"assistant"\` |
+| \`content\` | 是 | 消息正文（推理阶段可为空） | \`"已完成函数重构..."\` |
+| \`session_id\` | 首次否，后续是 | 会话标识 | \`"abc123xyz"\` |
+| \`reasoning\` | 推理模型必填 | 完整思考过程 | \`"分析原函数职责..."\` |
+| \`tool_name\` | role=tool 时必填 | 工具名称 | \`"edit"\` |
+| \`tool_input\` | role=tool 时推荐 | 关键参数 | \`"filePath=src/utils.ts"\` |
+| \`model\` | 首次调用必填 | 模型完整名称 | \`"deepseek-r1"\` |
+| \`workspace_path\` | 首次调用推荐 | 工作区路径 | \`"/Users/dev/project"\` |
+| \`token_usage\` | 可选 | 累计 Token 用量 | \`{"input_tokens": 1024}\` |
+
+### 5. 常见错误
+
+1. **session_id 丢失**：每次调用都不传 \`session_id\` → 每条消息创建独立会话，对话碎片化。
+2. **推理文本截断**：\`reasoning\` 只传摘要 → 丢失决策逻辑，无法追溯。
+3. **工具调用遗漏**：只有 user/assistant 消息，缺少 tool 记录 → 不知道改了哪些文件。
+4. **文件路径缺失**：\`tool_input\` 不包含文件路径 → \`affected_files\` 无法自动汇总。
+5. **调用乱序**：批量上报消息 → transcript 顺序错乱，难以理解交互过程。
+
+### 6. 验证命令
+
+在 VS Code 中执行 \`AgentLog: 验证 MCP 连接\` 命令，可测试当前配置是否正确，工具是否能正常调用。
+${AGENTS_MD_RULE_END}`;
+}
+
+/**
+ * 转义字符串中的正则特殊字符，用于构造 RegExp。
+ */
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * 幂等地将 AgentLog MCP 调用规则写入 OpenCode 全局规则文件。
+ *
+ * - 若 ~/.config/opencode/AGENTS.md 不存在，自动创建。
+ * - 若规则块已存在（由起止注释标记识别），则替换为最新版本。
+ * - 若规则块不存在，追加到文件末尾。
+ */
+async function injectOpenCodeAgentRules(): Promise<void> {
+  const agentsMdPath = path.join(
+    os.homedir(),
+    ".config",
+    "opencode",
+    "AGENTS.md",
+  );
+
+  log(`[MCP-CFG] 开始写入 OpenCode 规则文件: ${agentsMdPath}`);
+
+  try {
+    await fs.promises.mkdir(path.dirname(agentsMdPath), { recursive: true });
+    log(`[MCP-CFG] 目录已创建/验证: ${path.dirname(agentsMdPath)}`);
+  } catch (err) {
+    log(`[MCP-CFG] 创建目录失败: ${err instanceof Error ? err.message : String(err)}`);
+    throw err;
+  }
+
+  let content = "";
+  if (fs.existsSync(agentsMdPath)) {
+    try {
+      content = await fs.promises.readFile(agentsMdPath, "utf-8");
+      log(`[MCP-CFG] 读取现有文件成功，长度: ${content.length} 字符`);
+    } catch (err) {
+      log(`[MCP-CFG] 读取现有文件失败: ${err instanceof Error ? err.message : String(err)}`);
+      throw err;
+    }
+  } else {
+    log(`[MCP-CFG] 文件不存在，将创建新文件`);
+  }
+
+  const rulesBlock = buildAgentRulesBlock();
+  log(`[MCP-CFG] 规则块大小: ${rulesBlock.length} 字符`);
+
+  if (
+    content.includes(AGENTS_MD_RULE_START) &&
+    content.includes(AGENTS_MD_RULE_END)
+  ) {
+    // 替换已有规则块（支持跨行匹配）
+    const pattern = new RegExp(
+      `${escapeRegExp(AGENTS_MD_RULE_START)}[\\s\\S]*?${escapeRegExp(AGENTS_MD_RULE_END)}`,
+    );
+    content = content.replace(pattern, rulesBlock);
+    log("[MCP-CFG] 已更新 OpenCode 全局 AGENTS.md 中的 AgentLog 规则块");
+  } else {
+    // 追加到末尾，保证前后各有一个空行
+    const trimmed = content.trimEnd();
+    content =
+      trimmed.length > 0 ? `${trimmed}\n\n${rulesBlock}\n` : `${rulesBlock}\n`;
+    log("[MCP-CFG] 已追加 AgentLog 规则块到 OpenCode 全局 AGENTS.md");
+  }
+
+  try {
+    await fs.promises.writeFile(agentsMdPath, content, "utf-8");
+    log(`[MCP-CFG] 文件写入成功: ${agentsMdPath}`);
+  } catch (err) {
+    log(`[MCP-CFG] 文件写入失败: ${err instanceof Error ? err.message : String(err)}`);
+    throw err;
+  }
+}
+
+/**
+ * QuickPick 向导：引导用户选择 AI 客户端并自动完成 MCP 配置注册。
+ */
+async function configureMcpClient(
+  context: vscode.ExtensionContext,
+): Promise<void> {
+  const isDevMode = context.extensionMode === vscode.ExtensionMode.Development;
+  const mcpEntry = isDevMode
+    ? path.join(context.extensionPath, "..", "backend", "src", "mcp.ts")
+    : path.join(context.extensionPath, "dist", "backend", "mcp.js");
+  const mcpCommand = isDevMode ? "npx" : "node";
+  const mcpArgs = isDevMode ? ["tsx", mcpEntry] : [mcpEntry];
+
+  // 读取已配置的客户端列表
+  const vsConfig = vscode.workspace.getConfiguration("agentlog");
+  const configuredClients: string[] = vsConfig.get("mcp.configuredClients", []);
+
+  // 构建 QuickPick 条目
+  const items: (vscode.QuickPickItem & { profile?: McpClientProfile; isCustom?: boolean })[] = [
+    ...MCP_CLIENT_PROFILES.map((p) => {
+      const isConfigured = configuredClients.includes(p.id);
+      return {
+        label: `$(${isConfigured ? "check" : "plug"}) ${p.label}`,
+        description: isConfigured ? "已配置" : "",
+        detail: p.detail,
+        profile: p,
+      };
+    }),
+    {
+      label: "$(folder-opened) 手动选择配置文件…",
+      description: "",
+      detail: "浏览文件系统，选择任意 MCP 客户端的 JSON 配置文件",
+      isCustom: true,
+    },
+  ];
+
+  const picked = await vscode.window.showQuickPick(items, {
+    title: "AgentLog — 配置 AI Agent MCP 接入",
+    placeHolder: "选择您当前使用的 AI 编码客户端",
+    matchOnDetail: true,
+  });
+
+  if (!picked) return;
+
+  let targetPath: string;
+  let format: McpClientProfile["format"] = "mcpServers";
+
+  if (picked.isCustom) {
+    // 用户手动选择文件
+    const uris = await vscode.window.showOpenDialog({
+      title: "选择 MCP 客户端配置文件",
+      filters: { "JSON 配置文件": ["json"] },
+      canSelectFiles: true,
+      canSelectFolders: false,
+      canSelectMany: false,
+    });
+    if (!uris || uris.length === 0) return;
+    targetPath = uris[0].fsPath;
+
+    // 根据路径尝试自动推断格式
+    const basename = path.basename(targetPath).toLowerCase();
+    if (basename.includes("opencode") || targetPath.includes("opencode")) {
+      format = "opencode";
+    } else if (basename.includes("cline")) {
+      format = "cline";
+    } else {
+      format = "mcpServers";
+    }
+  } else if (picked.profile) {
+    targetPath = resolveTilde(picked.profile.configPath);
+    format = picked.profile.format;
+  } else {
+    return;
+  }
+
+  try {
+    await writeMcpEntryToConfig(targetPath, format, mcpCommand, mcpArgs);
+    log(`[MCP-CFG] 已写入配置文件: ${targetPath}`);
+
+    // OpenCode 专项：额外写入全局 AGENTS.md 调用规则
+    const isOpenCode = picked.profile?.id === "opencode" ||
+      (!picked.profile && (targetPath.includes("opencode")));
+    const agentsMdPath = path.join(os.homedir(), ".config", "opencode", "AGENTS.md");
+    if (isOpenCode) {
+      await injectOpenCodeAgentRules();
+    }
+
+    // 记录已配置的客户端 ID
+    if (picked.profile) {
+      const newConfigured = Array.from(
+        new Set([...configuredClients, picked.profile.id]),
+      );
+      await vsConfig.update(
+        "mcp.configuredClients",
+        newConfigured,
+        vscode.ConfigurationTarget.Global,
+      );
+    }
+
+    const clientName = picked.profile?.label ?? path.basename(targetPath);
+
+    // 根据客户端类型定制成功提示
+    let message: string;
+    const actions: string[] = ["查看配置文件"];
+    if (isOpenCode) {
+      message = `AgentLog MCP 已配置到 ${clientName}，调用规则已写入全局 AGENTS.md，请重启 OpenCode 生效。`;
+      actions.push("查看 AGENTS.md");
+    } else {
+      message = `AgentLog MCP 已成功注册到 ${clientName}，请重启该 AI 客户端使配置生效。`;
+    }
+
+    const action = await vscode.window.showInformationMessage(message, ...actions);
+
+    if (action === "查看配置文件") {
+      const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(targetPath));
+      await vscode.window.showTextDocument(doc);
+    } else if (action === "查看 AGENTS.md") {
+      const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(agentsMdPath));
+      await vscode.window.showTextDocument(doc);
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log(`[MCP-CFG] 写入配置文件失败: ${msg}`);
+    vscode.window.showErrorMessage(`AgentLog MCP 配置失败: ${msg}`);
+  }
+}
+
+/**
+ * 向下兼容：读取旧版 clientConfigPath 配置，自动注册 MCP。
+ * 新用户请使用 configureMcpClient() 命令。
  */
 async function updateMcpClientConfig(
   context: vscode.ExtensionContext,
@@ -397,9 +865,7 @@ async function updateMcpClientConfig(
     return;
   }
 
-  const resolvedPath = clientConfigPath.startsWith("~")
-    ? path.join(os.homedir(), clientConfigPath.slice(1))
-    : clientConfigPath;
+  const resolvedPath = resolveTilde(clientConfigPath);
 
   if (!fs.existsSync(resolvedPath)) {
     log(`[MCP-CFG] 配置文件不存在，跳过自动配置: ${resolvedPath}`);
@@ -412,54 +878,23 @@ async function updateMcpClientConfig(
       ? path.join(context.extensionPath, "..", "backend", "src", "mcp.ts")
       : path.join(context.extensionPath, "dist", "backend", "mcp.js");
 
-    const command = isDevMode
-      ? ["npx", "tsx", mcpEntry]
-      : ["node", mcpEntry];
+    const mcpCommand = isDevMode ? "npx" : "node";
+    const mcpArgs = isDevMode ? ["tsx", mcpEntry] : [mcpEntry];
 
-    const agentlogServerConfig = {
-      name: "agentlog-mcp",
-      command,
-      enabled: true,
-    };
-
-    const configContent = await fs.promises.readFile(resolvedPath, "utf-8");
-    const configJson = JSON.parse(configContent);
-
-    if (!configJson.servers || !Array.isArray(configJson.servers)) {
-      configJson.servers = [];
+    // 根据路径推断配置格式
+    const basename = path.basename(resolvedPath).toLowerCase();
+    let format: McpClientProfile["format"] = "mcpServers";
+    if (basename.includes("opencode") || resolvedPath.includes("opencode")) {
+      format = "opencode";
+    } else if (basename.includes("cline")) {
+      format = "cline";
     }
 
-    const existingIndex = configJson.servers.findIndex(
-      (s: any) => s.name === "agentlog-mcp",
-    );
-
-    if (existingIndex !== -1) {
-      // 检查 command 是否有变化
-      if (
-        JSON.stringify(configJson.servers[existingIndex].command) !==
-        JSON.stringify(command)
-      ) {
-        log(`[MCP-CFG] 更新现有的 agentlog-mcp 配置`);
-        configJson.servers[existingIndex] = agentlogServerConfig;
-      } else {
-        log(`[MCP-CFG] agentlog-mcp 配置已存在且无变化，跳过`);
-        return;
-      }
-    } else {
-      log(`[MCP-CFG] 添加新的 agentlog-mcp 配置`);
-      configJson.servers.push(agentlogServerConfig);
-    }
-
-    // 写回文件
-    await fs.promises.writeFile(
-      resolvedPath,
-      JSON.stringify(configJson, null, 2),
-      "utf-8",
-    );
+    await writeMcpEntryToConfig(resolvedPath, format, mcpCommand, mcpArgs);
 
     log(`[MCP-CFG] 成功更新配置文件: ${resolvedPath}`);
     vscode.window.showInformationMessage(
-      `✅ AgentLog 已自动更新您的 AI Agent (MCP) 配置文件`,
+      `AgentLog 已自动更新您的 AI Agent (MCP) 配置文件`,
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -467,6 +902,210 @@ async function updateMcpClientConfig(
     vscode.window.showErrorMessage(
       `AgentLog 自动配置 MCP 客户端失败: ${msg}`,
     );
+  }
+}
+
+/**
+ * 验证当前 MCP 配置状态，检查 OpenCode 规则文件和后端连接。
+ * 用于诊断为什么 AI Agent 回复未记录到后台。
+ */
+async function verifyMcpConnection(): Promise<void> {
+  const results: string[] = [];
+  const errors: string[] = [];
+  
+  log("[MCP-VERIFY] 开始验证 MCP 配置连接");
+
+  // 1. 检查后端连接
+  results.push("1. 检查 AgentLog 后端服务...");
+  try {
+    const client = getBackendClient();
+    const health = await client.ping(true);
+    if (health.success) {
+      results.push("   ✓ 后端服务正常运行");
+    } else {
+      errors.push(`   后端服务响应异常: ${health.error}`);
+      results.push("   ✗ 后端服务响应异常");
+    }
+  } catch (err) {
+    errors.push(`   后端连接失败: ${err instanceof Error ? err.message : String(err)}`);
+    results.push("   ✗ 后端连接失败");
+  }
+
+  // 2. 检查 OpenCode MCP 配置文件
+  results.push("2. 检查 OpenCode MCP 配置文件...");
+  const opencodeConfigPath = path.join(os.homedir(), ".config", "opencode", "config.json");
+  if (fs.existsSync(opencodeConfigPath)) {
+    try {
+      const configContent = await fs.promises.readFile(opencodeConfigPath, "utf-8");
+      const config = JSON.parse(configContent);
+      
+      if (config.mcp?.["agentlog-mcp"]) {
+        results.push("   ✓ OpenCode config.json 包含 agentlog-mcp 条目");
+        const entry = config.mcp["agentlog-mcp"];
+        results.push(`     类型: ${entry.type || "unknown"}, 启用: ${entry.enabled !== false ? "是" : "否"}`);
+        if (entry.command) {
+          results.push(`     命令: ${JSON.stringify(entry.command)}`);
+        }
+      } else {
+        errors.push(`   OpenCode config.json 缺少 agentlog-mcp 条目`);
+        results.push("   ✗ 缺少 agentlog-mcp 条目");
+      }
+    } catch (err) {
+      errors.push(`   读取 OpenCode 配置文件失败: ${err instanceof Error ? err.message : String(err)}`);
+      results.push("   ✗ 配置文件读取失败");
+    }
+  } else {
+    errors.push(`   OpenCode 配置文件不存在: ${opencodeConfigPath}`);
+    results.push("   ✗ 配置文件不存在");
+  }
+
+  // 3. 检查 AGENTS.md 规则文件
+  results.push("3. 检查 OpenCode AGENTS.md 规则文件...");
+  const agentsMdPath = path.join(os.homedir(), ".config", "opencode", "AGENTS.md");
+  if (fs.existsSync(agentsMdPath)) {
+    try {
+      const content = await fs.promises.readFile(agentsMdPath, "utf-8");
+      
+      if (content.includes(AGENTS_MD_RULE_START) && content.includes(AGENTS_MD_RULE_END)) {
+        results.push("   ✓ AGENTS.md 包含 AgentLog 规则块");
+        
+        // 检查规则块是否完整
+        const pattern = new RegExp(
+          `${escapeRegExp(AGENTS_MD_RULE_START)}[\\s\\S]*?${escapeRegExp(AGENTS_MD_RULE_END)}`,
+        );
+        const match = content.match(pattern);
+        if (match && match[0].length > 100) {
+          results.push(`   ✓ 规则块完整 (${match[0].length} 字符)`);
+        } else {
+          errors.push(`   AGENTS.md 规则块可能不完整`);
+          results.push("   ✗ 规则块可能不完整");
+        }
+      } else {
+        errors.push(`   AGENTS.md 缺少 AgentLog 规则块标记`);
+        results.push("   ✗ 缺少规则块标记");
+      }
+    } catch (err) {
+      errors.push(`   读取 AGENTS.md 失败: ${err instanceof Error ? err.message : String(err)}`);
+      results.push("   ✗ 文件读取失败");
+    }
+  } else {
+    errors.push(`   AGENTS.md 文件不存在: ${agentsMdPath}`);
+    results.push("   ✗ 文件不存在");
+  }
+
+  // 4. 检查 VS Code 配置
+  results.push("4. 检查 VS Code 插件配置...");
+  const vsConfig = vscode.workspace.getConfiguration("agentlog");
+  const configuredClients: string[] = vsConfig.get("mcp.configuredClients", []);
+  if (configuredClients.includes("opencode")) {
+    results.push("   ✓ 插件已记录 OpenCode 为已配置客户端");
+  } else {
+    results.push("   ⚠  OpenCode 未在插件配置中标记为已配置（不影响功能）");
+  }
+
+  // 总结报告
+  log("[MCP-VERIFY] 验证完成");
+  
+  const summary = results.join("\n");
+  const errorCount = errors.length;
+  
+  if (errorCount === 0) {
+    vscode.window.showInformationMessage(
+      "✅ AgentLog MCP 配置验证通过",
+      "查看详细报告",
+    ).then((choice) => {
+      if (choice === "查看详细报告") {
+        const panel = vscode.window.createWebviewPanel(
+          "agentlog-mcp-verify",
+          "AgentLog MCP 配置验证报告",
+          vscode.ViewColumn.One,
+          { enableScripts: false },
+        );
+        panel.webview.html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: var(--vscode-font-family); padding: 20px; }
+    .success { color: var(--vscode-editorInfo-foreground); }
+    .error { color: var(--vscode-editorError-foreground); }
+    .warning { color: var(--vscode-editorWarning-foreground); }
+    pre { background: var(--vscode-textBlockQuote-background); padding: 10px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>✅ AgentLog MCP 配置验证通过</h1>
+  <p>所有配置项检查正常，OpenCode 应能正确记录 AI 交互。</p>
+  <h2>详细报告</h2>
+  <pre>${summary.replace(/✓/g, '<span class="success">✓</span>')
+            .replace(/✗/g, '<span class="error">✗</span>')
+            .replace(/⚠/g, '<span class="warning">⚠</span>')}</pre>
+  <h2>下一步</h2>
+  <ul>
+    <li>重启 OpenCode 使配置生效</li>
+    <li>在 OpenCode 中执行一次代码修改任务，查看 AgentLog 后台是否完整记录</li>
+    <li>如有问题，执行 <code>AgentLog: 配置 AI Agent MCP 接入</code> 重新配置</li>
+  </ul>
+</body>
+</html>`;
+      }
+    });
+  } else {
+    const errorDetails = errors.join("\n");
+    vscode.window.showErrorMessage(
+      `❌ AgentLog MCP 配置发现 ${errorCount} 个问题`,
+      "查看详细报告",
+      "重新配置 MCP",
+    ).then((choice) => {
+      if (choice === "查看详细报告") {
+        const panel = vscode.window.createWebviewPanel(
+          "agentlog-mcp-verify",
+          "AgentLog MCP 配置验证报告",
+          vscode.ViewColumn.One,
+          { enableScripts: false },
+        );
+        panel.webview.html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: var(--vscode-font-family); padding: 20px; }
+    .success { color: var(--vscode-editorInfo-foreground); }
+    .error { color: var(--vscode-editorError-foreground); }
+    .warning { color: var(--vscode-editorWarning-foreground); }
+    pre { background: var(--vscode-textBlockQuote-background); padding: 10px; border-radius: 4px; }
+    .errors { background: var(--vscode-inputValidation-errorBackground); padding: 10px; border-radius: 4px; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h1>❌ AgentLog MCP 配置发现问题</h1>
+  <p>发现 ${errorCount} 个配置问题，可能导致 AI Agent 回复未记录到后台。</p>
+  
+  <div class="errors">
+    <h3>问题列表</h3>
+    <pre>${errorDetails}</pre>
+  </div>
+  
+  <h2>详细检查报告</h2>
+  <pre>${summary.replace(/✓/g, '<span class="success">✓</span>')
+            .replace(/✗/g, '<span class="error">✗</span>')
+            .replace(/⚠/g, '<span class="warning">⚠</span>')}</pre>
+  
+  <h2>解决方案</h2>
+  <ul>
+    <li>点击"重新配置 MCP"按钮修复配置问题</li>
+    <li>确保 OpenCode 已重启使配置生效</li>
+    <li>检查 ~/.config/opencode/ 目录权限</li>
+    <li>确保 AgentLog 后端服务正在运行 (端口 7892)</li>
+  </ul>
+</body>
+</html>`;
+      } else if (choice === "重新配置 MCP") {
+        vscode.commands.executeCommand("agentlog.configureMcpClient");
+      }
+    });
   }
 }
 
@@ -766,6 +1405,16 @@ function registerCommands(
         `绑定失败：${err instanceof Error ? err.message : String(err)}`,
       );
     }
+  });
+
+  // ── MCP 客户端配置 ──────────────────────────
+
+  register("agentlog.configureMcpClient", async () => {
+    await configureMcpClient(context);
+  });
+
+  register("agentlog.verifyMcpConnection", async () => {
+    await verifyMcpConnection();
   });
 
   // ── Git Hook ──────────────────────────────
@@ -1365,7 +2014,7 @@ function registerTreeViews(): void {
 // 配置变更监听
 // ─────────────────────────────────────────────
 
-function registerConfigWatcher(): void {
+function registerConfigWatcher(context: vscode.ExtensionContext): void {
   disposables.push(
     vscode.workspace.onDidChangeConfiguration(async (e) => {
       if (!e.affectsConfiguration("agentlog")) return;
@@ -1386,6 +2035,11 @@ function registerConfigWatcher(): void {
         updateStatusBar("idle");
       } else {
         updateStatusBar("backend-offline");
+      }
+
+      // 若 clientConfigPath（旧版配置）发生变更，重新注册 MCP
+      if (e.affectsConfiguration("agentlog.mcp.clientConfigPath")) {
+        await updateMcpClientConfig(context, newConfig);
       }
 
       log("[配置] 模块重新初始化完成");
@@ -1433,7 +2087,7 @@ export async function activate(
   registerTreeViews();
 
   // ── 监听配置变更 ────────────────────────────
-  registerConfigWatcher();
+  registerConfigWatcher(context);
 
   // ── 注册 @agentlog Chat Participant（通过 Copilot 模型捕获对话）
   try {

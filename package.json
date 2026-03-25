@@ -13,6 +13,7 @@
     "clean": "pnpm -r exec rm -rf dist node_modules"
   },
   "devDependencies": {
+    "node-fetch": "^3.3.2",
     "typescript": "^5.4.5"
   },
   "engines": {
