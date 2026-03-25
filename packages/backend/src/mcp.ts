@@ -81,6 +81,16 @@ function inferProvider(modelName: string): string {
   return "unknown";
 }
 
+/**
+ * 估算文本的 token 数量（粗略：4 字符 ≈ 1 token）。
+ * 用于在客户端未提供 token_usage 时进行估算。
+ */
+function estimateTokenCount(text: string): number {
+  if (!text || text.trim().length === 0) return 0;
+  // 简单估算：4 字符 ≈ 1 token，向上取整
+  return Math.ceil(text.length / 4);
+}
+
 // ─────────────────────────────────────────────
 // HTTP 工具函数
 // ─────────────────────────────────────────────
@@ -668,11 +678,42 @@ async function main(): Promise<void> {
 
         let resultSessionId: string;
 
+        let finalTokenUsage = tokenUsage;
+        if (sessionId && !finalTokenUsage) {
+          // 客户端未提供 token_usage，尝试从现有会话获取并估算增量
+          try {
+            const existingSession = await fetchSessionById(sessionId);
+            if (existingSession.success && existingSession.data) {
+              const sessionData = existingSession.data as any;
+              const currentTokenUsage = sessionData.tokenUsage || { inputTokens: 0, outputTokens: 0 };
+              const updatedTokenUsage = { ...currentTokenUsage };
+              
+              // 估算新消息的 token 数量
+              const contentTokens = estimateTokenCount(turnContent);
+              const reasoningTokens = reasoning ? estimateTokenCount(reasoning) : 0;
+              
+              if (role === "user" || role === "tool") {
+                // 用户消息和工具结果计入输入 tokens
+                updatedTokenUsage.inputTokens = (updatedTokenUsage.inputTokens || 0) + contentTokens;
+              } else if (role === "assistant") {
+                // 助理回复计入输出 tokens
+                updatedTokenUsage.outputTokens = (updatedTokenUsage.outputTokens || 0) + contentTokens + reasoningTokens;
+              }
+              
+              finalTokenUsage = updatedTokenUsage;
+              process.stderr.write(`[agentlog-mcp] token_usage 自动估算：input=${updatedTokenUsage.inputTokens}, output=${updatedTokenUsage.outputTokens}\n`);
+            }
+          } catch (err) {
+            // 获取现有会话失败，继续使用 undefined（保持原值）
+            process.stderr.write(`[agentlog-mcp] 获取现有会话 token_usage 失败，跳过自动估算：${err}\n`);
+          }
+        }
+
         if (sessionId) {
           // 追加到已有会话
           await patchTranscript(sessionId, {
             turns: [turn],
-            ...(tokenUsage ? { tokenUsage } : {}),
+            ...(finalTokenUsage ? { tokenUsage: finalTokenUsage } : {}),
           });
           resultSessionId = sessionId;
         } else {
@@ -690,7 +731,7 @@ async function main(): Promise<void> {
             affectedFiles: [],
             durationMs: 0,
             transcript: [turn],
-            ...(tokenUsage ? { tokenUsage } : {}),
+            ...(finalTokenUsage ? { tokenUsage: finalTokenUsage } : {}),
           });
         }
 

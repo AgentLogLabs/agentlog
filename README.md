@@ -350,6 +350,35 @@ interface CommitBinding {
 - **统一统计**：如需统一，可在 `log_turn(role='tool')` 中传入工具内容的实际 token 数。
 - **界面区分**：建议在界面中明确标注「上下文 tokens」vs「模型 tokens」。
 
+### ❓ 为什么 token_usage 字段有时不更新？如何解决？
+
+**问题**：OpenCode/Cursor 等 MCP 客户端有时未在 `log_turn` 调用中传入 `token_usage` 参数，导致会话的 token 消耗统计停滞。
+
+**原因**：
+- MCP 协议要求 `token_usage` 为累计值，需每次调用时传入
+- 客户端实现可能遗漏该参数，尤其当工具调用频繁时
+- 若不传入，AgentLog 后端保持原有 `token_usage` 不变
+
+**解决方案**：
+1. **客户端改进**：确保每次 `log_turn` 调用都传入累计 `token_usage`
+2. **服务端估算（已实现）**：AgentLog MCP 服务器 v0.4.0+ 在未收到 `token_usage` 时会自动估算：
+   - 从现有会话读取当前 `token_usage`
+   - 按 4 字符 ≈ 1 token 估算新消息的 token 数
+   - 用户/工具消息计入 `inputTokens`，助理消息计入 `outputTokens`
+   - 更新后写回会话
+3. **手动补全**：对已有会话运行脚本补全 token 统计
+
+**验证方法**：
+```bash
+# 检查会话的 token_usage 是否自动更新
+curl -s http://localhost:7892/api/sessions/你的会话ID | jq '.data.tokenUsage'
+```
+
+**注意事项**：
+- 自动估算基于字符数，与模型实际消耗可能有 ±20% 误差
+- 如需精确统计，仍需客户端传入准确的 `token_usage`
+- 重启 OpenCode/Cursor 后 MCP 服务器重新加载，新逻辑生效
+
 ---
 
 ## 开发贡献
