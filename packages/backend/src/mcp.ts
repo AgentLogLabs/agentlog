@@ -278,6 +278,14 @@ async function main(): Promise<void> {
                 type: "string",
                 description: "role=tool 时的工具输入参数摘要（可选）",
               },
+              reasoning: {
+                type: "string",
+                description:
+                  "推理模型本轮的思考过程（role=assistant 时可选）。" +
+                  "DeepSeek-R1 对应 delta.reasoning_content；" +
+                  "Claude extended thinking 对应 thinking content block。" +
+                  "请将完整思考文本传入，不要截断。",
+              },
               // 首次调用时的会话元数据
               model: {
                 type: "string",
@@ -617,9 +625,13 @@ async function main(): Promise<void> {
       const args = request.params.arguments ?? {};
       const sessionId = args.session_id as string | undefined;
       const role = args.role as "user" | "assistant" | "tool";
-      const content = args.content as string;
+      // DeepSeek-R1 推理模型在推理阶段 content 可能为空字符串，需兜底处理
+      const rawContent = args.content as string | undefined;
+      const content = (rawContent ?? "").trim() !== "" ? (rawContent as string) : "(pending)";
       const toolName = args.tool_name as string | undefined;
       const toolInput = args.tool_input as string | undefined;
+      // reasoning：推理模型本轮的思考过程（DeepSeek-R1 reasoning_content / Claude extended thinking）
+      const reasoning = (args.reasoning as string | undefined) || undefined;
       const model = (args.model as string | undefined) ?? "unknown";
       const workspacePath = (args.workspace_path as string | undefined) ?? process.cwd();
 
@@ -635,16 +647,19 @@ async function main(): Promise<void> {
           }
         : undefined;
 
+      // 存入 transcript 时保留原始内容（含空字符串），兜底值仅用于 prompt/response 字段
+      const turnContent = rawContent ?? "";
       const turn = {
         role,
-        content,
+        content: turnContent,
         timestamp: new Date().toISOString(),
         ...(toolName ? { toolName } : {}),
         ...(toolInput ? { toolInput } : {}),
+        ...(reasoning ? { reasoning } : {}),
       };
 
       try {
-        process.stderr.write(`[agentlog-mcp] log_turn: role=${role}, session_id=${sessionId ?? "(new)"}\n`);
+        process.stderr.write(`[agentlog-mcp] log_turn: role=${role}, session_id=${sessionId ?? "(new)"}, content_len=${turnContent.length}, has_reasoning=${!!reasoning}\n`);
 
         let resultSessionId: string;
 
@@ -657,13 +672,14 @@ async function main(): Promise<void> {
           resultSessionId = sessionId;
         } else {
           // 创建新会话（首条消息）
+          // 注意：DeepSeek-R1 首条 assistant 消息 content 可能为空（仅有推理内容），
+          // 此时用 "(pending)" 占位，后续通过 log_intent 或后续 log_turn 完善
           const provider = inferProvider(model);
           resultSessionId = await postSession({
             provider,
             model,
             source,
             workspacePath,
-            // prompt/response 用首条消息内容填充，后续通过 log_intent 或 transcript 完善
             prompt: role === "user" ? content : "(pending)",
             response: role === "assistant" ? content : "(pending)",
             affectedFiles: [],

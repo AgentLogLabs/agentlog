@@ -1082,6 +1082,85 @@ function getDetailStyles(): string {
       max-height: 300px;
       overflow-y: auto;
     }
+
+    /* ── Transcript 区块 ── */
+    .transcript-turn {
+      padding: 10px 0;
+      border-bottom: 1px solid var(--vscode-widget-border);
+    }
+    .transcript-turn:last-child { border-bottom: none; }
+
+    .turn-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .turn-role {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 10px;
+    }
+    .turn-role.user      { background: var(--vscode-badge-background); color: var(--vscode-badge-foreground); }
+    .turn-role.assistant { background: #1a6bb5; color: #fff; }
+    .turn-role.tool      { background: #4b5563; color: #fff; }
+
+    .turn-time {
+      font-size: 10px;
+      color: var(--vscode-descriptionForeground);
+    }
+
+    .turn-tool-tag {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 8px;
+      background: var(--vscode-textCodeBlock-background);
+      color: var(--vscode-descriptionForeground);
+      font-family: var(--font-mono);
+    }
+
+    .turn-content {
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.5;
+    }
+
+    .turn-reasoning {
+      margin-top: 6px;
+      border-left: 3px solid var(--vscode-focusBorder);
+      padding-left: 10px;
+    }
+
+    .turn-reasoning-header {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--vscode-descriptionForeground);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 4px;
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .turn-reasoning-body {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--vscode-descriptionForeground);
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.5;
+      max-height: 260px;
+      overflow-y: auto;
+    }
   `;
 }
 
@@ -1153,9 +1232,18 @@ function getDetailScript(): string {
         '<span class="tag">' + escHtml(t) + ' <span class="tag-remove" onclick="removeTag(\'' + escHtml(t) + '\')">×</span></span>'
       ).join(' ');
 
+      // transcript 区块：每轮显示 role / content / reasoning（若有）
+      const transcriptBlock = (s.transcript && s.transcript.length > 0)
+        ? '<div class="section"><div class="section-header" onclick="toggleSection(this)"><h2>💬 对话记录 (' + s.transcript.length + ' 轮)</h2><span>▼</span></div>' +
+          '<div class="section-body">' + s.transcript.map(renderTurn).join('') + '</div></div>'
+        : '';
+
+      // 会话级 reasoning（transcriptToReasoning 聚合结果）
+      // 有 transcript 时默认折叠，避免重复；无 transcript 时展开
+      const hasTranscript = s.transcript && s.transcript.length > 0;
       const reasoningBlock = s.reasoning
-        ? '<div class="section"><div class="section-header" onclick="toggleSection(this)"><h2>💡 推理过程 (' + s.reasoning.length + ' 字符)</h2><span>▼</span></div>' +
-          '<div class="section-body"><pre class="reasoning-block">' + escHtml(s.reasoning) + '</pre></div></div>'
+        ? '<div class="section"><div class="section-header" onclick="toggleSection(this)"><h2>💡 推理摘要 (' + s.reasoning.length + ' 字符)</h2><span>' + (hasTranscript ? '▶' : '▼') + '</span></div>' +
+          '<div class="section-body"' + (hasTranscript ? ' style="display:none"' : '') + '><pre class="reasoning-block">' + escHtml(s.reasoning) + '</pre></div></div>'
         : '';
 
       document.getElementById('app').innerHTML = \`
@@ -1181,6 +1269,8 @@ function getDetailScript(): string {
             <div class="section-header" onclick="toggleSection(this)"><h2>📝 Prompt</h2><span>▼</span></div>
             <div class="section-body"><pre>\${escHtml(s.prompt)}</pre></div>
           </div>
+
+          \${transcriptBlock}
 
           \${reasoningBlock}
 
@@ -1219,6 +1309,48 @@ function getDetailScript(): string {
       \`;
 
       vscode.postMessage({ command: 'checkBackend' });
+    }
+
+    // 渲染单条 transcript 消息
+    function renderTurn(turn) {
+      const roleLabel = { user: '👤 User', assistant: '🤖 Assistant', tool: '🔧 Tool' }[turn.role] || turn.role;
+      const roleClass = turn.role || 'user';
+
+      const toolTag = (turn.role === 'tool' && turn.toolName)
+        ? '<span class="turn-tool-tag">' + escHtml(turn.toolName) + (turn.toolInput ? ': ' + escHtml(turn.toolInput.slice(0, 60)) : '') + '</span>'
+        : '';
+
+      const timeTag = turn.timestamp
+        ? '<span class="turn-time">' + escHtml(formatTime(turn.timestamp)) + '</span>'
+        : '';
+
+      // 每轮 assistant 消息的推理过程（TranscriptTurn.reasoning）
+      const reasoningHtml = (turn.role === 'assistant' && turn.reasoning && turn.reasoning.trim())
+        ? '<div class="turn-reasoning">' +
+            '<div class="turn-reasoning-header" onclick="toggleTurnReasoning(this)">▶ 推理过程 (' + turn.reasoning.length + ' 字符)</div>' +
+            '<div class="turn-reasoning-body" style="display:none">' + escHtml(turn.reasoning) + '</div>' +
+          '</div>'
+        : '';
+
+      return '<div class="transcript-turn">' +
+        '<div class="turn-header">' +
+          '<span class="turn-role ' + roleClass + '">' + roleLabel + '</span>' +
+          toolTag + timeTag +
+        '</div>' +
+        '<div class="turn-content">' + escHtml(turn.content || '') + '</div>' +
+        reasoningHtml +
+      '</div>';
+    }
+
+    function toggleTurnReasoning(header) {
+      const body = header.nextElementSibling;
+      if (body.style.display === 'none') {
+        body.style.display = '';
+        header.textContent = header.textContent.replace('▶', '▼');
+      } else {
+        body.style.display = 'none';
+        header.textContent = header.textContent.replace('▼', '▶');
+      }
     }
 
     function toggleSection(header) {

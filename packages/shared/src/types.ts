@@ -63,6 +63,16 @@ export interface TranscriptTurn {
    */
   content: string;
 
+  /**
+   * 推理模型本轮的思考过程（Chain-of-Thought / Thinking）。
+   * - DeepSeek-R1：来自流式响应的 delta.reasoning_content
+   * - Claude 3.7+ extended thinking：来自 thinking content block
+   * - 其他支持推理输出的模型同理
+   * 仅 role=assistant 时有意义；不支持推理输出的模型此字段为 undefined。
+   * 对应 AgentSession.reasoning（会话级别的推理汇总由 transcriptToReasoning 从此字段聚合生成）。
+   */
+  reasoning?: string;
+
   /** 消息时间戳（ISO 8601，可选） */
   timestamp?: string;
 
@@ -130,7 +140,7 @@ export interface AgentSession {
 
   /**
    * 模型的中间推理过程（Chain-of-Thought / Thinking）。
-   * DeepSeek-R1 的 <think>...</think> 内容会存放在这里。
+   * DeepSeek-R1 的 꽁...ground 内容会存放在这里。
    * 不支持推理输出的模型此字段为 undefined。
    */
   reasoning?: string;
@@ -334,6 +344,18 @@ export interface AgentLogConfig {
   /** 本地后台监听地址，默认 "http://localhost:7892" */
   backendUrl: string;
 
+  /**
+   * MCP (Model Context Protocol) 相关配置
+   */
+  mcp?: {
+    /**
+     * 外部 AI Agent (MCP 客户端) 的配置文件绝对路径。
+     * 若填写，插件将自动注册 AgentLog MCP 服务到此文件。
+     * 例如 OpenCode: ~/.config/opencode/mcp-servers.json
+     */
+    clientConfigPath?: string;
+  };
+
   /** 是否自动捕获 AI 交互（默认 true） */
 
   /** 是否捕获 Reasoning 字段（默认 true） */
@@ -354,6 +376,9 @@ export interface AgentLogConfig {
 /** AgentLogConfig 的默认值 */
 export const DEFAULT_CONFIG: AgentLogConfig = {
   backendUrl: "http://localhost:7892",
+  mcp: {
+    clientConfigPath: undefined,
+  },
   autoBindOnCommit: true,
   retentionDays: 90,
   debug: false,

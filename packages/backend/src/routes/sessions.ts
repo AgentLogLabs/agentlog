@@ -57,7 +57,8 @@ export default async function sessionsRoutes(app: FastifyInstance) {
       const body = req.body;
 
       // 基础校验
-      if (!body?.prompt || typeof body.prompt !== 'string') {
+      // prompt 允许空字符串（DeepSeek-R1 等推理模型首条消息 content 可能为空，用空串占位）
+      if (body?.prompt === undefined || body?.prompt === null || typeof body.prompt !== 'string') {
         return reply.status(400).send({
           success: false,
           error: '缺少必填字段：prompt',

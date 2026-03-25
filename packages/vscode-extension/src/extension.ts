@@ -20,6 +20,8 @@
 import * as vscode from "vscode";
 import * as cp from "child_process";
 import * as path from "path";
+import * as fs from "fs";
+import * as os from "os";
 import type {
   AgentLogConfig,
   ContextFormat,
@@ -64,6 +66,9 @@ let statusBarItem: vscode.StatusBarItem;
 /** 本地后台子进程句柄 */
 let backendProcess: cp.ChildProcess | null = null;
 
+/** 本地 MCP 服务子进程句柄 */
+let mcpServerProcess: cp.ChildProcess | null = null;
+
 /** 会话列表 TreeView 提供者 */
 let sessionTreeProvider: SessionTreeProvider;
 
@@ -85,6 +90,9 @@ function readConfig(): AgentLogConfig {
   const cfg = vscode.workspace.getConfiguration("agentlog");
   return {
     backendUrl: cfg.get<string>("backendUrl") ?? DEFAULT_CONFIG.backendUrl,
+    mcp: {
+      clientConfigPath: cfg.get<string>("mcp.clientConfigPath") || undefined,
+    },
     autoBindOnCommit:
       cfg.get<boolean>("autoBindOnCommit") ?? DEFAULT_CONFIG.autoBindOnCommit,
     retentionDays:
@@ -282,6 +290,73 @@ function stopBackendProcess(): void {
 }
 
 /**
+ * 启动 MCP 服务子进程
+ */
+async function startMcpServerProcess(
+  context: vscode.ExtensionContext,
+): Promise<void> {
+  if (mcpServerProcess && !mcpServerProcess.killed) {
+    log("[MCP] 进程已在运行，跳过重启");
+    return;
+  }
+
+  const isDevMode = context.extensionMode === vscode.ExtensionMode.Development;
+  const mcpEntry = isDevMode
+    ? path.join(context.extensionPath, "..", "backend", "src", "mcp.ts")
+    : path.join(context.extensionPath, "dist", "backend", "mcp.js");
+
+  if (isDevMode && !fs.existsSync(mcpEntry)) {
+    log(`[MCP] 开发模式下未找到入口文件，跳过启动：${mcpEntry}`);
+    return;
+  }
+
+  const command = isDevMode ? "npx" : "node";
+  const args = isDevMode ? ["tsx", mcpEntry] : [mcpEntry];
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    // AGENTLOG_PORT / AGENTLOG_BACKEND_URL 由 mcp.ts 内部读取
+  };
+
+  log(`[MCP] 启动命令: ${command} ${args.join(" ")}`);
+
+  mcpServerProcess = cp.spawn(command, args, {
+    env,
+    stdio: "pipe",
+    detached: false,
+  });
+
+  mcpServerProcess.stdout?.on("data", (data: Buffer) => {
+    log(`[MCP] ${data.toString().trimEnd()}`);
+  });
+
+  mcpServerProcess.stderr?.on("data", (data: Buffer) => {
+    log(`[MCP][ERR] ${data.toString().trimEnd()}`);
+  });
+
+  mcpServerProcess.on("close", (code) => {
+    log(`[MCP] 进程退出，退出码：${code}`);
+    mcpServerProcess = null;
+  });
+
+  mcpServerProcess.on("error", (err) => {
+    log(`[MCP] 进程启动失败：${err.message}`);
+    mcpServerProcess = null;
+    vscode.window.showErrorMessage(`AgentLog MCP 服务启动失败: ${err.message}`);
+  });
+}
+
+/**
+ * 停止 MCP 服务子进程
+ */
+function stopMcpServerProcess(): void {
+  if (mcpServerProcess && !mcpServerProcess.killed) {
+    mcpServerProcess.kill("SIGTERM");
+    log("[MCP] 进程已停止");
+    mcpServerProcess = null;
+  }
+}
+
+/**
  * 轮询等待后台服务就绪。
  *
  * @param backendUrl   后台地址
@@ -303,6 +378,96 @@ async function waitForBackend(
   }
 
   return false;
+}
+
+// ─────────────────────────────────────────────
+// MCP 客户端自动配置
+// ─────────────────────────────────────────────
+
+/**
+ * 自动更新外部 AI Agent (MCP 客户端) 的配置文件，
+ * 将本插件内置的 MCP Server 注册进去。
+ */
+async function updateMcpClientConfig(
+  context: vscode.ExtensionContext,
+  config: AgentLogConfig,
+): Promise<void> {
+  const clientConfigPath = config.mcp?.clientConfigPath;
+  if (!clientConfigPath) {
+    return;
+  }
+
+  const resolvedPath = clientConfigPath.startsWith("~")
+    ? path.join(os.homedir(), clientConfigPath.slice(1))
+    : clientConfigPath;
+
+  if (!fs.existsSync(resolvedPath)) {
+    log(`[MCP-CFG] 配置文件不存在，跳过自动配置: ${resolvedPath}`);
+    return;
+  }
+
+  try {
+    const isDevMode = context.extensionMode === vscode.ExtensionMode.Development;
+    const mcpEntry = isDevMode
+      ? path.join(context.extensionPath, "..", "backend", "src", "mcp.ts")
+      : path.join(context.extensionPath, "dist", "backend", "mcp.js");
+
+    const command = isDevMode
+      ? ["npx", "tsx", mcpEntry]
+      : ["node", mcpEntry];
+
+    const agentlogServerConfig = {
+      name: "agentlog-mcp",
+      command,
+      enabled: true,
+    };
+
+    const configContent = await fs.promises.readFile(resolvedPath, "utf-8");
+    const configJson = JSON.parse(configContent);
+
+    if (!configJson.servers || !Array.isArray(configJson.servers)) {
+      configJson.servers = [];
+    }
+
+    const existingIndex = configJson.servers.findIndex(
+      (s: any) => s.name === "agentlog-mcp",
+    );
+
+    if (existingIndex !== -1) {
+      // 检查 command 是否有变化
+      if (
+        JSON.stringify(configJson.servers[existingIndex].command) !==
+        JSON.stringify(command)
+      ) {
+        log(`[MCP-CFG] 更新现有的 agentlog-mcp 配置`);
+        configJson.servers[existingIndex] = agentlogServerConfig;
+      } else {
+        log(`[MCP-CFG] agentlog-mcp 配置已存在且无变化，跳过`);
+        return;
+      }
+    } else {
+      log(`[MCP-CFG] 添加新的 agentlog-mcp 配置`);
+      configJson.servers.push(agentlogServerConfig);
+    }
+
+    // 写回文件
+    await fs.promises.writeFile(
+      resolvedPath,
+      JSON.stringify(configJson, null, 2),
+      "utf-8",
+    );
+
+    log(`[MCP-CFG] 成功更新配置文件: ${resolvedPath}`);
+    vscode.window.showInformationMessage(
+      `✅ AgentLog 已自动更新您的 AI Agent (MCP) 配置文件`,
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log(`[MCP-CFG] 更新配置文件失败: ${msg}`);
+    vscode.window.showErrorMessage(
+      `AgentLog 自动配置 MCP 客户端失败: ${msg}`,
+    );
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -1248,17 +1413,29 @@ export async function activate(
 
   // 4. 初始化状态栏
   initStatusBar();
+  disposables.push(outputChannel, statusBarItem);
 
-  // 5. 注册 TreeView
-  registerTreeViews();
+  // ── 启动后台服务 ────────────────────────────
+  // 延迟 1 秒启动，避免阻塞 VS Code 启动
+  setTimeout(async () => {
+    const config = readConfig();
+    if ((config as any).autoStartBackend ?? true) {
+      await startBackendProcess(context, config);
+    }
+    await startMcpServerProcess(context);
+    await updateMcpClientConfig(context, config);
+  }, 1000);
 
-  // 6. 注册所有命令
+  // ── 注册命令 ────────────────────────────────
   registerCommands(context, config);
 
-  // 7. 监听配置变更
+  // ── 注册 TreeView ────────────────────────────
+  registerTreeViews();
+
+  // ── 监听配置变更 ────────────────────────────
   registerConfigWatcher();
 
-  // 8. 注册 @agentlog Chat Participant（通过 Copilot 模型捕获对话）
+  // ── 注册 @agentlog Chat Participant（通过 Copilot 模型捕获对话）
   try {
     const chatParticipant = registerCopilotChatParticipant(outputChannel);
     disposables.push(chatParticipant);
@@ -1305,26 +1482,11 @@ export async function activate(
 // ─────────────────────────────────────────────
 
 export function deactivate(): void {
-  log("AgentLog 插件正在停用…");
-
   stopBackendProcess();
+  stopMcpServerProcess();
   destroyBackendClient();
-
-  for (const d of disposables) {
-    try {
-      d.dispose();
-    } catch {
-      // 忽略 dispose 时的错误
-    }
-  }
-  disposables.length = 0;
-
-  log("AgentLog 插件已停用");
+  disposables.forEach((d) => d.dispose());
 }
-
-// ─────────────────────────────────────────────
-// 工具函数（模块私有）
-// ─────────────────────────────────────────────
 
 function log(message: string): void {
   outputChannel?.appendLine(`[AgentLog] ${message}`);

@@ -39,7 +39,12 @@ function transcriptToReasoning(turns: TranscriptTurn[]): string {
             ? '[User]'
             : '[Assistant]';
       const inputHint = t.toolInput ? `\n  Input: ${t.toolInput}` : '';
-      return `${label}${inputHint}\n${t.content}`;
+      // 推理模型本轮的思考过程（DeepSeek-R1 / Claude extended thinking 等）
+      const thinkingBlock =
+        t.reasoning && t.reasoning.trim()
+          ? `\n<think>\n${t.reasoning.trim()}\n</think>`
+          : '';
+      return `${label}${inputHint}${thinkingBlock}\n${t.content}`;
     })
     .join('\n\n');
 }

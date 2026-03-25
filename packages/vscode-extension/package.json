@@ -287,6 +287,12 @@
           "description": "AgentLog 本地后台服务地址。修改后需重启插件生效。",
           "order": 1
         },
+        "agentlog.mcp.clientConfigPath": {
+          "type": "string",
+          "default": "",
+          "description": "【可选】外部 AI Agent (MCP 客户端) 的配置文件绝对路径。若填写，插件将自动注册 AgentLog MCP 服务到此文件。例如 OpenCode: ~/.config/opencode/mcp-servers.json",
+          "order": 2
+        },
         "agentlog.autoBindOnCommit": {
           "type": "boolean",
           "default": true,
