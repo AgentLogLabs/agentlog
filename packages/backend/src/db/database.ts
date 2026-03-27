@@ -33,7 +33,7 @@ function resolveDbPath(): string {
  * 当前 Schema 版本。
  * 每次变更 DDL 时递增，迁移系统据此判断是否需要升级。
  */
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 const DDL_SCHEMA_VERSION = `
   CREATE TABLE IF NOT EXISTS schema_version (
@@ -102,6 +102,31 @@ const DDL_COMMIT_BINDINGS_INDEXES = `
   CREATE INDEX IF NOT EXISTS idx_commits_workspace     ON commit_bindings (workspace_path);
 `;
 
+/**
+ * session_commits — Session 与 Commit 的多对多关联，含 transcript 分段信息。
+ *
+ * 字段说明：
+ *  - session_id         AgentSession.id 外键
+ *  - commit_hash        Commit Hash（短 SHA 或完整 SHA）
+ *  - transcript_length  绑定时的 transcript 条数（用于分段展示）
+ *  - created_at         绑定创建时间
+ */
+const DDL_SESSION_COMMITS = `
+  CREATE TABLE IF NOT EXISTS session_commits (
+    session_id         TEXT    NOT NULL,
+    commit_hash        TEXT    NOT NULL,
+    transcript_length  INTEGER NOT NULL,
+    created_at         TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    PRIMARY KEY (session_id, commit_hash),
+    FOREIGN KEY (session_id) REFERENCES agent_sessions(id) ON DELETE CASCADE
+  );
+`;
+
+const DDL_SESSION_COMMITS_INDEXES = `
+  CREATE INDEX IF NOT EXISTS idx_session_commits_session_id ON session_commits (session_id);
+  CREATE INDEX IF NOT EXISTS idx_session_commits_commit_hash ON session_commits (commit_hash);
+`;
+
 // ─────────────────────────────────────────────
 // 迁移系统（简易版）
 // ─────────────────────────────────────────────
@@ -129,6 +154,39 @@ const MIGRATIONS: Array<{ version: number; up: MigrationFn }> = [
       db.exec(`ALTER TABLE agent_sessions ADD COLUMN transcript TEXT NOT NULL DEFAULT '[]';`);
       // token_usage：Token 用量统计（JSON 对象，含 inputTokens/outputTokens/cache 等）
       db.exec(`ALTER TABLE agent_sessions ADD COLUMN token_usage TEXT;`);
+    },
+  },
+  {
+    version: 3,
+    up: (db) => {
+      // 创建 session_commits 多对多关联表
+      db.exec(DDL_SESSION_COMMITS);
+      db.exec(DDL_SESSION_COMMITS_INDEXES);
+      
+      // 为 agent_sessions 添加 last_activity_at 字段（用于检测活跃会话）
+      db.exec(`ALTER TABLE agent_sessions ADD COLUMN last_activity_at TEXT;`);
+      
+      // 初始化 last_activity_at：默认为 created_at
+      db.exec(`UPDATE agent_sessions SET last_activity_at = created_at WHERE last_activity_at IS NULL`);
+      
+      // 将现有绑定从 agent_sessions.commit_hash 迁移到 session_commits 表
+      db.exec(`
+        INSERT INTO session_commits (session_id, commit_hash, transcript_length, created_at)
+        SELECT 
+          id AS session_id, 
+          commit_hash, 
+          (
+            SELECT json_array_length(transcript) 
+            FROM agent_sessions s2 
+            WHERE s2.id = agent_sessions.id
+          ) AS transcript_length,
+          created_at
+        FROM agent_sessions 
+        WHERE commit_hash IS NOT NULL
+      `);
+      
+      // 更新 commit_bindings.session_ids 以保持兼容性（可选，后续可移除）
+      // 注意：这里只是确保数据一致性，实际查询应使用 session_commits 表
     },
   },
 ];
@@ -254,6 +312,7 @@ export type SessionRow = {
   note: string | null;
   metadata: string; // JSON
   transcript: string; // JSON array of TranscriptTurn
+  last_activity_at: string | null;
   token_usage: string | null; // JSON object of TokenUsage
 };
 

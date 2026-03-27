@@ -82,6 +82,7 @@ function rowToSession(row: SessionRow): AgentSession {
     tags: fromJson<string[]>(row.tags, []),
     note: row.note ?? undefined,
     transcript: transcript.length > 0 ? transcript : undefined,
+    lastActivityAt: row.last_activity_at ?? undefined,
     tokenUsage: tokenUsage ?? undefined,
     metadata: fromJson<Record<string, unknown>>(row.metadata, {}),
   };
@@ -267,23 +268,32 @@ export function querySessions(
 }
 
 /**
- * 按 Commit Hash 查询关联的会话列表。
+ * 按 Commit Hash 查询关联的会话列表（基于多对多绑定）。
  */
 export function getSessionsByCommitHash(
   commitHash: string,
 ): AgentSession[] {
   const db = getDatabase();
+  
+  // 通过 session_commits 表查找关联的会话
   const rows = db
-    .prepare(
-      'SELECT * FROM agent_sessions WHERE commit_hash = ? ORDER BY created_at ASC',
-    )
+    .prepare(`
+      SELECT s.* 
+      FROM agent_sessions s
+      INNER JOIN session_commits sc ON s.id = sc.session_id
+      WHERE sc.commit_hash = ? 
+      ORDER BY s.created_at ASC
+    `)
     .all(commitHash) as SessionRow[];
+    
   return rows.map(rowToSession);
 }
 
 /**
  * 查询指定工作区内尚未绑定任何 Commit 的会话（按时间倒序）。
- * 在"自动绑定最近会话"场景中使用。
+ * 
+ * 多对多绑定下，“未绑定”定义为在 session_commits 表中没有记录的会话。
+ * 同时检查 commit_hash IS NULL 以保持向后兼容。
  */
 export function getUnboundSessions(
   workspacePath: string,
@@ -292,12 +302,74 @@ export function getUnboundSessions(
   const db = getDatabase();
   const rows = db
     .prepare(`
-      SELECT * FROM agent_sessions
-      WHERE workspace_path = ? AND commit_hash IS NULL
-      ORDER BY created_at DESC
+      SELECT s.* 
+      FROM agent_sessions s
+      LEFT JOIN session_commits sc ON s.id = sc.session_id
+      WHERE s.workspace_path = ? 
+        AND sc.session_id IS NULL 
+        AND s.commit_hash IS NULL
+      ORDER BY s.created_at DESC
       LIMIT ?
     `)
     .all(workspacePath, limit) as SessionRow[];
+  return rows.map(rowToSession);
+}
+
+/**
+ * 获取需要绑定到新 Commit 的会话列表（包括未绑定和活跃会话）。
+ * 
+ * 活跃会话定义：自上次绑定后 transcript 长度增加或 affected_files 发生变化。
+ * 查询逻辑：
+ * 1. 未绑定会话（在 session_commits 中无记录）
+ * 2. 已绑定会话，但当前 transcript 长度 > 上次绑定的 transcript_length
+ * 3. 已绑定会话，但当前 affected_files 与上次绑定时有差异（TODO: 暂未实现）
+ * 
+ * @param workspacePath 工作区路径
+ * @param limit 最多返回条数
+ */
+export function getSessionsForNewCommit(
+  workspacePath: string,
+  limit = 50,
+): AgentSession[] {
+  const db = getDatabase();
+  
+  const rows = db
+    .prepare(`
+      -- 未绑定会话
+      SELECT s.* 
+      FROM agent_sessions s
+      LEFT JOIN session_commits sc ON s.id = sc.session_id
+      WHERE s.workspace_path = ? 
+        AND sc.session_id IS NULL 
+        AND s.commit_hash IS NULL
+      
+      UNION
+      
+      -- 已绑定但 transcript 长度增加的会话
+      SELECT s.*
+      FROM agent_sessions s
+      INNER JOIN (
+        -- 每个会话的最新绑定（按 created_at 排序）
+        SELECT 
+          session_id, 
+          MAX(created_at) as last_bound_at,
+          transcript_length as last_transcript_length
+        FROM session_commits
+        GROUP BY session_id
+      ) latest ON s.id = latest.session_id
+      WHERE s.workspace_path = ?
+        AND (
+          -- 当前 transcript 长度 > 上次绑定的 transcript_length
+          (SELECT json_array_length(s.transcript) FROM agent_sessions WHERE id = s.id) > latest.last_transcript_length
+          -- 或 last_activity_at 晚于 last_bound_at（有新的活动）
+          OR (s.last_activity_at IS NOT NULL AND s.last_activity_at > latest.last_bound_at)
+        )
+      
+      ORDER BY created_at DESC
+      LIMIT ?
+    `)
+    .all(workspacePath, workspacePath, limit) as SessionRow[];
+    
   return rows.map(rowToSession);
 }
 
@@ -305,7 +377,14 @@ export function getUnboundSessions(
 // 更新
 // ─────────────────────────────────────────────
 
-/** 将一批会话绑定到同一个 Commit Hash */
+/** 
+ * 将一批会话绑定到同一个 Commit Hash（支持多对多绑定）
+ * 
+ * 更新逻辑：
+ * 1. 将绑定关系插入 session_commits 表（多对多）
+ * 2. 更新 agent_sessions.commit_hash 为当前 commitHash（最新绑定，向后兼容）
+ * 3. 更新 agent_sessions.last_activity_at 为当前时间
+ */
 export function bindSessionsToCommit(
   sessionIds: string[],
   commitHash: string,
@@ -313,29 +392,65 @@ export function bindSessionsToCommit(
   if (sessionIds.length === 0) return 0;
 
   const db = getDatabase();
+  const now = new Date().toISOString();
 
   const bindAll = db.transaction(() => {
-    const stmt = db.prepare(
-      'UPDATE agent_sessions SET commit_hash = ? WHERE id = ?',
-    );
     let affected = 0;
+    
     for (const id of sessionIds) {
-      const result = stmt.run(commitHash, id);
+      // 获取当前 transcript 长度
+      const session = getSessionById(id);
+      const transcriptLength = session?.transcript?.length ?? 0;
+      
+      // 插入或替换 session_commits 记录（UPSERT）
+      const upsertStmt = db.prepare(`
+        INSERT OR REPLACE INTO session_commits 
+          (session_id, commit_hash, transcript_length, created_at)
+        VALUES (?, ?, ?, ?)
+      `);
+      upsertStmt.run(id, commitHash, transcriptLength, now);
+      
+      // 更新 agent_sessions 表（保持向后兼容）
+      const updateStmt = db.prepare(`
+        UPDATE agent_sessions 
+        SET commit_hash = ?, last_activity_at = ?
+        WHERE id = ?
+      `);
+      const result = updateStmt.run(commitHash, now, id);
       affected += result.changes;
     }
+    
     return affected;
   });
 
   return bindAll() as number;
 }
 
-/** 解绑会话与 Commit 的关联（将 commit_hash 置为 NULL） */
+/** 
+ * 解绑会话与所有 Commit 的关联
+ * 
+ * 多对多绑定下，此操作将：
+ * 1. 从 session_commits 表中删除该 session 的所有绑定记录
+ * 2. 将 agent_sessions.commit_hash 置为 NULL（向后兼容）
+ * 
+ * 若要解绑特定 commit，请使用 removeSessionFromCommit 函数。
+ */
 export function unbindSessionFromCommit(sessionId: string): boolean {
   const db = getDatabase();
-  const result = db
-    .prepare('UPDATE agent_sessions SET commit_hash = NULL WHERE id = ?')
-    .run(sessionId);
-  return result.changes > 0;
+  
+  const unbindAll = db.transaction(() => {
+    // 从 session_commits 表中删除所有该 session 的记录
+    db.prepare('DELETE FROM session_commits WHERE session_id = ?').run(sessionId);
+    
+    // 将 agent_sessions.commit_hash 置为 NULL（保持向后兼容）
+    const result = db
+      .prepare('UPDATE agent_sessions SET commit_hash = NULL WHERE id = ?')
+      .run(sessionId);
+    
+    return result.changes > 0;
+  });
+  
+  return unbindAll() as boolean;
 }
 
 /** 更新会话的标签 */
@@ -399,6 +514,10 @@ export function updateSessionIntent(
     params.duration_ms = fields.durationMs;
   }
 
+  // 总是更新 last_activity_at（用于检测活跃会话）
+  setClauses.push('last_activity_at = @last_activity_at');
+  params.last_activity_at = new Date().toISOString();
+
   if (setClauses.length === 0) return existing;
 
   db.prepare(
@@ -448,14 +567,16 @@ export function appendTranscript(
     ? toJson(req.tokenUsage)
     : null;
 
+  const now = new Date().toISOString();
+
   if (tokenUsageJson !== null) {
     db.prepare(
-      'UPDATE agent_sessions SET transcript = ?, token_usage = ? WHERE id = ?',
-    ).run(toJson(merged), tokenUsageJson, sessionId);
+      'UPDATE agent_sessions SET transcript = ?, token_usage = ?, last_activity_at = ? WHERE id = ?',
+    ).run(toJson(merged), tokenUsageJson, now, sessionId);
   } else {
     db.prepare(
-      'UPDATE agent_sessions SET transcript = ? WHERE id = ?',
-    ).run(toJson(merged), sessionId);
+      'UPDATE agent_sessions SET transcript = ?, last_activity_at = ? WHERE id = ?',
+    ).run(toJson(merged), now, sessionId);
   }
 
   return getSessionById(sessionId);

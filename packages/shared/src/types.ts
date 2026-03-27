@@ -180,6 +180,12 @@ export interface AgentSession {
   transcript?: TranscriptTurn[];
 
   /**
+   * 会话最后活动时间（ISO 8601）。
+   * 用于检测活跃会话，在 appendTranscript 或 updateSessionIntent 时更新。
+   */
+  lastActivityAt?: string;
+
+  /**
    * 本次会话的 Token 用量统计。
    * 由 Agent 在调用 log_intent / log_turn 时上报，或由 hook 自动采集。
    */

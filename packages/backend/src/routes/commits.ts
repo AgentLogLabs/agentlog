@@ -32,6 +32,7 @@ import {
   bindSessionsToCommit,
   createSession,
   getUnboundSessions,
+  getSessionsForNewCommit,
   getSessionsByCommitHash,
   getSessionById,
 } from "../services/logService";
@@ -76,14 +77,25 @@ function rowToCommitBinding(row: CommitRow): CommitBinding {
 function upsertCommitBinding(binding: CommitBinding): CommitBinding {
   const db = getDatabase();
 
+  // 从 session_commits 表获取当前 commit 绑定的所有 session_id
+  const boundSessions = db
+    .prepare(
+      "SELECT session_id FROM session_commits WHERE commit_hash = ?",
+    )
+    .all(binding.commitHash) as Array<{ session_id: string }>;
+  const sessionIdsFromJoin = boundSessions.map((row) => row.session_id);
+
   const existing = db
     .prepare("SELECT * FROM commit_bindings WHERE commit_hash = ?")
     .get(binding.commitHash) as CommitRow | undefined;
 
-  if (existing) {
-    const existingIds = fromJson<string[]>(existing.session_ids, []);
-    const mergedIds = [...new Set([...existingIds, ...binding.sessionIds])];
+  // 合并 session_ids：来自 session_commits 表的记录 + 传入的 binding.sessionIds（去重）
+  const allSessionIds = [
+    ...new Set([...sessionIdsFromJoin, ...binding.sessionIds]),
+  ];
 
+  if (existing) {
+    // 更新现有记录，使用 session_commits 中的完整列表
     db.prepare(
       `
       UPDATE commit_bindings
@@ -92,7 +104,7 @@ function upsertCommitBinding(binding: CommitBinding): CommitBinding {
       WHERE commit_hash = ?
     `,
     ).run(
-      toJson(mergedIds),
+      toJson(allSessionIds),
       binding.message,
       binding.committedAt,
       binding.authorName,
@@ -101,6 +113,7 @@ function upsertCommitBinding(binding: CommitBinding): CommitBinding {
       binding.commitHash,
     );
   } else {
+    // 插入新记录
     db.prepare(
       `
       INSERT INTO commit_bindings (
@@ -110,7 +123,7 @@ function upsertCommitBinding(binding: CommitBinding): CommitBinding {
     `,
     ).run(
       binding.commitHash,
-      toJson(binding.sessionIds),
+      toJson(allSessionIds),
       binding.message,
       binding.committedAt,
       binding.authorName,
@@ -126,12 +139,25 @@ function upsertCommitBinding(binding: CommitBinding): CommitBinding {
   return rowToCommitBinding(updated);
 }
 
-/** 从 commit_bindings 中移除某个 sessionId 的关联 */
+/** 
+ * 从 commit_bindings 中移除某个 sessionId 的关联
+ * 
+ * 多对多绑定下，此函数：
+ * 1. 从 session_commits 表中删除指定的绑定记录
+ * 2. 更新 commit_bindings.session_ids 以保持兼容性
+ */
 function removeSessionFromCommitBinding(
   sessionId: string,
   commitHash: string,
 ): void {
   const db = getDatabase();
+  
+  // 1. 从 session_commits 表中删除记录
+  db.prepare(
+    "DELETE FROM session_commits WHERE session_id = ? AND commit_hash = ?",
+  ).run(sessionId, commitHash);
+  
+  // 2. 更新 commit_bindings.session_ids（向后兼容）
   const row = db
     .prepare("SELECT * FROM commit_bindings WHERE commit_hash = ?")
     .get(commitHash) as CommitRow | undefined;
@@ -227,10 +253,10 @@ const commitsRouter: FastifyPluginAsync = async (fastify: FastifyInstance) => {
         // 2. 获取 commit 详细信息
         const commitInfo = await getCommitInfo(workspacePath, commitHash);
 
-        // 3. 获取工作区中最近的未绑定会话（最多取 20 条）
-        const unboundSessions = getUnboundSessions(workspacePath, 20);
+        // 3. 获取需要绑定到新 Commit 的会话（包括未绑定和活跃会话）
+        const sessionsToBind = getSessionsForNewCommit(workspacePath, 20);
 
-        if (unboundSessions.length === 0) {
+        if (sessionsToBind.length === 0) {
           fastify.log.info(
             `[Commits Hook] commit=${commitHash.slice(0, 8)} 工作区无未绑定会话，尝试兜底补写`,
           );
@@ -275,8 +301,8 @@ const commitsRouter: FastifyPluginAsync = async (fastify: FastifyInstance) => {
           } satisfies ApiResponse<CommitBinding>);
         }
 
-        // 4. 提取未绑定会话的 ID
-        const sessionIds = unboundSessions.map((s) => s.id);
+        // 4. 提取需要绑定的会话 ID
+        const sessionIds = sessionsToBind.map((s) => s.id);
 
         // 5. 在 agent_sessions 表中更新 commit_hash
         const updatedCount = bindSessionsToCommit(sessionIds, commitInfo.hash);
