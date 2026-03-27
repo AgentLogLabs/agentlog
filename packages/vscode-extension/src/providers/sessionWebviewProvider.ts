@@ -369,16 +369,18 @@ export class SessionDetailPanel implements vscode.Disposable {
           vscode.window.showInformationMessage(
             `✅ 已绑定到 Commit ${msg.data.commitHash.slice(0, 8)}`,
           );
+          await vscode.commands.executeCommand("agentlog.refreshSessionList");
           break;
         }
 
         case "unbindCommit": {
-          const updated = await client.bindSessionToCommit(
-            msg.data.sessionId,
-            null,
-          );
+          const { sessionId } = msg.data;
+          await client.unbindSession(sessionId);
+          // 解绑后，重新加载会话数据以更新 Webview
+          const updated = await client.getSession(sessionId);
           this._postMessage({ type: "updateSession", payload: updated });
           vscode.window.showInformationMessage("✅ 已解除所有 Commit 绑定");
+          await vscode.commands.executeCommand("agentlog.refreshSessionList");
           break;
         }
 
