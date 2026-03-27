@@ -1,0 +1,17 @@
+一个session在提交commit后，另外一个AI Agent又有继续的对话和AI回复，并且对文件有改动，当再次提交新commit的时候，这个session应该关联哪个commit，应该怎么办？设计一个方案，并配合以场景说明
+
+---
+
+一个session在提交commit后，另外一个AI Agent又有继续的对话和AI回复，并且对文件有改动，当再次提交新commit的时候，这个session应该关联哪个commit，应该怎么办？设计一个方案，并配合以场景说明
+
+---
+
+请根据这个计划进行实现
+
+---
+
+使用nvm use 22
+
+---
+
+node 使用/Users/hobo/.nvm/versions/node/v22.22.0/bin/node
