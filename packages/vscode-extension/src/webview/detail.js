@@ -60,7 +60,13 @@ vscode.postMessage({ command: "ready" });
 dbg("ready 消息已发送");
 
 function renderSession(s) {
-  const commitBadge = s.commitHash
+  const commitBadges = s.sessionCommits && s.sessionCommits.length > 0
+    ? s.sessionCommits.map(sc => 
+        '<span class="badge commit" title="绑定于 ' + escHtml(sc.createdAt) + '">✓ ' +
+        escHtml(sc.commitHash.slice(0, 8)) +
+        '</span>'
+      ).join(' ')
+    : s.commitHash
     ? '<span class="badge commit">✓ ' +
       escHtml(s.commitHash.slice(0, 8)) +
       "</span>"
@@ -203,7 +209,7 @@ function renderSession(s) {
           <div class="meta-row">
             <span class="badge provider-${escHtml(s.provider)}">${escHtml(s.provider)}</span>
             <span class="badge source-${escHtml(s.source)}">${escHtml(s.source)}</span>
-            ${commitBadge}
+            ${commitBadges}
             <span style="color:var(--vscode-descriptionForeground);font-size:11px">${escHtml(formatTime(s.createdAt))} · ${formatDuration(s.durationMs)}</span>
           </div>
           <div class="session-id-bar">

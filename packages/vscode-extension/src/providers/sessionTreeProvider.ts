@@ -107,7 +107,7 @@ export class SessionItem extends AgentLogTreeItem {
       vscode.TreeItemCollapsibleState.None,
     );
 
-    this.contextValue = session.commitHash ? "session-bound" : "session";
+    this.contextValue = (session.sessionCommits && session.sessionCommits.length > 0) || session.commitHash ? "session-bound" : "session";
     this.description = SessionItem.buildDescription(session);
     this.tooltip = SessionItem.buildTooltip(session);
     this.iconPath = SessionItem.buildIcon(session);
@@ -156,8 +156,18 @@ export class SessionItem extends AgentLogTreeItem {
       }
     }
 
-    // 绑定状态
-    if (session.commitHash) {
+    // 绑定状态（支持多对多）
+    if (session.sessionCommits && session.sessionCommits.length > 0) {
+      // 显示最多2个commit，超出用"+N"表示
+      const maxDisplay = 2;
+      const displayed = session.sessionCommits.slice(0, maxDisplay);
+      const commitTexts = displayed.map(sc => `✓ ${sc.commitHash.slice(0, 7)}`);
+      if (session.sessionCommits.length > maxDisplay) {
+        commitTexts.push(`+${session.sessionCommits.length - maxDisplay}`);
+      }
+      parts.push(...commitTexts);
+    } else if (session.commitHash) {
+      // 向后兼容：只有单个commitHash的情况
       parts.push(`✓ ${session.commitHash.slice(0, 7)}`);
     }
 
@@ -179,7 +189,12 @@ export class SessionItem extends AgentLogTreeItem {
     md.appendMarkdown(`- **来源**：${session.source}\n`);
     md.appendMarkdown(`- **耗时**：${formatDuration(session.durationMs)}\n`);
 
-    if (session.commitHash) {
+    if (session.sessionCommits && session.sessionCommits.length > 0) {
+      md.appendMarkdown(`- **Commit**（${session.sessionCommits.length} 个）：\n`);
+      session.sessionCommits.forEach((sc, index) => {
+        md.appendMarkdown(`  ${index + 1}. \`${sc.commitHash.slice(0, 8)}\`（绑定于 ${formatDateTime(sc.createdAt)}）\n`);
+      });
+    } else if (session.commitHash) {
       md.appendMarkdown(
         `- **Commit**：\`${session.commitHash.slice(0, 8)}\`\n`,
       );

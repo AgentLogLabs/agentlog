@@ -109,6 +109,24 @@ export interface TokenUsage {
 }
 
 // ─────────────────────────────────────────────
+// Session-Commit 多对多绑定
+// ─────────────────────────────────────────────
+
+/**
+ * Session 与 Commit 的单个绑定关系（来自 session_commits 表）。
+ */
+export interface SessionCommit {
+  /** Git Commit Hash（短 SHA 或完整 SHA） */
+  commitHash: string;
+
+  /** 绑定时的 transcript 条数（用于分段展示） */
+  transcriptLength: number;
+
+  /** 绑定创建时间（ISO 8601） */
+  createdAt: string;
+}
+
+// ─────────────────────────────────────────────
 // 核心实体
 // ─────────────────────────────────────────────
 
@@ -151,8 +169,16 @@ export interface AgentSession {
   /**
    * 与此次 AI 修改绑定的 Git Commit Hash（短 SHA 或完整 SHA）。
    * 在用户执行 git commit 后由插件自动或手动关联。
+   * 注意：在多对多绑定中，此字段存储最新绑定的 Commit Hash（向后兼容）。
    */
   commitHash?: string;
+
+  /**
+   * 本次会话与所有 Commit 的绑定关系（多对多）。
+   * 每个元素对应 session_commits 表中的一条记录。
+   * 按 createdAt 升序排列（最早的绑定在前）。
+   */
+  sessionCommits?: SessionCommit[];
 
   /**
    * 本次 AI 涉及修改的文件路径列表（相对于 workspacePath）。

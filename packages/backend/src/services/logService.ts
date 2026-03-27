@@ -15,6 +15,7 @@ import type {
   SessionQueryFilter,
   TranscriptTurn,
   TokenUsage,
+  SessionCommit,
 } from '@agentlog/shared';
 
 // ─────────────────────────────────────────────
@@ -66,6 +67,23 @@ function rowToSession(row: SessionRow): AgentSession {
     ? fromJson<TokenUsage>(row.token_usage, undefined as unknown as TokenUsage)
     : undefined;
 
+  // 查询该会话的所有 Commit 绑定（多对多）
+  const db = getDatabase();
+  const sessionCommitsRows = db
+    .prepare(`
+      SELECT commit_hash, transcript_length, created_at
+      FROM session_commits
+      WHERE session_id = ?
+      ORDER BY created_at ASC
+    `)
+    .all(row.id) as Array<{commit_hash: string; transcript_length: number; created_at: string}>;
+
+  const sessionCommits: SessionCommit[] = sessionCommitsRows.map(sc => ({
+    commitHash: sc.commit_hash,
+    transcriptLength: sc.transcript_length,
+    createdAt: sc.created_at,
+  }));
+
   return {
     id: row.id,
     createdAt: row.created_at,
@@ -77,6 +95,7 @@ function rowToSession(row: SessionRow): AgentSession {
     reasoning: row.reasoning ?? undefined,
     response: row.response,
     commitHash: row.commit_hash ?? undefined,
+    sessionCommits: sessionCommits.length > 0 ? sessionCommits : undefined,
     affectedFiles: fromJson<string[]>(row.affected_files, []),
     durationMs: row.duration_ms,
     tags: fromJson<string[]>(row.tags, []),

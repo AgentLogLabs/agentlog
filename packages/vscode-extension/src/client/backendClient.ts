@@ -467,6 +467,24 @@ export class BackendClient {
   }
 
   /**
+   * 获取指定 Commit 关联的所有会话详情（基于多对多绑定）。
+   */
+  async getSessionsByCommitHash(commitHash: string): Promise<AgentSession[]> {
+    const resp = await this.request<ApiResponse<AgentSession[]>>(
+      "GET",
+      `/api/commits/${encodeURIComponent(commitHash)}/sessions`,
+    );
+    if (!resp.success || !resp.data) {
+      throw new BackendApiError(
+        200,
+        `/api/commits/${commitHash}/sessions`,
+        resp.error ?? "获取会话列表失败",
+      );
+    }
+    return resp.data;
+  }
+
+  /**
    * 获取指定 Commit 的绑定信息。
    */
   async getCommitBinding(commitHash: string): Promise<CommitBinding> {

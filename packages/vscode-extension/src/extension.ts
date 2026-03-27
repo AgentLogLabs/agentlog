@@ -920,11 +920,11 @@ async function verifyMcpConnection(): Promise<void> {
   try {
     const client = getBackendClient();
     const health = await client.ping(true);
-    if (health.success) {
+    if (health.status === "ok") {
       results.push("   ✓ 后端服务正常运行");
     } else {
-      errors.push(`   后端服务响应异常: ${health.error}`);
-      results.push("   ✗ 后端服务响应异常");
+      errors.push(`   后端服务不可达`);
+      results.push("   ✗ 后端服务不可达");
     }
   } catch (err) {
     errors.push(`   后端连接失败: ${err instanceof Error ? err.message : String(err)}`);

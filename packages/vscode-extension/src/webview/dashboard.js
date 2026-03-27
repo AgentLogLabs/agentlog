@@ -347,7 +347,19 @@ function renderTable() {
         + (files.length > 2 ? `<span class="more-badge">+${files.length - 2}</span>` : '')
       : '<span class="muted">—</span>';
 
-    const commitCell = s.commitHash
+    const commitCell = s.sessionCommits && s.sessionCommits.length > 0
+      ? (() => {
+          const maxDisplay = 2;
+          const displayed = s.sessionCommits.slice(0, maxDisplay);
+          const badges = displayed.map(sc => 
+            `<span class="badge commit-badge" title="${escHtml(sc.commitHash)} (绑定于 ${escHtml(sc.createdAt)})">${escHtml(sc.commitHash.slice(0, 7))}</span>`
+          ).join(' ');
+          if (s.sessionCommits.length > maxDisplay) {
+            badges += ` <span class="more-badge" title="还有 ${s.sessionCommits.length - maxDisplay} 个 Commit">+${s.sessionCommits.length - maxDisplay}</span>`;
+          }
+          return badges;
+        })()
+      : s.commitHash
       ? `<span class="badge commit-badge" title="${escHtml(s.commitHash)}">${escHtml(s.commitHash.slice(0, 7))}</span>`
       : `<span class="muted">—</span>`;
 

@@ -378,7 +378,7 @@ export class SessionDetailPanel implements vscode.Disposable {
             null,
           );
           this._postMessage({ type: "updateSession", payload: updated });
-          vscode.window.showInformationMessage("✅ 已解除 Commit 绑定");
+          vscode.window.showInformationMessage("✅ 已解除所有 Commit 绑定");
           break;
         }
 
