@@ -98,6 +98,8 @@ function readConfig(): AgentLogConfig {
     retentionDays:
       cfg.get<number>("retentionDays") ?? DEFAULT_CONFIG.retentionDays,
     debug: cfg.get<boolean>("debug") ?? DEFAULT_CONFIG.debug,
+    exportLanguage:
+      cfg.get<ExportLanguage>("exportLanguage") ?? DEFAULT_CONFIG.exportLanguage,
   };
 }
 
@@ -1737,9 +1739,7 @@ function registerCommands(
 
     // 3. 读取语言配置
     const currentConfig = readConfig();
-    const language: ExportLanguage =
-      (currentConfig as AgentLogConfig & { exportLanguage?: ExportLanguage })
-        .exportLanguage ?? "zh";
+    const language: ExportLanguage = currentConfig.exportLanguage ?? "zh";
 
     // 4. 调用后台生成
     await vscode.window.withProgress(
@@ -1860,9 +1860,7 @@ function registerCommands(
 
     // 2. 读取语言配置
     const currentConfig = readConfig();
-    const language: ExportLanguage =
-      (currentConfig as AgentLogConfig & { exportLanguage?: ExportLanguage })
-        .exportLanguage ?? "zh";
+    const language: ExportLanguage = currentConfig.exportLanguage ?? "zh";
 
     // 3. 调用后台生成
     await vscode.window.withProgress(
@@ -1956,9 +1954,7 @@ async function exportInteractive(
   config: AgentLogConfig,
 ): Promise<void> {
   const currentConfig = readConfig();
-  const language: ExportLanguage =
-    (currentConfig as AgentLogConfig & { exportLanguage?: ExportLanguage })
-      .exportLanguage ?? "zh";
+  const language: ExportLanguage = currentConfig.exportLanguage ?? "zh";
 
   // 选择时间范围
   const rangeOptions = [

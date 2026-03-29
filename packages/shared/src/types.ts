@@ -426,6 +426,9 @@ export interface AgentLogConfig {
 
   /** 是否启用调试日志输出，默认 false */
   debug: boolean;
+
+  /** 导出语言（zh/en），默认 zh */
+  exportLanguage?: ExportLanguage;
 }
 
 /** AgentLogConfig 的默认值 */
@@ -437,6 +440,7 @@ export const DEFAULT_CONFIG: AgentLogConfig = {
   autoBindOnCommit: true,
   retentionDays: 90,
   debug: false,
+  exportLanguage: "zh",
 };
 
 // ─────────────────────────────────────────────

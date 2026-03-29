@@ -18,6 +18,7 @@
 
 import * as vscode from "vscode";
 import type {
+  AgentLogConfig,
   AgentSession,
   AgentSource,
   ExportFormat,
@@ -740,10 +741,12 @@ export class DashboardPanel implements vscode.Disposable {
 
         case "exportAll": {
           this._postMessage({ type: "loading", payload: { loading: true } });
+          const cfg = vscode.workspace.getConfiguration("agentlog");
+          const language: ExportLanguage = (cfg.get("exportLanguage") as ExportLanguage) ?? "zh";
           const workspacePath = this._resolveWorkspacePath();
           const result = await client.exportSessions({
             format: msg.data.format,
-            language: msg.data.language,
+            language,
             startDate: msg.data.startDate,
             endDate: msg.data.endDate,
             workspacePath,

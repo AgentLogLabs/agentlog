@@ -468,7 +468,7 @@ function deleteSession(id) {
 }
 
 function exportReport(format) {
-  vscode.postMessage({ command: 'exportAll', data: { format, language: 'zh' } });
+  vscode.postMessage({ command: 'exportAll', data: { format } });
 }
 
 function openSettings() {
