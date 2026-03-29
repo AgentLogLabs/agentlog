@@ -1,0 +1,5 @@
+检查当前安装的mcp有哪些
+
+---
+
+测试agenlog mcp在opencode是否可用
