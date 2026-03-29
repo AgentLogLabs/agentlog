@@ -5,7 +5,16 @@
   "branch": "main",
   "checkpoints_count": 2,
   "files_touched": [
-    "opencode.json"
+    ".dockerignore",
+    ".github/workflows/docker-publish.yml",
+    "docker/.env.example",
+    "docker/Dockerfile",
+    "docker/README.md",
+    "docker/docker-compose.yml",
+    "docker/mcp-start.sh",
+    "docker/start.sh",
+    "opencode.json",
+    "package.json"
   ],
   "sessions": [
     {
@@ -13,6 +22,12 @@
       "transcript": "/d7/370f882e51/0/full.jsonl",
       "content_hash": "/d7/370f882e51/0/content_hash.txt",
       "prompt": "/d7/370f882e51/0/prompt.txt"
+    },
+    {
+      "metadata": "/d7/370f882e51/1/metadata.json",
+      "transcript": "/d7/370f882e51/1/full.jsonl",
+      "content_hash": "/d7/370f882e51/1/content_hash.txt",
+      "prompt": ""
     }
   ],
   "token_usage": {
