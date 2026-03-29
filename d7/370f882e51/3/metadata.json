@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "d7370f882e51",
+  "session_id": "ses_2c6e95ab9ffeNaW07wpDldfknA",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-29T11:31:12.325783Z",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "docker/docker-compose.yml",
+    "docker/mcp-start.sh",
+    "docker/start.sh",
+    "opencode.json",
+    "docker/Dockerfile",
+    "package.json",
+    ".dockerignore",
+    ".github/workflows/docker-publish.yml",
+    "docker/.env.example",
+    "docker/README.md"
+  ],
+  "agent": "OpenCode",
+  "turn_id": "d3a3938f604b",
+  "initial_attribution": {
+    "calculated_at": "2026-03-29T11:31:12.325211Z",
+    "agent_lines": 0,
+    "human_added": 686,
+    "human_modified": 1,
+    "human_removed": 0,
+    "total_committed": 686,
+    "agent_percentage": 0
+  }
+}
