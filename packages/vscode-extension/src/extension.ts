@@ -643,29 +643,29 @@ function buildAgentRulesBlock(): string {
 
 ### 5. 常见错误
 
-1. **session_id 丢失**：每次调用都不传 `session_id` → 每条消息创建独立会话，对话碎片化。
-2. **推理文本截断**：`reasoning` 只传摘要 → 丢失决策逻辑，无法追溯。
+1. **session_id 丢失**：每次调用都不传 \`session_id\` → 每条消息创建独立会话，对话碎片化。
+2. **推理文本截断**：\`reasoning\` 只传摘要 → 丢失决策逻辑，无法追溯。
 3. **工具调用遗漏**：只有 user/assistant 消息，缺少 tool 记录 → 不知道改了哪些文件。
-4. **文件路径缺失**：`tool_input` 不包含文件路径 → `affected_files` 无法自动汇总。
+4. **文件路径缺失**：\`tool_input\` 不包含文件路径 → \`affected_files\` 无法自动汇总。
 5. **调用乱序**：批量上报消息 → transcript 顺序错乱，难以理解交互过程。
 
 ### 6. 查询结果字段说明
 
-通过 `agentlog_query_historical_interaction` 查询返回的会话对象中，各字段含义如下：
+通过 \`agentlog_query_historical_interaction\` 查询返回的会话对象中，各字段含义如下：
 
 | 返回字段 | 内容说明 |
 |---------|---------|
-| `reasoning` | **纯推理摘要**，由系统从 transcript 各轮 `reasoning` 自动聚合生成（对应数据库 `reasoning_summary` 列） |
-| `formattedTranscript` | **格式化对话**，包含用户消息、AI回复、工具调用及推理过程的完整呈现（对应数据库 `formatted_transcript` 列） |
-| `transcript` | **原始逐轮记录**，每条包含 `role`、`content`、`reasoning`（单轮思考过程）等字段 |
+| \`reasoning\` | **纯推理摘要**，由系统从 transcript 各轮 \`reasoning\` 自动聚合生成（对应数据库 \`reasoning_summary\` 列） |
+| \`formattedTranscript\` | **格式化对话**，包含用户消息、AI回复、工具调用及推理过程的完整呈现（对应数据库 \`formatted_transcript\` 列） |
+| \`transcript\` | **原始逐轮记录**，每条包含 \`role\`、\`content\`、\`reasoning\`（单轮思考过程）等字段 |
 
-> **注意**：`reasoning` 与 `transcript[].reasoning` 是不同内容：
-> - `transcript[].reasoning`：单轮原始思考过程（由 `log_turn` 传入）
-> - `session.reasoning`：所有轮次推理内容的聚合摘要（自动生成）
+> **注意**：\`reasoning\` 与 \`transcript[].reasoning\` 是不同内容：
+> - \`transcript[].reasoning\`：单轮原始思考过程（由 \`log_turn\` 传入）
+> - \`session.reasoning\`：所有轮次推理内容的聚合摘要（自动生成）
 
 ### 7. 验证命令
 
-在 VS Code 中执行 `AgentLog: 验证 MCP 连接` 命令，可测试当前配置是否正确，工具是否能正常调用。
+在 VS Code 中执行 \`AgentLog: 验证 MCP 连接\` 命令，可测试当前配置是否正确，工具是否能正常调用。
 ${AGENTS_MD_RULE_END}`;
 }
 
