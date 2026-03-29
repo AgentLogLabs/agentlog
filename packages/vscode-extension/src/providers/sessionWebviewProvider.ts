@@ -584,8 +584,29 @@ export class DashboardPanel implements vscode.Disposable {
     try {
       const client = getBackendClient();
 
+      // 尝试获取工作区路径，最多重试5次，每次等待100ms
+      let workspacePath: string | undefined;
+      for (let i = 0; i < 5; i++) {
+        workspacePath = this._resolveWorkspacePath();
+        if (workspacePath !== undefined) {
+          break;
+        }
+        if (i < 4) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+
+      if (workspacePath === undefined) {
+        this._postMessage({ 
+          type: "error", 
+          payload: { 
+            message: "未检测到工作区。请打开一个文件夹或工作区，然后刷新仪表板。" 
+          } 
+        });
+        return;
+      }
+
       // 并行加载：会话列表 + 统计数据
-      const workspacePath = this._resolveWorkspacePath();
       const [sessionsResult, stats] = await Promise.allSettled([
         client.querySessions({ page: 1, pageSize: 20, workspacePath }),
         client.getSessionStats(workspacePath),
@@ -650,6 +671,16 @@ export class DashboardPanel implements vscode.Disposable {
 
         case "querySessions": {
           const workspacePath = this._resolveWorkspacePath();
+          if (workspacePath === undefined) {
+            this._postMessage({
+              type: "error",
+              payload: { 
+                message: "未检测到工作区。请打开一个文件夹或工作区后再试。" 
+              }
+            });
+            return;
+          }
+          
           const { filename, onlyUnbound, provider, source, ...rest } =
             msg.data;
 
@@ -844,6 +875,16 @@ export class DashboardPanel implements vscode.Disposable {
   }
 
   private _resolveWorkspacePath(): string | undefined {
+    // 优先使用当前活动文件所在的工作区
+    const activeEditor = vscode.window.activeTextEditor;
+    if (activeEditor && activeEditor.document) {
+      const activeFolder = vscode.workspace.getWorkspaceFolder(activeEditor.document.uri);
+      if (activeFolder) {
+        return activeFolder.uri.fsPath;
+      }
+    }
+    
+    // 否则使用第一个工作区文件夹
     const folders = vscode.workspace.workspaceFolders;
     return folders && folders.length > 0 ? folders[0].uri.fsPath : undefined;
   }

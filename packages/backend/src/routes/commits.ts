@@ -179,12 +179,39 @@ function listCommitBindings(
   page: number,
   pageSize: number,
   workspacePath?: string,
+  repoRoot?: string,
 ): PaginatedResponse<CommitBinding> {
   const db = getDatabase();
-  const where = workspacePath ? "WHERE workspace_path = @workspace_path" : "";
-  const params: Record<string, unknown> = workspacePath
-    ? { workspace_path: workspacePath }
-    : {};
+  
+  let where = "";
+  const params: Record<string, unknown> = {};
+  
+  if (workspacePath) {
+    let effectiveRepoRoot = repoRoot;
+    if (!effectiveRepoRoot) {
+      // 查找与该 workspacePath 关联的 git_repo_root
+      const repoRootRows = db
+        .prepare(
+          `SELECT DISTINCT git_repo_root 
+           FROM agent_sessions 
+           WHERE workspace_path = ? AND git_repo_root IS NOT NULL
+           LIMIT 1`
+        )
+        .all(workspacePath) as Array<{ git_repo_root: string }>;
+      effectiveRepoRoot = repoRootRows[0]?.git_repo_root;
+    }
+    
+    if (effectiveRepoRoot && effectiveRepoRoot !== workspacePath) {
+      // 匹配 workspace_path 或 git_repo_root
+      where = "WHERE (workspace_path = @workspace_path OR workspace_path = @git_repo_root)";
+      params.workspace_path = workspacePath;
+      params.git_repo_root = effectiveRepoRoot;
+    } else {
+      // 仅匹配 workspace_path
+      where = "WHERE workspace_path = @workspace_path";
+      params.workspace_path = workspacePath;
+    }
+  }
 
   const { total } = db
     .prepare(`SELECT COUNT(*) as total FROM commit_bindings ${where}`)
@@ -521,7 +548,20 @@ const commitsRouter: FastifyPluginAsync = async (fastify: FastifyInstance) => {
       Math.max(1, parseInt(pageSize, 10) || 20),
     );
 
-    const result = listCommitBindings(pageNum, pageSizeNum, workspacePath);
+    let repoRoot: string | undefined;
+    if (workspacePath) {
+      try {
+        repoRoot = await getRepoRoot(workspacePath);
+        // 如果 repoRoot 与 workspacePath 相同，则忽略
+        if (repoRoot === workspacePath) {
+          repoRoot = undefined;
+        }
+      } catch {
+        // 忽略错误，保持 repoRoot 为 undefined
+      }
+    }
+
+    const result = listCommitBindings(pageNum, pageSizeNum, workspacePath, repoRoot);
 
     return reply.code(200).send({
       success: true,

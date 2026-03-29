@@ -12,6 +12,7 @@ import * as esbuild from 'esbuild';
 import { copyFileSync, mkdirSync, readdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PNPM_STORE = join(__dirname, '..', '..', 'node_modules', '.pnpm');
@@ -95,6 +96,26 @@ await Promise.all([
 
 console.log('\nCopying external packages to dist/node_modules/...');
 
+// 确保 better-sqlite3 原生模块已构建
+// 只在 .node 文件缺失时才执行 rebuild（避免每次构建都重编译，也避免 node-gyp clean 清除已有产物）
+const bsqlitePkg = findPkg('better-sqlite3');
+const nodeFile = bsqlitePkg ? join(bsqlitePkg, 'build', 'Release', 'better_sqlite3.node') : null;
+
+if (!nodeFile || !existsSync(nodeFile)) {
+  console.log('Building better-sqlite3 native module (not found, rebuilding)...');
+  try {
+    if (bsqlitePkg && existsSync(bsqlitePkg)) {
+      execSync('npx --yes node-gyp rebuild', { cwd: bsqlitePkg, stdio: 'inherit' });
+    } else {
+      execSync('pnpm rebuild better-sqlite3', { cwd: join(__dirname, '..', '..'), stdio: 'inherit' });
+    }
+  } catch (err) {
+    console.warn('Failed to rebuild better-sqlite3, attempting to continue:', err.message);
+  }
+} else {
+  console.log('better-sqlite3 native module already built, skipping rebuild.');
+}
+
 // better-sqlite3 依赖链
 copyPkg('better-sqlite3');
 copyPkg('bindings');
@@ -135,6 +156,7 @@ const pinoPkgs = [
   'safe-buffer',          // string_decoder dependency
   'secure-json-parse',
   'strip-json-comments',
+  'split2',
 ];
 
 for (const pkg of pinoPkgs) {

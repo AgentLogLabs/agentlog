@@ -2,6 +2,19 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "Rebuild better-sqlite3",
+      "type": "shell",
+      "command": "[ -f build/Release/better_sqlite3.node ] && echo 'better-sqlite3 already built.' || npx --yes node-gyp rebuild",
+      "options": {
+        "cwd": "${workspaceFolder}/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3"
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
       "label": "Build Extension",
       "type": "shell",
       "command": "pnpm",
@@ -9,6 +22,7 @@
       "options": {
         "cwd": "${workspaceFolder}"
       },
+      "dependsOn": ["Rebuild better-sqlite3"],
       "group": {
         "kind": "build",
         "isDefault": true

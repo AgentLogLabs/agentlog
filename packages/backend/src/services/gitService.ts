@@ -261,8 +261,16 @@ const HOOK_MARKER = "# agentlog-hook";
  */
 export async function getRepoRoot(workspacePath: string): Promise<string> {
   const g = git(workspacePath);
-  const rootPath = (await g.revparse(["--show-toplevel"])).trim();
-  return rootPath;
+  // 使用 --git-common-dir 获取主仓库的 .git 目录，然后返回其父目录
+  // 这样无论在主仓库还是 worktree 中，都能返回一致的仓库根目录
+  const gitCommonDir = (await g.revparse(["--git-common-dir"])).trim();
+  // gitCommonDir 可能是绝对路径或相对路径（相对于仓库根目录）
+  // 如果是相对路径，则基于当前工作目录解析为绝对路径
+  const absoluteGitCommonDir = path.isAbsolute(gitCommonDir) 
+    ? gitCommonDir 
+    : path.resolve(workspacePath, gitCommonDir);
+  // 返回 .git 目录的父目录
+  return path.dirname(absoluteGitCommonDir);
 }
 
 /**
