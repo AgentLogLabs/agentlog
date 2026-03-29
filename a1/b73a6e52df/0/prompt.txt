@@ -1,0 +1,9 @@
+本地测试发现vscode插件的detail页面为空白，请增加相关说明文档，并给vscode插件重新打包
+
+---
+
+我的意思是vscdoe插件管理页面下本插件的详情页面没有readme内容，请检查vscode打包配置
+
+---
+
+这个插件的DETAILS页面下仍然显示：No README available.
