@@ -852,11 +852,9 @@ async function configureMcpClient(
   context: vscode.ExtensionContext,
 ): Promise<void> {
   const isDevMode = context.extensionMode === vscode.ExtensionMode.Development;
-  const mcpEntry = isDevMode
-    ? path.join(context.extensionPath, "..", "backend", "src", "mcp.ts")
-    : path.join(context.extensionPath, "dist", "backend", "mcp.js");
-  const mcpCommand = isDevMode ? "npx" : "node";
-  const mcpArgs = isDevMode ? ["tsx", mcpEntry] : [mcpEntry];
+  const mcpEntry = path.join(context.extensionPath, "dist", "backend", "mcp.js");
+  const mcpCommand = "node";
+  const mcpArgs = [mcpEntry];
 
   // 读取已配置的客户端列表
   const vsConfig = vscode.workspace.getConfiguration("agentlog");
