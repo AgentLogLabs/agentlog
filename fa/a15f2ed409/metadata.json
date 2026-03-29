@@ -1,0 +1,18 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "faa15f2ed409",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "packages/vscode-extension/src/extension.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/fa/a15f2ed409/0/metadata.json",
+      "transcript": "/fa/a15f2ed409/0/full.jsonl",
+      "content_hash": "/fa/a15f2ed409/0/content_hash.txt",
+      "prompt": ""
+    }
+  ]
+}
