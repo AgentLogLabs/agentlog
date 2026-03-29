@@ -1,0 +1,41 @@
+# 开发源文件
+src/
+test/
+*.map
+*.tsbuildinfo
+
+# 依赖与构建临时文件
+node_modules/
+dist/backend/node_modules/**
+!dist/backend/index.js
+!dist/backend/mcp.js
+
+# 开发配置与文档
+.github/
+.gitignore
+.DS_Store
+build.mjs
+tsconfig.json
+*.md
+!README.md
+!CHANGELOG.md
+!LICENSE
+
+# 原始资源（保留编译后版本）
+assets/sidebar-icon.svg
+
+# 构建产物中的测试文件
+dist/**/*.test.js
+dist/**/test/
+dist/**/benchmark.js
+dist/**/example/
+
+# 其他杂项
+.vscode/
+.editorconfig
+.eslintrc*
+.prettierrc*
+.yarnrc*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml

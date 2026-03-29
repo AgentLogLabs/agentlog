@@ -1,10 +1,10 @@
 {
   "name": "agentlog-vscode",
-  "displayName": "AgentLog — AI 编程行车记录仪",
+  "displayName": "AgentLog — AI 编程飞行记录仪",
   "description": "自动捕获 AI Agent 交互日志（Prompt / Reasoning / Response），与 Git Commit 绑定，一键导出周报或 PR 说明",
   "version": "0.1.0",
-  "private": true,
-  "publisher": "agentlog",
+  "private": false,
+  "publisher": "agentloglabs",
   "license": "MIT",
   "homepage": "https://github.com/agentlog/agentlog",
   "repository": {
@@ -54,10 +54,7 @@
     "onCommand:agentlog.verifyMcpConnection"
   ],
   "main": "./dist/extension.js",
-  "files": [
-    "dist/**/*",
-    "assets/**/*"
-  ],
+
   "contributes": {
     "commands": [
       {

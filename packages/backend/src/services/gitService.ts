@@ -250,6 +250,22 @@ export async function getModifiedFiles(
 const HOOK_MARKER = "# agentlog-hook";
 
 /**
+ * 获取指定路径的 Git 仓库根目录（即 `git rev-parse --show-toplevel` 的结果）。
+ *
+ * 在多 worktree 场景下，worktree 路径与仓库根目录不同。
+ * 通过此函数可将不同 worktree 归一化到同一仓库根目录，方便跨 worktree 会话匹配。
+ *
+ * @param workspacePath 工作区路径（可以是主仓库或 worktree 路径）
+ * @returns 仓库根目录绝对路径
+ * @throws 若路径不是 Git 仓库则抛出 Error
+ */
+export async function getRepoRoot(workspacePath: string): Promise<string> {
+  const g = git(workspacePath);
+  const rootPath = (await g.revparse(["--show-toplevel"])).trim();
+  return rootPath;
+}
+
+/**
  * 获取仓库实际使用的 hooks 目录绝对路径。
  * 优先通过 git rev-parse --git-path hooks 解析（自动尊重 core.hooksPath），
  * 未配置时回退到默认的 .git/hooks。
