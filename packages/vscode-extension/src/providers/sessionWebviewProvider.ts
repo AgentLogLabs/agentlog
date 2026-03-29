@@ -585,9 +585,10 @@ export class DashboardPanel implements vscode.Disposable {
       const client = getBackendClient();
 
       // 并行加载：会话列表 + 统计数据
+      const workspacePath = this._resolveWorkspacePath();
       const [sessionsResult, stats] = await Promise.allSettled([
-        client.querySessions({ page: 1, pageSize: 20 }),
-        client.getSessionStats(this._resolveWorkspacePath()),
+        client.querySessions({ page: 1, pageSize: 20, workspacePath }),
+        client.getSessionStats(workspacePath),
       ]);
 
       if (sessionsResult.status === "fulfilled") {
