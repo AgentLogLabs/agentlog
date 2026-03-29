@@ -1,0 +1,594 @@
+{
+  "info": {
+    "id": "ses_2c6d428d8ffeF93SIciy6zrWZy",
+    "slug": "shiny-rocket",
+    "projectID": "bf4c3e099400a06715a042f25f06edf8caeff610",
+    "directory": "/Users/hobo/Projects/AgentLog",
+    "title": "Agent.md与后台数据库v5一致性检查",
+    "version": "1.3.0",
+    "summary": {
+      "additions": 0,
+      "deletions": 0,
+      "files": 0
+    },
+    "time": {
+      "created": 1774780667688,
+      "updated": 1774780693741
+    }
+  },
+  "messages": [
+    {
+      "info": {
+        "role": "user",
+        "time": {
+          "created": 1774780667705
+        },
+        "summary": {
+          "diffs": []
+        },
+        "agent": "plan",
+        "model": {
+          "providerID": "minimax-cn-coding-plan",
+          "modelID": "MiniMax-M2.7"
+        },
+        "id": "msg_d392bd730001zAi7vPc4J0bpF0",
+        "sessionID": "ses_2c6d428d8ffeF93SIciy6zrWZy"
+      },
+      "parts": [
+        {
+          "type": "text",
+          "text": "检查MCP安装配置生成的Agent.md是否与当前后台数据库v5版",
+          "id": "prt_d392bd731001tyn7uLi5X9kptu",
+          "sessionID": "ses_2c6d428d8ffeF93SIciy6zrWZy",
+          "messageID": "msg_d392bd730001zAi7vPc4J0bpF0"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1774780667715,
+          "completed": 1774780674235
+        },
+        "error": {
+          "name": "MessageAbortedError",
+          "data": {
+            "message": "The operation was aborted."
+          }
+        },
+        "parentID": "msg_d392bd730001zAi7vPc4J0bpF0",
+        "modelID": "MiniMax-M2.7",
+        "providerID": "minimax-cn-coding-plan",
+        "mode": "plan",
+        "agent": "plan",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "cache": {
+            "read": 0,
+            "write": 0
+          }
+        },
+        "id": "msg_d392bd743002i2EFBH6S4xFFNK",
+        "sessionID": "ses_2c6d428d8ffeF93SIciy6zrWZy"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "snapshot": "6cb6cb391f55da107b2f018cda086a8b311b7aef",
+          "id": "prt_d392be35b001TmX92oBYeDJjgw",
+          "sessionID": "ses_2c6d428d8ffeF93SIciy6zrWZy",
+          "messageID": "msg_d392bd743002i2EFBH6S4xFFNK"
+        },
+        {
+          "type": "reasoning",
+          "text": "",
+          "time": {
+            "start": 1774780670811
+          },
+          "id": "prt_d392be35b0020YSahdB3B4Lq0b",
+          "sessionID": "ses_2c6d428d8ffeF93SIciy6zrWZy",
+          "messageID": "msg_d392bd743002i2EFBH6S4xFFNK"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "user",
+        "time": {
+          "created": 1774780683829
+        },
+        "summary": {
+          "diffs": []
+        },
+        "agent": "plan",
+        "model": {
+          "providerID": "minimax-cn-coding-plan",
+          "modelID": "MiniMax-M2.7"
+        },
+        "id": "msg_d392c162b001lka7yzNow3Lxdx",
+        "sessionID": "ses_2c6d428d8ffeF93SIciy6zrWZy"
+      },
+      "parts": [
+        {
+          "type": "text",
+          "text": "检查MCP安装配置生成的Agent.md是否与当前后台数据库v5版本一致",
+          "id": "prt_d392c162c001XXdiKVxRD1vEYJ",
+          "sessionID": "ses_2c6d428d8ffeF93SIciy6zrWZy",
+          "messageID": "msg_d392c162b001lka7yzNow3Lxdx"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1774780683836,
+          "completed": 1774780687102
+        },
+        "parentID": "msg_d392c162b001lka7yzNow3Lxdx",
+        "modelID": "MiniMax-M2.7",
+        "providerID": "minimax-cn-coding-plan",
+        "mode": "plan",
+        "agent": "plan",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 16992,
+          "input": 72,
+          "output": 152,
+          "reasoning": 0,
+          "cache": {
+            "read": 16432,
+            "write": 336
+          }
+        },
+        "finish": "tool-calls",
+        "id": "msg_d392c163c002AFiFZx5aNusJnC",
+        "sessionID": "ses_2c6d428d8ffeF93SIciy6zrWZy"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "snapshot": "6cb6cb391f55da107b2f018cda086a8b311b7aef",
+          "id": "prt_d392c1bd5001b1jsGqEUbks50m",
+          "sessionID": "ses_2c6d428d8ffeF93SIciy6zrWZy",
+          "messageID": "msg_d392c163c002AFiFZx5aNusJnC"
+        },
+        {
+          "type": "reasoning",
+          "text": "用户想让我检查MCP安装配置生成的Agent.md是否与当前后台数据库v5版本一致。这是一个只读任务，我需要：\n\n1. 找到MCP安装配置生成的Agent.md文件\n2. 了解当前后台数据库v5版本的结构\n3. 比较两者是否一致\n\n让我先搜索相关文件。",
+          "metadata": {
+            "anthropic": {
+              "signature": "959c9f8bedaa9b761d02ccaab2c625e551f107192dd95c95b641eadc9faab838"
+            }
+          },
+          "time": {
+            "start": 1774780685270,
+            "end": 1774780685705
+          },
+          "id": "prt_d392c1bd6001fS6Xo6RyVDSphJ",
+          "sessionID": "ses_2c6d428d8ffeF93SIciy6zrWZy",
+          "messageID": "msg_d392c163c002AFiFZx5aNusJnC"
+        },
+        {
+          "type": "tool",
+          "callID": "call_function_95ixgfxspd0o_1",
+          "tool": "glob",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "**/*Agent*.md"
+            },
+            "output": "No files found",
+            "title": "",
+            "metadata": {
+              "count": 0,
+              "truncated": false
+            },
+            "time": {
+              "start": 1774780686272,
+              "end": 1774780686299
+            }
+          },
+          "id": "prt_d392c1fba0014rMoE4qC2kQQL9",
+          "sessionID": "ses_2c6d428d8ffeF93SIciy6zrWZy",
+          "messageID": "msg_d392c163c002AFiFZx5aNusJnC"
+        },
+        {
+          "type": "tool",
+          "callID": "call_function_95ixgfxspd0o_2",
+          "tool": "glob",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "**/mcp*/**/*.md"
+            },
+            "output": "No files found",
+            "title": "",
+            "metadata": {
+              "count": 0,
+              "truncated": false
+            },
+            "time": {
+              "start": 1774780686734,
+              "end": 1774780686753
+            }
+          },
+          "id": "prt_d392c1fc1001RiO0R3x2niwB4T",
+          "sessionID": "ses_2c6d428d8ffeF93SIciy6zrWZy",
+          "messageID": "msg_d392c163c002AFiFZx5aNusJnC"
+        },
+        {
+          "type": "tool",
+          "callID": "call_function_95ixgfxspd0o_3",
+          "tool": "grep",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "v5",
+              "include": "*.md"
+            },
+            "output": "No files found",
+            "title": "v5",
+            "metadata": {
+              "matches": 0,
+              "truncated": false
+            },
+            "time": {
+              "start": 1774780686984,
+              "end": 1774780687012
+            }
+          },
+          "id": "prt_d392c218f001B7uUWOtJlE6QS1",
+          "sessionID": "ses_2c6d428d8ffeF93SIciy6zrWZy",
+          "messageID": "msg_d392c163c002AFiFZx5aNusJnC"
+        },
+        {
+          "type": "step-finish",
+          "reason": "tool-calls",
+          "snapshot": "6cb6cb391f55da107b2f018cda086a8b311b7aef",
+          "cost": 0,
+          "tokens": {
+            "total": 16992,
+            "input": 72,
+            "output": 152,
+            "reasoning": 0,
+            "cache": {
+              "read": 16432,
+              "write": 336
+            }
+          },
+          "id": "prt_d392c22a60010EPNiViRYQus2D",
+          "sessionID": "ses_2c6d428d8ffeF93SIciy6zrWZy",
+          "messageID": "msg_d392c163c002AFiFZx5aNusJnC"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1774780687103,
+          "completed": 1774780689720
+        },
+        "parentID": "msg_d392c162b001lka7yzNow3Lxdx",
+        "modelID": "MiniMax-M2.7",
+        "providerID": "minimax-cn-coding-plan",
+        "mode": "plan",
+        "agent": "plan",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 17112,
+          "input": 94,
+          "output": 93,
+          "reasoning": 0,
+          "cache": {
+            "read": 16432,
+            "write": 493
+          }
+        },
+        "finish": "tool-calls",
+        "id": "msg_d392c22ff0020b2P1fHJuF7K83",
+        "sessionID": "ses_2c6d428d8ffeF93SIciy6zrWZy"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "snapshot": "6cb6cb391f55da107b2f018cda086a8b311b7aef",
+          "id": "prt_d392c2866001cePQ9FA7voj8my",
+          "sessionID": "ses_2c6d428d8ffeF93SIciy6zrWZy",
+          "messageID": "msg_d392c22ff0020b2P1fHJuF7K83"
+        },
+        {
+          "type": "reasoning",
+          "text": "没有找到Agent.md文件。让我搜索更广泛的范围，可能文件名不同。",
+          "metadata": {
+            "anthropic": {
+              "signature": "03ba22c038017deb71d83f742c3aba4a0dec772a17fbe10bf2ded66f244b4d07"
+            }
+          },
+          "time": {
+            "start": 1774780688487,
+            "end": 1774780688487
+          },
+          "id": "prt_d392c2867001opEieU737hdvGX",
+          "sessionID": "ses_2c6d428d8ffeF93SIciy6zrWZy",
+          "messageID": "msg_d392c22ff0020b2P1fHJuF7K83"
+        },
+        {
+          "type": "tool",
+          "callID": "call_function_4473tqzuinuq_1",
+          "tool": "glob",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "**/*.md"
+            },
+            "output": "/Users/hobo/Projects/AgentLog/AGENTS.md\n/Users/hobo/Projects/AgentLog/README.en.md\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/README.md\n/Users/hobo/Projects/AgentLog/README.md\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/PUBLISH_GUIDE.md\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/RELEASE_NOTES.md\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/CHANGELOG.md\n/Users/hobo/Projects/AgentLog/docs/E2E_TEST_CASES.md\n/Users/hobo/Projects/AgentLog/docs/MCP-CLIENT-GUIDE.md\n/Users/hobo/Projects/AgentLog/docs/AGENTLOG_SPEC.md\n/Users/hobo/Projects/AgentLog/docs/DATA-MODEL.md\n/Users/hobo/Projects/AgentLog/docs/Change_arch.md\n/Users/hobo/Projects/AgentLog/docs/TRACK-A-LIFECYCLE-HOOKS.md\n/Users/hobo/Projects/AgentLog/docs/TRACK-B-HTTP-INTERCEPTOR.md\n/Users/hobo/Projects/AgentLog/docs/TESTING.md",
+            "title": "",
+            "metadata": {
+              "count": 15,
+              "truncated": false
+            },
+            "time": {
+              "start": 1774780688933,
+              "end": 1774780688955
+            }
+          },
+          "id": "prt_d392c2867002K9zrfAmsNlef1B",
+          "sessionID": "ses_2c6d428d8ffeF93SIciy6zrWZy",
+          "messageID": "msg_d392c22ff0020b2P1fHJuF7K83"
+        },
+        {
+          "type": "tool",
+          "callID": "call_function_4473tqzuinuq_2",
+          "tool": "bash",
+          "state": {
+            "status": "completed",
+            "input": {
+              "command": "ls -la ~/.agentlog/ 2>/dev/null || echo \"Directory not found\"",
+              "description": "Check AgentLog config directory"
+            },
+            "output": "total 1608\ndrwxr-xr-x    5 hobo  staff     160  3 29 18:16 .\ndrwxr-x---+ 114 hobo  staff    3648  3 29 18:35 ..\n-rw-r--r--@   1 hobo  staff  557056  3 29 17:12 agentlog.db\n-rw-r--r--@   1 hobo  staff   32768  3 29 18:16 agentlog.db-shm\n-rw-r--r--@   1 hobo  staff  148352  3 29 18:32 agentlog.db-wal\n",
+            "title": "Check AgentLog config directory",
+            "metadata": {
+              "output": "total 1608\ndrwxr-xr-x    5 hobo  staff     160  3 29 18:16 .\ndrwxr-x---+ 114 hobo  staff    3648  3 29 18:35 ..\n-rw-r--r--@   1 hobo  staff  557056  3 29 17:12 agentlog.db\n-rw-r--r--@   1 hobo  staff   32768  3 29 18:16 agentlog.db-shm\n-rw-r--r--@   1 hobo  staff  148352  3 29 18:32 agentlog.db-wal\n",
+              "exit": 0,
+              "description": "Check AgentLog config directory",
+              "truncated": false
+            },
+            "time": {
+              "start": 1774780689616,
+              "end": 1774780689648
+            }
+          },
+          "id": "prt_d392c2a28001xNxLQI8qhxtb8i",
+          "sessionID": "ses_2c6d428d8ffeF93SIciy6zrWZy",
+          "messageID": "msg_d392c22ff0020b2P1fHJuF7K83"
+        },
+        {
+          "type": "step-finish",
+          "reason": "tool-calls",
+          "snapshot": "6cb6cb391f55da107b2f018cda086a8b311b7aef",
+          "cost": 0,
+          "tokens": {
+            "total": 17112,
+            "input": 94,
+            "output": 93,
+            "reasoning": 0,
+            "cache": {
+              "read": 16432,
+              "write": 493
+            }
+          },
+          "id": "prt_d392c2cf0001Y6k5gvB4pCeclv",
+          "sessionID": "ses_2c6d428d8ffeF93SIciy6zrWZy",
+          "messageID": "msg_d392c22ff0020b2P1fHJuF7K83"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1774780689721,
+          "completed": 1774780693718
+        },
+        "parentID": "msg_d392c162b001lka7yzNow3Lxdx",
+        "modelID": "MiniMax-M2.7",
+        "providerID": "minimax-cn-coding-plan",
+        "mode": "plan",
+        "agent": "plan",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 17693,
+          "input": 497,
+          "output": 151,
+          "reasoning": 0,
+          "cache": {
+            "read": 16768,
+            "write": 277
+          }
+        },
+        "finish": "tool-calls",
+        "id": "msg_d392c2d39002NW0gJeIhBpW2E9",
+        "sessionID": "ses_2c6d428d8ffeF93SIciy6zrWZy"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "snapshot": "6cb6cb391f55da107b2f018cda086a8b311b7aef",
+          "id": "prt_d392c330b001bLKlM7DEHHrzbP",
+          "sessionID": "ses_2c6d428d8ffeF93SIciy6zrWZy",
+          "messageID": "msg_d392c2d39002NW0gJeIhBpW2E9"
+        },
+        {
+          "type": "reasoning",
+          "text": "我找到了几个相关的md文件。让我读取MCP-CLIENT-GUIDE.md和AGENTLOG_SPEC.md来了解MCP配置。同时我需要查看数据库v5版本的结构。",
+          "metadata": {
+            "anthropic": {
+              "signature": "e1b42a6775894f6049495d1c60007d66ef8349ac827d2ae1b7ccfd60519ebb03"
+            }
+          },
+          "time": {
+            "start": 1774780691211,
+            "end": 1774780691797
+          },
+          "id": "prt_d392c330b002c7u48c2R93lzNj",
+          "sessionID": "ses_2c6d428d8ffeF93SIciy6zrWZy",
+          "messageID": "msg_d392c2d39002NW0gJeIhBpW2E9"
+        },
+        {
+          "type": "tool",
+          "callID": "call_function_nvo5rd0yedjq_1",
+          "tool": "read",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/Users/hobo/Projects/AgentLog/docs/MCP-CLIENT-GUIDE.md"
+            },
+            "output": "<path>/Users/hobo/Projects/AgentLog/docs/MCP-CLIENT-GUIDE.md</path>\n<type>file</type>\n<content>1: # AgentLog MCP 客户端接入指南\n2: \n3: > 适用版本：AgentLog MCP Server v0.4.0+  \n4: > 协议：Model Context Protocol (MCP) stdio 模式\n5: \n6: 本文档面向需要接入 AgentLog MCP Server 的 AI 编码客户端（如 Cline、Cursor、OpenCode、Continue 等），说明三个工具的完整调用规范、调用时机、字段语义，以及针对不同模型类型的特殊处理规则。\n7: \n8: ---\n9: \n10: ## 目录\n11: \n12: 1. [概述](#1-概述)\n13: 2. [工具列表](#2-工具列表)\n14: 3. [log_turn — 逐轮记录](#3-log_turn--逐轮记录)\n15: 4. [log_intent — 任务汇总](#4-log_intent--任务汇总)\n16: 5. [query_historical_interaction — 历史查询](#5-query_historical_interaction--历史查询)\n17: 6. [完整调用流程](#6-完整调用流程)\n18: 7. [推理模型特殊处理](#7-推理模型特殊处理)\n19:    - [7.0 每轮必须记录的两件事](#70-每轮必须记录的两件事)\n20: 8. [字段速查表](#8-字段速查表)\n21: 9. [常见错误处理](#9-常见错误处理)\n22: \n23: ---\n24: \n25: ## 1. 概述\n26: \n27: AgentLog MCP Server 以 **stdio** 模式运行，由 VS Code 插件在启动时自动拉起。客户端通过标准 MCP 协议与其通信，调用以下三个工具将 AI 交互过程实时记录到本地 SQLite 数据库。\n28: \n29: **设计原则**\n30: \n31: - 每条消息产生后**立即**调用 `log_turn`，不要批量延迟上报\n32: - 首次调用 `log_turn` 时**不传** `session_id`，服务端自动创建会话并返回 `session_id`\n33: - 后续所有调用**必须**传入同一个 `session_id`，确保消息追加到同一会话\n34: - 任务完成后调用 `log_intent` 汇总结果；若不调用 `log_intent` 也不影响 transcript 完整性\n35: - `query_historical_interaction` 为只读工具，不产生任何副作用\n36: \n37: **source 自动推断规则**\n38: \n39: MCP Server 在 initialize 握手阶段读取客户端的 `clientInfo.name`，自动推断 `source` 字段：\n40: \n41: | clientInfo.name 包含 | source 值      |\n42: |----------------------|----------------|\n43: | `opencode`           | `opencode`     |\n44: | `cline` / `roo`      | `cline`        |\n45: | `cursor`             | `cursor`       |\n46: | `claude`             | `claude-code`  |\n47: | `copilot` / `vscode` | `copilot`      |\n48: | `continue`           | `continue`     |\n49: | 其他                 | `mcp-tool-call`|\n50: \n51: 也可通过环境变量 `AGENTLOG_SOURCE` 强制指定，优先级高于自动推断。\n52: \n53: ---\n54: \n55: ## 2. 工具列表\n56: \n57: | 工具名                         | 读写 | 调用时机             |\n58: |-------------------------------|------|----------------------|\n59: | `log_turn`                    | 写   | 每轮消息产生后立即调用 |\n60: | `log_intent`                  | 写   | 任务整体完成后调用一次 |\n61: | `query_historical_interaction`| 只读 | 需要检索历史记录时调用 |\n62: \n63: ---\n64: \n65: ## 3. log_turn — 逐轮记录\n66: \n67: ### 3.1 用途\n68: \n69: 记录单条消息（user / assistant / tool），构建完整的多轮对话 transcript。\n70: \n71: - **首次调用**（无 `session_id`）：自动创建新会话，返回 `session_id`\n72: - **后续调用**（有 `session_id`）：将消息追加到已有会话的 transcript 末尾\n73: \n74: ### 3.2 参数\n75: \n76: | 参数             | 类型     | 必填 | 说明 |\n77: |-----------------|----------|------|------|\n78: | `role`          | `string` | **是** | 消息角色：`user` / `assistant` / `tool` |\n79: | `content`       | `string` | **是** | 消息正文。推理模型推理阶段 content 可为空字符串（见第 7 节） |\n80: | `session_id`    | `string` | 否   | 首次调用时省略；后续调用必须传入 |\n81: | `reasoning`     | `string` | 否   | 推理模型本轮的完整思考过程，仅 `role=assistant` 时有意义（见第 7 节） |\n82: | `tool_name`     | `string` | 否   | `role=tool` 时的工具名称，如 `bash`、`read`、`edit` |\n83: | `tool_input`    | `string` | 否   | `role=tool` 时的工具输入摘要，过长时截断 |\n84: | `model`         | `string` | 否   | AI 模型完整名称，**仅首次调用时有效**，如实填写 |\n85: | `workspace_path`| `string` | 否   | 工作区根目录绝对路径，**仅首次调用时有效**，默认当前目录 |\n86: | `token_usage`   | `object` | 否   | 当前累计 Token 用量（见 3.3 节） |\n87: \n88: #### token_usage 对象结构\n89: \n90: ```json\n91: {\n92:   \"input_tokens\": 1024,\n93:   \"output_tokens\": 512,\n94:   \"cache_creation_tokens\": 256,\n95:   \"cache_read_tokens\": 128,\n96:   \"api_call_count\": 3\n97: }\n98: ```\n99: \n100: > 传入的 token_usage 应为**累计值**（截至本轮的总计），非本轮增量。\n101: \n102: ### 3.3 返回值\n103: \n104: 成功时返回包含 `session_id` 的文本消息：\n105: \n106: ```\n107: 消息已记录（session_id=abc123xyz）。后续调用请传入此 session_id。\n108: ```\n109: \n110: **客户端必须解析并保存返回的 `session_id`**，用于后续所有 `log_turn` 和 `log_intent` 调用。\n111: \n112: 失败时 `isError: true`，消息内容为错误描述。\n113: \n114: ### 3.4 调用示例\n115: \n116: **首次调用（创建会话，记录 user 消息）**\n117: \n118: ```json\n119: {\n120:   \"role\": \"user\",\n121:   \"content\": \"帮我用 TypeScript 实现一个带 TTL 的 LRU 缓存类\",\n122:   \"model\": \"deepseek-r1\",\n123:   \"workspace_path\": \"/Users/dev/my-project\"\n124: }\n125: ```\n126: \n127: **记录 assistant 消息（普通模型）**\n128: \n129: ```json\n130: {\n131:   \"session_id\": \"abc123xyz\",\n132:   \"role\": \"assistant\",\n133:   \"content\": \"好的，我来实现一个 TTL + LRU 缓存...\",\n134:   \"token_usage\": {\n135:     \"input_tokens\": 512,\n136:     \"output_tokens\": 1024\n137:   }\n138: }\n139: ```\n140: \n141: **记录 assistant 消息（推理模型，附带 reasoning）**\n142: \n143: ```json\n144: {\n145:   \"session_id\": \"abc123xyz\",\n146:   \"role\": \"assistant\",\n147:   \"content\": \"好的，我来实现一个 TTL + LRU 缓存...\",\n148:   \"reasoning\": \"用户需要一个支持 TTL 过期和容量限制的 LRU 缓存。Map 天然保持插入顺序，可以利用这一特性模拟 LRU...\",\n149:   \"token_usage\": {\n150:     \"input_tokens\": 512,\n151:     \"output_tokens\": 1024\n152:   }\n153: }\n154: ```\n155: \n156: **记录 tool 执行结果**\n157: \n158: ```json\n159: {\n160:   \"session_id\": \"abc123xyz\",\n161:   \"role\": \"tool\",\n162:   \"content\": \"文件写入成功：src/cache/LRUCache.ts（128 行）\",\n163:   \"tool_name\": \"write\",\n164:   \"tool_input\": \"filePath=src/cache/LRUCache.ts\"\n165: }\n166: ```\n167: \n168: ---\n169: \n170: ## 4. log_intent — 任务汇总\n171: \n172: ### 4.1 用途\n173: \n174: 在一项任务完成后调用一次，记录任务目标和受影响文件。`reasoning` 字段由服务端从 transcript 自动生成，客户端无需传入。\n175: \n176: **推荐模式**：先用 `log_turn` 逐轮记录，任务结束后再调用 `log_intent` 汇总。两者配合使用时传入 `session_id` 以关联到同一会话。\n177: \n178: ### 4.2 参数\n179: \n180: | 参数              | 类型            | 必填 | 说明 |\n181: |------------------|-----------------|------|------|\n182: | `task`           | `string`        | **是** | 本次任务的目标描述（一两句话） |\n183: | `model`          | `string`        | **是** | AI 模型完整名称，如实填写，不得使用占位符 |\n184: | `session_id`     | `string`        | 否   | 已有会话 ID（由 log_turn 返回）；不传则新建会话 |\n185: | `affected_files` | `string[]`      | 否   | 受影响的文件路径列表（相对于 workspace_path） |\n186: | `workspace_path` | `string`        | 否   | 工作区根目录绝对路径，默认 MCP 进程工作目录 |\n187: | `transcript`     | `object[]`      | 否   | 完整对话记录（未使用 log_turn 时一次性提交，见 4.3 节） |\n188: | `token_usage`    | `object`        | 否   | 最终累计 Token 用量 |\n189: \n190: ### 4.3 transcript 一次性提交格式\n191: \n192: 仅在**未使用 log_turn** 的情况下，可通过 `transcript` 参数一次性提交完整对话记录：\n193: \n194: ```json\n195: {\n196:   \"transcript\": [\n197:     { \"role\": \"user\", \"content\": \"帮我重构这个函数\" },\n198:     {\n199:       \"role\": \"assistant\",\n200:       \"content\": \"已完成重构...\",\n201:       \"reasoning\": \"分析原函数的职责...\",\n202:       \"timestamp\": \"2026-03-25T10:00:00Z\"\n203:     },\n204:     {\n205:       \"role\": \"tool\",\n206:       \"content\": \"文件已更新\",\n207:       \"tool_name\": \"edit\",\n208:       \"tool_input\": \"filePath=src/utils.ts\"\n209:     }\n210:   ]\n211: }\n212: ```\n213: \n214: 每条消息支持的字段：`role`（必填）、`content`（必填）、`reasoning`、`tool_name`、`tool_input`、`timestamp`。\n215: \n216: ### 4.4 调用示例\n217: \n218: ```json\n219: {\n220:   \"task\": \"实现带 TTL 的 LRU 缓存类，支持自动过期和容量限制\",\n221:   \"model\": \"deepseek-r1\",\n222:   \"session_id\": \"abc123xyz\",\n223:   \"affected_files\": [\n224:     \"src/cache/LRUCache.ts\",\n225:     \"src/cache/LRUCache.test.ts\"\n226:   ]\n227: }\n228: ```\n229: \n230: ---\n231: \n232: ## 5. query_historical_interaction — 历史查询\n233: \n234: ### 5.1 用途\n235: \n236: 只读工具，从本地数据库检索历史 AI 交互记录，供 Agent 参考历史决策、避免重复工作，或用于调试分析。\n237: \n238: ### 5.2 参数\n239: \n240: 所有参数均为可选，不传任何参数时返回最近 20 条记录。\n241: \n242: | 参数                  | 类型      | 说明 |\n243: |----------------------|-----------|------|\n244: | `session_id`         | `string`  | 精确查询单条会话（传入后忽略其他过滤参数，返回含完整 transcript） |\n245: | `filename`           | `string`  | 文件名或路径片段（模糊匹配 affected_files） |\n246: | `keyword`            | `string`  | 在 prompt / response / note 中全文搜索 |\n247: | `start_date`         | `string`  | 时间范围起始，ISO 8601，如 `\"2026-03-01\"` |\n248: | `end_date`           | `string`  | 时间范围截止，ISO 8601，如 `\"2026-03-31\"` |\n249: | `commit_hash`        | `string`  | 查找绑定到指定 Commit 的会话（支持短 SHA） |\n250: | `provider`           | `string`  | 按模型提供商过滤，如 `\"deepseek\"`、`\"anthropic\"` |\n251: | `source`             | `string`  | 按 Agent 来源过滤，如 `\"cline\"`、`\"cursor\"` |\n252: | `page`               | `number`  | 页码，从 1 开始，默认 1 |\n253: | `page_size`          | `number`  | 每页条数，最大 100，默认 20 |\n254: | `include_transcript` | `boolean` | 列表结果是否包含完整 transcript，默认 false |\n255: \n256: ### 5.3 返回结构\n257: \n258: ```json\n259: {\n260:   \"total\": 42,\n261:   \"page\": 1,\n262:   \"pageSize\": 20,\n263:   \"records\": [\n264:     {\n265:       \"id\": \"abc123xyz\",\n266:       \"createdAt\": \"2026-03-25T10:00:00.000Z\",\n267:       \"provider\": \"deepseek\",\n268:       \"model\": \"deepseek-r1\",\n269:       \"source\": \"cline\",\n270:       \"workspacePath\": \"/Users/dev/my-project\",\n271:       \"prompt\": \"帮我实现...\",\n272:       \"response\": \"已完成...\",\n273:       \"reasoning\": \"[User]\\n...\\n\\n[Assistant]\\n<think>\\n...\\n</think>\\n...\",\n274:       \"commitHash\": \"a1b2c3d4\",\n275:       \"affectedFiles\": [\"src/cache/LRUCache.ts\"],\n276:       \"tags\": [],\n277:       \"durationMs\": 3500\n278:     }\n279:   ]\n280: }\n281: ```\n282: \n283: ---\n284: \n285: ## 6. 完整调用流程\n286: \n287: ### 6.1 标准多轮对话流程\n288: \n289: ```\n290: 用户发送消息\n291:     │\n292:     ▼\n293: log_turn(role=\"user\", content=\"...\", model=\"...\", workspace_path=\"...\")\n294:     │ 返回 session_id=\"abc123\"\n295:     ▼\n296: 模型推理 + 生成回复\n297:     │\n298:     ▼\n299: log_turn(session_id=\"abc123\", role=\"assistant\", content=\"...\", reasoning=\"...\")\n300:     │  ← 推理模型必须传 reasoning；每轮 assistant 均需记录\n301:     ▼\n302: 执行工具调用（如写文件、读文件、执行命令等）\n303:     │\n304:     ▼\n305: log_turn(session_id=\"abc123\", role=\"tool\", content=\"执行结果摘要\",\n306:          tool_name=\"write\", tool_input=\"filePath=src/foo.ts\")\n307:     │  ← 每次工具调用单独记录一次，tool_input 须含文件路径\n308:     ▼\n309: （继续下一轮对话，重复 assistant + tool 步骤...）\n310:     │\n311:     ▼\n312: 任务完成\n313:     │\n314:     ▼\n315: log_intent(session_id=\"abc123\", task=\"...\", model=\"...\",\n316:            affected_files=[\"src/foo.ts\", \"src/bar.ts\"])\n317:     │  ← 汇总所有本次任务改动过的文件路径\n318: ```\n319: \n320: ### 6.2 调用时序约束\n321: \n322: - `log_turn` 调用**必须**按消息产生顺序进行，不可乱序\n323: - 同一轮的多次工具调用，每次均需单独调用一次 `log_turn(role=\"tool\", ...)`\n324: - `log_intent` 在整个任务结束后**只调用一次**\n325: - 若任务因错误中断，仍应调用 `log_intent` 记录中断状态\n326: \n327: ### 6.3 会话生命周期\n328: \n329: ```\n330: 创建                  追加                        汇总\n331:   │                    │                            │\n332:   ▼                    ▼                            ▼\n333: log_turn          log_turn ×N                  log_intent\n334: (无 session_id)   (有 session_id)              (有 session_id)\n335:                   assistant → reasoning         affected_files\n336:                   tool      → tool_name/input\n337: ```\n338: \n339: ---\n340: \n341: ## 7. 推理模型特殊处理\n342: \n343: `reasoning` 字段在 `TranscriptTurn` 和 `AgentSession` 中均表示推理过程，语义完全一致：\n344: - `TranscriptTurn.reasoning`：单轮 assistant 消息的推理内容\n345: - `AgentSession.reasoning`：会话级别的推理汇总（由服务端从 transcript 中各轮 reasoning 聚合生成）\n346: \n347: ### 7.0 每轮必须记录的两件事\n348: \n349: 对于推理模型（DeepSeek-R1、Claude extended thinking 等），**每完成一轮推理**，客户端必须完整记录以下两件事：\n350: \n351: **① 推理过程（reasoning）**\n352: \n353: 在 `log_turn(role=\"assistant\")` 中传入本轮完整的推理文本，**不得截断、不得省略**。这是 AgentLog 的核心价值所在——当开发者日后需要理解 AI 当时的决策逻辑时，完整的推理链路是唯一可依赖的证据。\n354: \n355: ```json\n356: {\n357:   \"session_id\": \"abc123xyz\",\n358:   \"role\": \"assistant\",\n359:   \"content\": \"已完成修改，将原函数拆分为三个独立职责...\",\n360:   \"reasoning\": \"原函数承担了数据获取、格式转换、错误处理三个职责，违反单一职责原则。\\n拆分方案：\\n1. fetchData() 负责网络请求\\n2. transform() 负责格式转换\\n3. handleError() 统一处理异常\\n考虑到调用方不需要感知内部拆分，对外仍保留原函数名作为门面...\"\n361: }\n362: ```\n363: \n364: **② 改动的文件（tool 轮次中的 tool_input）**\n365: \n366: 每次执行写文件、编辑文件、删除文件等操作时，在 `log_turn(role=\"tool\")` 中通过 `tool_input` 记录涉及的文件路径。多个文件操作分别记录，不合并。\n367: \n368: ```json\n369: {\n370:   \"session_id\": \"abc123xyz\",\n371:   \"role\": \"tool\",\n372:   \"content\": \"已写入 src/utils/fetchData.ts（42 行）\",\n373:   \"tool_name\": \"write\",\n374:   \"tool_input\": \"filePath=src/utils/fetchData.ts\"\n375: }\n376: ```\n377: \n378: 任务结束时在 `log_intent` 的 `affected_files` 中汇总本次任务所有改动过的文件：\n379: \n380: ```json\n381: {\n382:   \"session_id\": \"abc123xyz\",\n383:   \"task\": \"将 processData 函数按职责拆分为三个独立函数\",\n384:   \"model\": \"deepseek-r1\",\n385:   \"affected_files\": [\n386:     \"src/utils/fetchData.ts\",\n387:     \"src/utils/transform.ts\",\n388:     \"src/utils/handleError.ts\",\n389:     \"src/utils/index.ts\"\n390:   ]\n391: }\n392: ```\n393: \n394: > **为什么这两件事缺一不可？**  \n395: > - 只有 `reasoning` 而无 `affected_files`：知道 AI 怎么想，但不知道改了哪里，无法做代码审查  \n396: > - 只有 `affected_files` 而无 `reasoning`：知道改了哪里，但不知道为什么这样改，日后维护仍是黑盒\n397: \n398: ---\n399: \n400: ### 7.1 DeepSeek-R1\n401: \n402: DeepSeek-R1 的流式 API 响应分两个阶段：\n403: \n404: | 阶段     | `delta.content` | `delta.reasoning_content` |\n405: |---------|-----------------|---------------------------|\n406: | 推理阶段 | `\"\"` (空字符串)  | 推理文本（非空）            |\n407: | 回答阶段 | 回答文本（非空）  | `\"\"` (空字符串)             |\n408: \n409: **正确做法**：等待两个阶段的流式输出均结束后，合并为一次 `log_turn` 调用，将 `delta.reasoning_content` 的累积内容传入 `reasoning`：\n410: \n411: ```json\n412: {\n413:   \"session_id\": \"abc123xyz\",\n414:   \"role\": \"assistant\",\n415:   \"content\": \"根据分析，建议使用 Map 实现 LRU...\",\n416:   \"reasoning\": \"用户需要一个 TTL+LRU 缓存。Map 天然保持插入顺序，可以用来模拟 LRU...\",\n417:   \"token_usage\": {\n418:     \"input_tokens\": 1024,\n419:     \"output_tokens\": 768\n420:   }\n421: }\n422: ```\n423: \n424: > **注意**：`content` 为空时，服务端会用 `\"(pending)\"` 占位，不会报错。但建议等到 `content` 非空后再调用，以确保记录的完整性。\n425: \n426: ### 7.2 Claude Extended Thinking\n427: \n428: Claude 3.7+ 开启 extended thinking 时，响应中包含 `thinking` 类型的 content block，将其 `thinking` 字段内容传入 `reasoning`：\n429: \n430: ```json\n431: {\n432:   \"session_id\": \"abc123xyz\",\n433:   \"role\": \"assistant\",\n434:   \"content\": \"以下是实现方案...\",\n435:   \"reasoning\": \"让我逐步分析这个问题...\\n首先考虑边界条件...\"\n436: }\n437: ```\n438: \n439: ### 7.3 其他支持推理输出的模型\n440: \n441: 同样适用，将模型的推理/思考内容映射到 `reasoning` 参数传入即可。`reasoning` 字段**不要截断**，完整保存有助于后续上下文恢复。\n442: \n443: ### 7.4 不支持推理输出的模型\n444: \n445: 普通模型（GPT-4o、Qwen-Max 等）不需要传 `reasoning`，省略该参数即可：\n446: \n447: ```json\n448: {\n449:   \"session_id\": \"abc123xyz\",\n450:   \"role\": \"assistant\",\n451:   \"content\": \"以下是实现方案...\"\n452: }\n453: ```\n454: \n455: ---\n456: \n457: ## 8. 字段速查表\n458: \n459: ### 8.1 provider 枚举值\n460: \n461: | 值           | 对应模型               |\n462: |-------------|----------------------|\n463: | `deepseek`  | DeepSeek-R1 / V3 系列 |\n464: | `anthropic` | Claude 系列            |\n465: | `openai`    | GPT / o 系列           |\n466: | `qwen`      | 通义千问系列             |\n467: | `kimi`      | Kimi / Moonshot 系列   |\n468: | `doubao`    | 豆包系列                |\n469: | `zhipu`     | GLM / ChatGLM 系列    |\n470: | `minimax`   | MiniMax 系列           |\n471: | `google`    | Gemini / Gemma 系列   |\n472: | `ollama`    | 本地 Ollama 模型        |\n473: | `unknown`   | 兜底值                 |\n474: \n475: > provider 由服务端根据 `model` 名称自动推断，客户端通常无需关心。\n476: \n477: ### 8.2 source 枚举值\n478: \n479: | 值             | 说明                   |\n480: |---------------|----------------------|\n481: | `cline`       | Cline VSCode 插件       |\n482: | `cursor`      | Cursor IDE            |\n483: | `opencode`    | OpenCode CLI          |\n484: | `claude-code` | Claude Code           |\n485: | `copilot`     | GitHub Copilot        |\n486: | `continue`    | Continue 插件           |\n487: | `mcp-tool-call`| 其他 MCP 客户端         |\n488: \n489: ### 8.3 role 枚举值\n490: \n491: | 值           | 适用场景                                  |\n492: |-------------|------------------------------------------|\n493: | `user`      | 用户输入的每条消息                          |\n494: | `assistant` | 模型生成的每条回复（含推理模型的最终回答）     |\n495: | `tool`      | 每次工具调用的执行结果（bash / read / edit 等）|\n496: \n497: ---\n498: \n499: ## 9. 常见错误处理\n500: \n501: ### 9.1 session_id 丢失\n502: \n503: **现象**：每次 `log_turn` 都不传 `session_id`，导致每条消息创建独立会话。\n504: \n505: **原因**：未保存首次调用返回的 `session_id`。\n506: \n507: **解决**：客户端应在对话开始时解析首次 `log_turn` 的返回文本，提取 `session_id=<value>` 并缓存，直到对话结束。\n508: \n509: ### 9.2 content 为空导致会话创建失败（历史问题，已修复）\n510: \n511: **现象**（v0.4.0 之前）：DeepSeek-R1 推理阶段 `content` 为空字符串，首次 `log_turn` 返回错误，后续轮次全部丢失。\n512: \n513: **现状**：v0.4.0 起服务端已对空 content 做兜底处理，空字符串不再触发 400 错误。推荐做法仍是等待 content 非空后再调用。\n514: \n515: ### 9.3 后端服务未启动\n516: \n517: **现象**：`log_turn` 返回 `isError: true`，错误消息包含 `ECONNREFUSED` 或 `fetch failed`。\n518: \n519: **解决**：确认 AgentLog 后端已启动（默认端口 7892）：\n520: \n521: ```bash\n522: curl http://localhost:7892/health\n523: ```\n524: \n525: 若未启动，在 VS Code 中执行命令 `AgentLog: 启动本地后台服务`，或手动运行：\n526: \n527: ```bash\n528: pnpm --filter @agentlog/backend dev\n529: ```\n530: \n531: ### 9.4 重复记录同一消息\n532: \n533: **现象**：transcript 中出现内容相同的重复消息。\n534: \n535: **原因**：流式响应的每个 chunk 都触发了 `log_turn`，而非等待完整消息。\n536: \n537: **解决**：`log_turn` 应在**完整消息生成结束后**调用，传入聚合后的完整 content，而非流式 chunk。\n538: \n539: ### 9.5 工具调用遗漏\n540: \n541: **现象**：transcript 中只有 user / assistant 消息，缺少 tool 执行记录。\n542: \n543: **解决**：每次工具调用（无论成功或失败）执行完毕后，均调用一次 `log_turn(role=\"tool\", ...)`，`content` 填入执行结果摘要（失败时填错误信息）。\n544: \n545: ---\n546: \n547: *文档版本：v0.4.1 | 最后更新：2026-03-25*\n\n(End of file - total 547 lines)\n</content>",
+            "title": "docs/MCP-CLIENT-GUIDE.md",
+            "metadata": {
+              "preview": "# AgentLog MCP 客户端接入指南\n\n> 适用版本：AgentLog MCP Server v0.4.0+  \n> 协议：Model Context Protocol (MCP) stdio 模式\n\n本文档面向需要接入 AgentLog MCP Server 的 AI 编码客户端（如 Cline、Cursor、OpenCode、Continue 等），说明三个工具的完整调用规范、调用时机、字段语义，以及针对不同模型类型的特殊处理规则。\n\n---\n\n## 目录\n\n1. [概述](#1-概述)\n2. [工具列表](#2-工具列表)\n3. [log_turn — 逐轮记录](#3-log_turn--逐轮记录)\n4. [log_intent — 任务汇总](#4-log_intent--任务汇总)\n5. [query_historical_interaction — 历史查询](#5-query_historical_interaction--历史查询)\n6. [完整调用流程](#6-完整调用流程)\n7. [推理模型特殊处理](#7-推理模型特殊处理)\n   - [7.0 每轮必须记录的两件事](#70-每轮必须记录的两件事)\n8. [字段速查表](#8-字段速查表)",
+              "truncated": false,
+              "loaded": []
+            },
+            "time": {
+              "start": 1774780693234,
+              "end": 1774780693250
+            }
+          },
+          "id": "prt_d392c3887001HPshCiOywdMznU",
+          "sessionID": "ses_2c6d428d8ffeF93SIciy6zrWZy",
+          "messageID": "msg_d392c2d39002NW0gJeIhBpW2E9"
+        },
+        {
+          "type": "tool",
+          "callID": "call_function_nvo5rd0yedjq_2",
+          "tool": "read",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/Users/hobo/Projects/AgentLog/docs/DATA-MODEL.md"
+            },
+            "output": "<path>/Users/hobo/Projects/AgentLog/docs/DATA-MODEL.md</path>\n<type>file</type>\n<content>1: # AgentLog 数据模型\n2: \n3: > 基于 `packages/backend/src/db/database.ts` Schema 定义\n4: \n5: ## 概述\n6: \n7: - **数据库**: SQLite (better-sqlite3)\n8: - **存储路径**: `~/.agentlog/agentlog.db` (可通过 `AGENTLOG_DB_PATH` 环境变量覆盖)\n9: - **当前 Schema 版本**: 2\n10: \n11: ## 表结构\n12: \n13: ### 1. agent_sessions\n14: \n15: AI 交互会话的完整记录。\n16: \n17: | 字段 | 类型 | 说明 |\n18: |------|------|------|\n19: | `id` | TEXT PRIMARY KEY | 会话唯一标识 |\n20: | `created_at` | TEXT | 创建时间 (ISO 8601) |\n21: | `provider` | TEXT | AI provider (如 openai, anthropic) |\n22: | `model` | TEXT | 模型名称 |\n23: | `source` | TEXT | 会话来源 (默认 unknown) |\n24: | `workspace_path` | TEXT | 工作区路径 |\n25: | `prompt` | TEXT | 用户提示 |\n26: | `reasoning` | TEXT | 模型推理过程 (可为 NULL，如 DeepSeek-R1) |\n27: | `response` | TEXT | 模型响应 |\n28: | `commit_hash` | TEXT | 关联的 Git commit hash |\n29: | `affected_files` | TEXT | JSON 数组，涉及的文件列表 |\n30: | `duration_ms` | INTEGER | 会话耗时 (毫秒) |\n31: | `tags` | TEXT | JSON 数组，标签 |\n32: | `note` | TEXT | 备注 |\n33: | `metadata` | TEXT | JSON 对象，provider 特定扩展字段 |\n34: | `transcript` | TEXT | JSON 数组，每条为 TranscriptTurn (v2 新增) |\n35: | `token_usage` | TEXT | JSON 对象，Token 用量统计 (v2 新增) |\n36: \n37: **索引**:\n38: - `idx_sessions_created_at` (created_at)\n39: - `idx_sessions_workspace` (workspace_path)\n40: - `idx_sessions_provider` (provider)\n41: - `idx_sessions_commit_hash` (commit_hash)\n42: \n43: ---\n44: \n45: ### 2. commit_bindings\n46: \n47: Git Commit 与 AgentSession 的绑定关系。\n48: \n49: | 字段 | 类型 | 说明 |\n50: |------|------|------|\n51: | `commit_hash` | TEXT PRIMARY KEY | Git commit hash |\n52: | `session_ids` | TEXT | JSON 数组，关联的 session IDs |\n53: | `message` | TEXT | commit 消息 |\n54: | `committed_at` | TEXT | 提交时间 |\n55: | `author_name` | TEXT | 提交者名称 |\n56: | `author_email` | TEXT | 提交者邮箱 |\n57: | `changed_files` | TEXT | JSON 数组，变更的文件列表 |\n58: | `workspace_path` | TEXT | 工作区路径 |\n59: \n60: **索引**:\n61: - `idx_commits_committed_at` (committed_at)\n62: - `idx_commits_workspace` (workspace_path)\n63: \n64: ---\n65: \n66: ### 3. schema_version\n67: \n68: Schema 版本管理。\n69: \n70: | 字段 | 类型 | 说明 |\n71: |------|------|------|\n72: | `version` | INTEGER | 版本号 |\n73: | `applied_at` | TEXT | 应用时间 |\n74: \n75: ---\n76: \n77: ## 迁移历史\n78: \n79: | 版本 | 变更 |\n80: |------|------|\n81: | 1 | 初始版本：创建 agent_sessions, commit_bindings 表及索引 |\n82: | 2 | 新增 `transcript` 列 (JSON 数组，存储逐轮对话) 和 `token_usage` 列 (JSON 对象，Token 用量统计) |\n83: \n84: ---\n85: \n86: ## JSON 字段格式\n87: \n88: - **affected_files**: `[\"src/foo.ts\", \"src/bar.ts\"]`\n89: - **tags**: `[\"bugfix\", \"重构\"]`\n90: - **metadata**: `{}`\n91: - **transcript**: `[{\"role\": \"user\", \"content\": \"...\"}, {\"role\": \"assistant\", \"content\": \"...\"}]`\n92: - **token_usage**: `{\"inputTokens\": 100, \"outputTokens\": 200, \"cache\": 50}`\n93: \n94: ---\n95: \n96: ## 工具函数\n97: \n98: ```typescript\n99: toJson(value: unknown): string        // 序列化 JS 数组/对象为 JSON 字符串\n100: fromJson<T>(raw: string, fallback: T): T  // 反序列化 JSON 字符串\n101: ```\n\n(End of file - total 101 lines)\n</content>",
+            "title": "docs/DATA-MODEL.md",
+            "metadata": {
+              "preview": "# AgentLog 数据模型\n\n> 基于 `packages/backend/src/db/database.ts` Schema 定义\n\n## 概述\n\n- **数据库**: SQLite (better-sqlite3)\n- **存储路径**: `~/.agentlog/agentlog.db` (可通过 `AGENTLOG_DB_PATH` 环境变量覆盖)\n- **当前 Schema 版本**: 2\n\n## 表结构\n\n### 1. agent_sessions\n\nAI 交互会话的完整记录。\n\n| 字段 | 类型 | 说明 |\n|------|------|------|\n| `id` | TEXT PRIMARY KEY | 会话唯一标识 |\n| `created_at` | TEXT | 创建时间 (ISO 8601) |",
+              "truncated": false,
+              "loaded": []
+            },
+            "time": {
+              "start": 1774780693241,
+              "end": 1774780693254
+            }
+          },
+          "id": "prt_d392c3af4001LUUtnz81kMYOsF",
+          "sessionID": "ses_2c6d428d8ffeF93SIciy6zrWZy",
+          "messageID": "msg_d392c2d39002NW0gJeIhBpW2E9"
+        },
+        {
+          "type": "tool",
+          "callID": "call_function_nvo5rd0yedjq_3",
+          "tool": "read",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/Users/hobo/Projects/AgentLog/AGENTS.md"
+            },
+            "output": "<path>/Users/hobo/Projects/AgentLog/AGENTS.md</path>\n<type>file</type>\n<content>1: # AgentLog Developer Guide\n2: \n3: Guidelines for AI coding agents working on the AgentLog codebase.\n4: \n5: ## Project Overview\n6: \n7: AgentLog is a VS Code/Cursor extension with a local Fastify + SQLite backend that captures AI agent interaction logs and binds them to Git commits. It's a pnpm monorepo with three packages:\n8: - `@agentlog/shared` - Shared TypeScript types and utilities\n9: - `@agentlog/backend` - Fastify server with SQLite storage (port 7892)\n10: - `agentlog-vscode` - VS Code extension\n11: \n12: ## Build / Lint / Test Commands\n13: \n14: ### Root Commands\n15: ```bash\n16: # Install dependencies\n17: pnpm install\n18: \n19: # Build all packages (shared → backend → vscode-extension)\n20: pnpm build\n21: \n22: # Build individual packages\n23: pnpm build:shared    # Must be built first (other packages depend on it)\n24: pnpm build:backend\n25: pnpm build:ext\n26: \n27: # Start backend in dev mode with hot reload\n28: pnpm dev\n29: \n30: # Type check all packages\n31: pnpm lint\n32: \n33: # Clean all dist folders\n34: pnpm clean\n35: ```\n36: \n37: ### Backend Commands\n38: ```bash\n39: cd packages/backend\n40: \n41: # Start dev server (tsx watch)\n42: pnpm dev\n43: \n44: # Build TypeScript\n45: pnpm build\n46: \n47: # Type check (lint)\n48: pnpm lint\n49: \n50: # Run all tests\n51: pnpm test\n52: \n53: # Run a single test file\n54: node --import tsx --test test/integration.test.ts\n55: ```\n56: \n57: ### VSCode Extension Commands\n58: ```bash\n59: cd packages/vscode-extension\n60: \n61: # Compile TypeScript\n62: pnpm compile\n63: \n64: # Watch mode\n65: pnpm watch\n66: \n67: # Build for publishing\n68: pnpm build\n69: \n70: # Type check\n71: pnpm lint\n72: \n73: # Run fetch interception tests\n74: pnpm test:fetch\n75: ```\n76: \n77: ## Code Style Guidelines\n78: \n79: ### TypeScript Configuration\n80: - Target: ES2020\n81: - Module: CommonJS\n82: - Strict mode: enabled\n83: - Use `tsc --noEmit` for linting\n84: - Use path aliases: `@agentlog/shared` for shared types\n85: \n86: ### Imports Order\n87: 1. External dependencies\n88: 2. Type-only imports (`import type`)\n89: 3. Internal modules with path aliases\n90: 4. Relative imports\n91: \n92: ```typescript\n93: import { nanoid } from 'nanoid';\n94: import type { AgentSession, CreateSessionRequest } from '@agentlog/shared';\n95: import { getDatabase, closeDatabase } from '../db/database';\n96: ```\n97: \n98: ### Naming Conventions\n99: - **Files**: camelCase (`logService.ts`, `sessionTreeProvider.ts`)\n100: - **Interfaces/Types**: PascalCase (`AgentSession`, `SessionQueryFilter`)\n101: - **Functions/Variables**: camelCase\n102: - **Constants**: camelCase or UPPER_SNAKE_CASE for config\n103: - **Database columns**: snake_case (enforced in database.ts)\n104: - **Database row types**: `SessionRow`, `CommitRow` (suffix with `Row`)\n105: \n106: ### Type Usage\n107: - Use `interface` for public APIs and data shapes\n108: - Use `type` for unions, primitives, and utility types\n109: - Always type function parameters and return values\n110: - Use `Record<string, unknown>` for extensible objects\n111: - Use optional properties (`?`) for nullable fields\n112: \n113: ### Error Handling\n114: - Throw errors with descriptive messages: `throw new Error(\\`[logService] 会话写入失败，id=\\${id}\\`)`\n115: - Use try-catch in route handlers with proper HTTP status codes\n116: - Return `{ success: boolean; error?: string }` for API responses\n117: - Use proper HTTP status codes: 200 (OK), 201 (Created), 400 (Bad Request), 404 (Not Found), 500 (Server Error)\n118: \n119: ### Database Patterns\n120: - Use `better-sqlite3` with prepared statements\n121: - Use parameterized queries: `db.prepare('SELECT * FROM users WHERE id = ?')`\n122: - Use transactions for batch operations: `db.transaction(() => { ... })()`\n123: - Map snake_case database rows to camelCase entities via dedicated functions (`rowToSession`)\n124: - Use `toJson()` / `fromJson()` for JSON columns (tags, metadata, affectedFiles)\n125: \n126: ### Testing\n127: - Tests use Node.js native test runner with `--import tsx`\n128: - Use `describe` / `it` blocks\n129: - Use `assert` for assertions\n130: - Create test fixtures for reusable test data\n131: - Test both success and error cases\n132: \n133: ## AgentLog MCP Interaction Logging (MANDATORY)\n134: \n135: This project has an AgentLog MCP server configured. You MUST use it to record every conversation.\n136: \n137: ### Essential Rules\n138: 1. **First user message**: Call `agentlog_log_turn` with `role: \"user\"`, user's message as `content`, and your model name. Do NOT pass `session_id` — store the returned one.\n139: 2. **Subsequent user messages**: Call `agentlog_log_turn` with `role: \"user\"`, `content`, and the `session_id`.\n140: 3. **Every assistant response**: Call `agentlog_log_turn` with `role: \"assistant\"`, your complete response as `content`, and reasoning content in `reasoning` (if applicable).\n141: 4. **Tool executions**: Call `agentlog_log_turn` with `role: \"tool\"`, result summary as `content`, `tool_name`, and `tool_input` (include `filePath=` for file operations).\n142: 5. **Task completion**: Call `agentlog_log_intent` with brief `task` summary, `affected_files` list, and your `model` name.\n143: \n144: ### Critical Requirements\n145: - **Never skip logging**: Every user message, assistant response, and tool execution must be recorded.\n146: - **Session persistence**: Reuse the same `session_id` throughout the entire conversation.\n147: - **Complete content**: Pass FULL response text, not summaries or abbreviations.\n148: - **File paths**: Always include `filePath=` in `tool_input` for file operations.\n149: - **Reasoning**: For reasoning models (DeepSeek-R1, Claude), pass complete thinking process in `reasoning` field.\n150: - **Field semantics**: \n151:   - `reasoning` field in transcript stores per-turn thinking process.\n152:   - Session-level `formatted_transcript` contains formatted full conversation (auto-generated).\n153:   - Session-level `reasoning_summary` contains pure reasoning extract (auto-generated).\n154: \n155: ### Quick Validation\n156: ```bash\n157: # Verify MCP compliance\n158: node scripts/verify-mcp-compliance.js\n159: ```\n160: \n161: ## Common Issues & Solutions\n162: - **Rebuild order**: Always rebuild `@agentlog/shared` first before other packages.\n163: - **Database location**: `~/.agentlog/agentlog.db`\n164: - **Backend port**: Default 7892 (configurable via `AGENTLOG_PORT`)\n165: - **CORS**: Restricted to localhost origins only\n166: - **Token count mismatch**: OpenCode/Cursor shows context tokens; AgentLog records model API tokens\n167: \n168: ## VS Code Extension Specifics\n169: - Use VS Code API from `@types/vscode`\n170: - Register commands in `package.json` contributes section\n171: - Use TreeView for sidebar panels\n172: - Use Webview for detailed views and dashboards\n173: - Activate on `onStartupFinished` and chat participants\n\n(End of file - total 173 lines)\n</content>",
+            "title": "AGENTS.md",
+            "metadata": {
+              "preview": "# AgentLog Developer Guide\n\nGuidelines for AI coding agents working on the AgentLog codebase.\n\n## Project Overview\n\nAgentLog is a VS Code/Cursor extension with a local Fastify + SQLite backend that captures AI agent interaction logs and binds them to Git commits. It's a pnpm monorepo with three packages:\n- `@agentlog/shared` - Shared TypeScript types and utilities\n- `@agentlog/backend` - Fastify server with SQLite storage (port 7892)\n- `agentlog-vscode` - VS Code extension\n\n## Build / Lint / Test Commands\n\n### Root Commands\n```bash\n# Install dependencies\npnpm install\n\n# Build all packages (shared → backend → vscode-extension)\npnpm build",
+              "truncated": false,
+              "loaded": []
+            },
+            "time": {
+              "start": 1774780693624,
+              "end": 1774780693630
+            }
+          },
+          "id": "prt_d392c3afa0013qfEjBmae6g65O",
+          "sessionID": "ses_2c6d428d8ffeF93SIciy6zrWZy",
+          "messageID": "msg_d392c2d39002NW0gJeIhBpW2E9"
+        },
+        {
+          "type": "step-finish",
+          "reason": "tool-calls",
+          "snapshot": "6cb6cb391f55da107b2f018cda086a8b311b7aef",
+          "cost": 0,
+          "tokens": {
+            "total": 17693,
+            "input": 497,
+            "output": 151,
+            "reasoning": 0,
+            "cache": {
+              "read": 16768,
+              "write": 277
+            }
+          },
+          "id": "prt_d392c3c80001rKpUft4JEG12be",
+          "sessionID": "ses_2c6d428d8ffeF93SIciy6zrWZy",
+          "messageID": "msg_d392c2d39002NW0gJeIhBpW2E9"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1774780693719,
+          "completed": 1774780702029
+        },
+        "error": {
+          "name": "MessageAbortedError",
+          "data": {
+            "message": "The operation was aborted."
+          }
+        },
+        "parentID": "msg_d392c162b001lka7yzNow3Lxdx",
+        "modelID": "MiniMax-M2.7",
+        "providerID": "minimax-cn-coding-plan",
+        "mode": "plan",
+        "agent": "plan",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "cache": {
+            "read": 0,
+            "write": 0
+          }
+        },
+        "id": "msg_d392c3cd70020i4TeFSFhEO4IZ",
+        "sessionID": "ses_2c6d428d8ffeF93SIciy6zrWZy"
+      },
+      "parts": []
+    }
+  ]
+}
