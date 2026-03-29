@@ -396,7 +396,8 @@ interface McpClientProfile {
   format:
     | "opencode"   // { mcp: { "agentlog-mcp": { type, command, enabled } } }
     | "mcpServers" // { mcpServers: { "agentlog-mcp": { command, args } } }
-    | "cline";     // { mcpServers: { "agentlog-mcp": { command, args, disabled } } }
+    | "cline"      // { mcpServers: { "agentlog-mcp": { command, args, disabled } } }
+    | "qoder";     // { mcpServers: { "agentlog-mcp": { type, command, args } } }
   /** 客户端说明（显示在 QuickPick detail） */
   detail: string;
 }
@@ -452,6 +453,28 @@ const MCP_CLIENT_PROFILES: McpClientProfile[] = [
           : "~/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json",
     format: "cline",
     detail: "Cline VS Code 插件 — cline_mcp_settings.json",
+  },
+  {
+    id: "qoder",
+    label: "Qoder IDE",
+    configPath:
+      process.platform === "win32"
+        ? path.join(
+            process.env.APPDATA ?? os.homedir(),
+            "Qoder",
+            "SharedClientCache",
+            "mcp.json",
+          )
+        : process.platform === "darwin"
+          ? "~/Library/Application Support/Qoder/SharedClientCache/mcp.json"
+          : "~/.config/Qoder/SharedClientCache/mcp.json",
+    format: "qoder",
+    detail:
+      process.platform === "win32"
+        ? "Qoder IDE — %APPDATA%\\Qoder\\SharedClientCache\\mcp.json"
+        : process.platform === "darwin"
+          ? "Qoder IDE — ~/Library/Application Support/Qoder/SharedClientCache/mcp.json"
+          : "Qoder IDE — ~/.config/Qoder/SharedClientCache/mcp.json",
   },
 ];
 
@@ -515,6 +538,21 @@ async function writeMcpEntryToConfig(
       entry.disabled = false;
     }
     servers["agentlog-mcp"] = entry;
+  } else if (format === "qoder") {
+    // { mcpServers: { "agentlog-mcp": { type, command, args } } }
+    if (
+      !configJson.mcpServers ||
+      typeof configJson.mcpServers !== "object" ||
+      Array.isArray(configJson.mcpServers)
+    ) {
+      configJson.mcpServers = {};
+    }
+    const servers = configJson.mcpServers as Record<string, unknown>;
+    servers["agentlog-mcp"] = {
+      type: "stdio",
+      command: mcpCommand,
+      args: mcpArgs,
+    };
   }
 
   await fs.promises.writeFile(
@@ -745,6 +783,67 @@ async function injectOpenCodeAgentRules(): Promise<void> {
 }
 
 /**
+ * 将 AgentLog MCP 规则块注入到 Qoder 项目级 AGENTS.md。
+ * - 目标路径：${workspaceRoot}/AGENTS.md
+ * - 若文件不存在，自动创建。
+ * - 若规则块已存在（由起止注释标记识别），则替换为最新版本。
+ * - 若规则块不存在，追加到文件末尾。
+ */
+async function injectQoderAgentRules(workspaceRoot: string): Promise<void> {
+  const agentsMdPath = path.join(workspaceRoot, "AGENTS.md");
+
+  log(`[MCP-CFG] 开始写入 Qoder 规则文件: ${agentsMdPath}`);
+
+  try {
+    await fs.promises.mkdir(path.dirname(agentsMdPath), { recursive: true });
+    log(`[MCP-CFG] 目录已创建/验证: ${path.dirname(agentsMdPath)}`);
+  } catch (err) {
+    log(`[MCP-CFG] 创建目录失败: ${err instanceof Error ? err.message : String(err)}`);
+    throw err;
+  }
+
+  let content = "";
+  if (fs.existsSync(agentsMdPath)) {
+    try {
+      content = await fs.promises.readFile(agentsMdPath, "utf-8");
+      log(`[MCP-CFG] 读取现有文件成功，长度: ${content.length} 字符`);
+    } catch (err) {
+      log(`[MCP-CFG] 读取现有文件失败: ${err instanceof Error ? err.message : String(err)}`);
+      throw err;
+    }
+  } else {
+    log("[MCP-CFG] 文件不存在，将创建新文件");
+  }
+
+  const rulesBlock = buildAgentRulesBlock();
+  log(`[MCP-CFG] 规则块大小: ${rulesBlock.length} 字符`);
+
+  if (
+    content.includes(AGENTS_MD_RULE_START) &&
+    content.includes(AGENTS_MD_RULE_END)
+  ) {
+    const pattern = new RegExp(
+      `${escapeRegExp(AGENTS_MD_RULE_START)}[\\s\\S]*?${escapeRegExp(AGENTS_MD_RULE_END)}`,
+    );
+    content = content.replace(pattern, rulesBlock);
+    log("[MCP-CFG] 已更新 Qoder 项目 AGENTS.md 中的 AgentLog 规则块");
+  } else {
+    const trimmed = content.trimEnd();
+    content =
+      trimmed.length > 0 ? `${trimmed}\n\n${rulesBlock}\n` : `${rulesBlock}\n`;
+    log("[MCP-CFG] 已追加 AgentLog 规则块到 Qoder 项目 AGENTS.md");
+  }
+
+  try {
+    await fs.promises.writeFile(agentsMdPath, content, "utf-8");
+    log(`[MCP-CFG] 文件写入成功: ${agentsMdPath}`);
+  } catch (err) {
+    log(`[MCP-CFG] 文件写入失败: ${err instanceof Error ? err.message : String(err)}`);
+    throw err;
+  }
+}
+
+/**
  * QuickPick 向导：引导用户选择 AI 客户端并自动完成 MCP 配置注册。
  */
 async function configureMcpClient(
@@ -809,6 +908,8 @@ async function configureMcpClient(
       format = "opencode";
     } else if (basename.includes("cline")) {
       format = "cline";
+    } else if (basename.includes("qoder")) {
+      format = "qoder";
     } else {
       format = "mcpServers";
     }
@@ -826,9 +927,21 @@ async function configureMcpClient(
     // OpenCode 专项：额外写入全局 AGENTS.md 调用规则
     const isOpenCode = picked.profile?.id === "opencode" ||
       (!picked.profile && (targetPath.includes("opencode")));
-    const agentsMdPath = path.join(os.homedir(), ".config", "opencode", "AGENTS.md");
+    const opencodeAgentsMdPath = path.join(os.homedir(), ".config", "opencode", "AGENTS.md");
     if (isOpenCode) {
       await injectOpenCodeAgentRules();
+    }
+
+    // Qoder 专项：额外写入项目级 AGENTS.md 调用规则
+    const isQoder = picked.profile?.id === "qoder" ||
+      (!picked.profile && (targetPath.includes("qoder")));
+    let qoderAgentsMdPath = "";
+    if (isQoder) {
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      if (workspaceRoot) {
+        qoderAgentsMdPath = path.join(workspaceRoot, "AGENTS.md");
+        await injectQoderAgentRules(workspaceRoot);
+      }
     }
 
     // 记录已配置的客户端 ID
@@ -851,6 +964,9 @@ async function configureMcpClient(
     if (isOpenCode) {
       message = `AgentLog MCP 已配置到 ${clientName}，调用规则已写入全局 AGENTS.md，请重启 OpenCode 生效。`;
       actions.push("查看 AGENTS.md");
+    } else if (isQoder) {
+      message = `AgentLog MCP 已配置到 ${clientName}，调用规则已写入项目 AGENTS.md，请重启 Qoder 生效。`;
+      actions.push("查看 AGENTS.md");
     } else {
       message = `AgentLog MCP 已成功注册到 ${clientName}，请重启该 AI 客户端使配置生效。`;
     }
@@ -861,8 +977,11 @@ async function configureMcpClient(
       const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(targetPath));
       await vscode.window.showTextDocument(doc);
     } else if (action === "查看 AGENTS.md") {
-      const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(agentsMdPath));
-      await vscode.window.showTextDocument(doc);
+      const agentsPath = isOpenCode ? opencodeAgentsMdPath : qoderAgentsMdPath;
+      if (agentsPath) {
+        const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(agentsPath));
+        await vscode.window.showTextDocument(doc);
+      }
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -907,6 +1026,8 @@ async function updateMcpClientConfig(
       format = "opencode";
     } else if (basename.includes("cline")) {
       format = "cline";
+    } else if (basename.includes("qoder")) {
+      format = "qoder";
     }
 
     await writeMcpEntryToConfig(resolvedPath, format, mcpCommand, mcpArgs);

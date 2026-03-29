@@ -13,7 +13,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Stage 1: Builder ────────────────────────────────────────────────────────
-FROM node:18-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -32,7 +32,9 @@ RUN corepack enable && pnpm install --frozen-lockfile
 
 # 复制源代码
 COPY packages/shared/src ./packages/shared/src/
+COPY packages/shared/tsconfig.json ./packages/shared/tsconfig.json
 COPY packages/backend/src ./packages/backend/src/
+COPY packages/backend/tsconfig.json ./packages/backend/tsconfig.json
 COPY packages/backend/build.mjs ./packages/backend/build.mjs
 
 # 构建 shared 包
@@ -42,14 +44,14 @@ RUN pnpm build:shared
 RUN cd packages/backend && pnpm build
 
 # ── Stage 2: Runtime ─────────────────────────────────────────────────────────
-FROM node:18-alpine AS runtime
+FROM node:22-alpine AS runtime
 
 # 安装运行时依赖（SQLite 运行时）
 RUN apk add --no-cache dumb-init sqlite
 
 # 创建非 root 用户
-RUN addgroup -g 1000 agentlog && \
-    adduser -D -u 1000 -G agentlog agentlog
+RUN addgroup -g 1001 agentlog && \
+    adduser -D -u 1001 -G agentlog agentlog
 
 WORKDIR /app
 
