@@ -125,7 +125,14 @@ const pinoPkgs = [
   'joycon',
   'minimist',
   'pump',
+  'end-of-stream',        // pump dependency
+  'once',                 // pump & end-of-stream dependency
+  'wrappy',               // once dependency
   'readable-stream',
+  'inherits',             // readable-stream dependency
+  'string_decoder',       // readable-stream dependency
+  'util-deprecate',       // readable-stream dependency
+  'safe-buffer',          // string_decoder dependency
   'secure-json-parse',
   'strip-json-comments',
 ];

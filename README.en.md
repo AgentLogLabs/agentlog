@@ -19,6 +19,7 @@ Domestic developers extensively use Cursor, Cline, or local Agents based on Deep
 | 🎙️ **Auto Capture** | Intercept requests to DeepSeek / Qwen / Kimi and other APIs, extract Prompt + Response |
 | 🧠 **Reasoning Process Storage** | Special support for DeepSeek-R1's `<think>` reasoning chain, fully store intermediate thinking steps |
 | 🔗 **Git Commit Binding** | Via post-commit hook, automatically associate each commit with relevant AI sessions |
+| 🌿 **Git Worktree Support** | Multiple AI Agents can work in parallel on different worktrees of the same repository; each session is precisely bound to its corresponding commit without interference |
 | 📊 **Sidebar Panel** | VS Code sidebar showing session list, commit bindings, and statistics |
 | 📝 **One-Click Export** | Support exporting as Chinese weekly report, PR/Code Review explanation, JSONL raw data, CSV table |
 | 🏠 **Local First** | All data stored in local SQLite (`~/.agentlog/agentlog.db`), completely offline capable |

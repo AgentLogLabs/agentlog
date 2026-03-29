@@ -150,8 +150,20 @@ export interface AgentSession {
   /** 调用来源工具 */
   source: AgentSource;
 
-  /** 工作区根路径（绝对路径） */
+  /** 工作区根路径（绝对路径）。多 worktree 场景下为具体 worktree 的路径 */
   workspacePath: string;
+
+  /**
+   * Git 仓库根目录绝对路径（schema v4 新增）。
+   *
+   * 在多 worktree 场景下，同一仓库的不同 worktree 具有不同的 workspacePath，
+   * 但共享同一个 gitRepoRoot。通过此字段可将所有 worktree 的会话归一化到同一仓库，
+   * 支持 post-commit 钩子跨 worktree 正确匹配并绑定会话。
+   *
+   * 若未使用 git worktree，此值通常与 workspacePath 相同。
+   * 历史数据（schema v4 之前）此字段为 undefined。
+   */
+  gitRepoRoot?: string;
 
   /** 用户输入的完整 Prompt */
   prompt: string;
@@ -307,6 +319,12 @@ export interface CreateSessionRequest {
   model: string;
   source: AgentSource;
   workspacePath: string;
+  /**
+   * Git 仓库根目录路径（可选，schema v4 新增）。
+   * 多 worktree 场景下与 workspacePath 不同；单 worktree 场景下两者相同。
+   * 若未提供，后端会尝试从 workspacePath 自动推断。
+   */
+  gitRepoRoot?: string;
   prompt: string;
   reasoning?: string;
   response: string;

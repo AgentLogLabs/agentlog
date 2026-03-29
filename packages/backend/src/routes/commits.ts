@@ -32,6 +32,7 @@ import {
   bindSessionsToCommit,
   createSession,
   getUnboundSessions,
+  getUnboundSessionsByRepoRoot,
   getSessionsForNewCommit,
   getSessionsByCommitHash,
   getSessionById,
@@ -39,6 +40,7 @@ import {
 import {
   getCommitInfo,
   getRepoInfo,
+  getRepoRoot,
   injectPostCommitHook,
   removePostCommitHook,
   isGitRepo,
@@ -253,23 +255,52 @@ const commitsRouter: FastifyPluginAsync = async (fastify: FastifyInstance) => {
         // 2. 获取 commit 详细信息
         const commitInfo = await getCommitInfo(workspacePath, commitHash);
 
-        // 3. 获取需要绑定到新 Commit 的会话（包括未绑定和活跃会话）
-        const sessionsToBind = getSessionsForNewCommit(workspacePath, 20);
+        // 3. 解析当前 worktree 的 Git 仓库根目录，用于跨 worktree 会话匹配
+        let repoRoot: string = workspacePath;
+        try {
+          repoRoot = await getRepoRoot(workspacePath);
+        } catch {
+          fastify.log.warn(
+            `[Commits Hook] 无法获取 repoRoot，fallback 使用 workspacePath=${workspacePath}`,
+          );
+        }
+
+        // 4. 三级匹配策略，从精确到宽泛逐级回退：
+        //
+        //    Level 1（精确）：按当前 worktree 的 workspace_path 精确匹配
+        //    Level 2（宽泛）：按仓库根目录 git_repo_root 匹配，覆盖同仓库其他 worktree
+        //    Level 3（兜底）：生成自动摘要 Session
+        //
+        // 优先使用 Level 1，找不到时升级为 Level 2，两者均为空时触发兜底。
+        let sessionsToBind = getSessionsForNewCommit(workspacePath, 20);
+        let matchLevel = 1;
+
+        if (sessionsToBind.length === 0 && repoRoot !== workspacePath) {
+          // Level 2：尝试按 git_repo_root 匹配同仓库其他 worktree 的未绑定会话
+          sessionsToBind = getUnboundSessionsByRepoRoot(repoRoot, 20);
+          matchLevel = 2;
+          if (sessionsToBind.length > 0) {
+            fastify.log.info(
+              `[Commits Hook] commit=${commitHash.slice(0, 8)} Level-1 未找到会话，` +
+              `通过 git_repo_root=${repoRoot} 在其他 worktree 匹配到 ${sessionsToBind.length} 条`,
+            );
+          }
+        }
 
         if (sessionsToBind.length === 0) {
+          matchLevel = 3;
           fastify.log.info(
-            `[Commits Hook] commit=${commitHash.slice(0, 8)} 工作区无未绑定会话，尝试兜底补写`,
+            `[Commits Hook] commit=${commitHash.slice(0, 8)} 无未绑定会话（Level-1/2 均为空），尝试兜底补写`,
           );
 
           // ── 兜底逻辑（Spec 4.2 分支 B）──
-          // 当没有游离 Session 时，尝试根据 Commit 信息生成一条简要的 Session 记录。
-          // TODO: 未来版本可在此处集成轻量 LLM（读取 git diff → 调用 API → 生成意图摘要），
-          //       目前先根据 commit message + changed_files 生成一条基础记录。
+          // 当没有游离 Session 时，根据 Commit 信息生成一条简要的 Session 记录。
           const fallbackSession = createSession({
             provider: "unknown",
             model: "git-hook-fallback",
             source: "unknown",
             workspacePath,
+            gitRepoRoot: repoRoot,
             prompt: commitInfo.message,
             response: `Auto-generated from git commit ${commitInfo.hash.slice(0, 8)}.\nChanged files: ${commitInfo.changedFiles.join(", ") || "(none)"}`,
             affectedFiles: commitInfo.changedFiles,
@@ -292,7 +323,7 @@ const commitsRouter: FastifyPluginAsync = async (fastify: FastifyInstance) => {
           });
 
           fastify.log.info(
-            `[Commits Hook] commit=${commitHash.slice(0, 8)} 兜底补写了 1 条会话并绑定`,
+            `[Commits Hook] commit=${commitHash.slice(0, 8)} 兜底补写了 1 条会话并绑定（Level-3）`,
           );
 
           return reply.code(200).send({
@@ -301,8 +332,11 @@ const commitsRouter: FastifyPluginAsync = async (fastify: FastifyInstance) => {
           } satisfies ApiResponse<CommitBinding>);
         }
 
-        // 4. 提取需要绑定的会话 ID
-        const sessionIds = sessionsToBind.map((s) => s.id);
+        // 提取需要绑定的会话 ID
+        const sessionIds = sessionsToBind.map((s: { id: string }) => s.id);
+        fastify.log.info(
+          `[Commits Hook] commit=${commitHash.slice(0, 8)} Level-${matchLevel} 匹配到 ${sessionIds.length} 条会话待绑定`,
+        );
 
         // 5. 在 agent_sessions 表中更新 commit_hash
         const updatedCount = bindSessionsToCommit(sessionIds, commitInfo.hash);

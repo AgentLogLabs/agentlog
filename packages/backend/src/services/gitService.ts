@@ -298,7 +298,14 @@ async function getHooksDir(workspacePath: string): Promise<string> {
  * 钩子内容：在每次 git commit 完成后，向 AgentLog 后台发送通知，
  * 后台据此自动将最近的未绑定会话与新 Commit 关联。
  *
- * @param workspacePath 工作区路径
+ * 多 worktree 支持：
+ * - 钩子脚本通过 `git rev-parse --show-toplevel` 动态获取当前 worktree 路径，
+ *   而非硬编码工作区路径。这样同一仓库下的多个 worktree 共用同一个钩子脚本，
+ *   每次提交时均能正确上报各自的 worktree 路径。
+ * - 若钩子文件已存在 AgentLog 标记且 backendUrl 相同，则跳过注入避免重复；
+ *   若 backendUrl 已变更，则移除旧段落并重新注入。
+ *
+ * @param workspacePath 工作区路径（可以是主仓库或 worktree 路径）
  * @param backendUrl    AgentLog 后台地址，默认 http://localhost:7892
  */
 export async function injectPostCommitHook(
@@ -312,16 +319,23 @@ export async function injectPostCommitHook(
     fs.mkdirSync(hooksDir, { recursive: true });
   }
 
-  // 如果钩子已经包含我们的标记，跳过
+  // 如果钩子已经包含我们的标记且 backendUrl 相同，跳过
   if (fs.existsSync(hookFile)) {
     const existing = fs.readFileSync(hookFile, "utf-8");
     if (existing.includes(HOOK_MARKER)) {
-      console.log("[GitService] post-commit 钩子已存在，跳过注入");
-      return;
+      // 检查 backendUrl 是否变更
+      const endpoint = `${backendUrl}/api/commits/hook`;
+      if (existing.includes(endpoint)) {
+        console.log("[GitService] post-commit 钩子已存在且 backendUrl 一致，跳过注入");
+        return;
+      }
+      // backendUrl 已变更，移除旧段落后重新注入
+      console.log("[GitService] 检测到 backendUrl 变更，重新注入 post-commit 钩子");
+      await removePostCommitHook(workspacePath);
     }
   }
 
-  const hookScript = buildPostCommitScript(backendUrl, workspacePath);
+  const hookScript = buildPostCommitScript(backendUrl);
 
   // 若已有钩子文件，追加；否则新建
   if (fs.existsSync(hookFile)) {
@@ -377,18 +391,18 @@ export async function removePostCommitHook(
 /**
  * 构建注入到 post-commit 的 Shell 脚本片段。
  * 使用 curl 静默发送通知，失败时不影响正常 commit 流程。
+ *
+ * 多 worktree 支持：
+ * - AGENTLOG_WORKSPACE 通过 `git rev-parse --show-toplevel` 动态获取，
+ *   而非硬编码路径。这样同一钩子脚本在不同 worktree 下执行时，
+ *   均能正确上报各自的 worktree 路径。
  */
-function buildPostCommitScript(
-  backendUrl: string,
-  workspacePath: string,
-): string {
+function buildPostCommitScript(backendUrl: string): string {
   const endpoint = `${backendUrl}/api/commits/hook`;
-  // 对路径中可能存在的单引号做转义
-  const safeWorkspacePath = workspacePath.replace(/'/g, "'\\''");
 
   return `${HOOK_MARKER}
 AGENTLOG_COMMIT_HASH=$(git rev-parse HEAD)
-AGENTLOG_WORKSPACE='${safeWorkspacePath}'
+AGENTLOG_WORKSPACE=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 AGENTLOG_LOG="\${TMPDIR:-/tmp}/agentlog-hook.log"
 echo "[$(date '+%Y-%m-%dT%H:%M:%S')] post-commit fired: hash=$AGENTLOG_COMMIT_HASH workspace=$AGENTLOG_WORKSPACE" >> "$AGENTLOG_LOG" 2>/dev/null
 curl -s -X POST '${endpoint}' \\

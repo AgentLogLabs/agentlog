@@ -6,9 +6,7 @@ test/
 
 # 依赖与构建临时文件
 node_modules/
-dist/backend/node_modules/**
-!dist/backend/index.js
-!dist/backend/mcp.js
+# dist/backend/node_modules 需要打包进 vsix，不能排除
 
 # 开发配置与文档
 .github/

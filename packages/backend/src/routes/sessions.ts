@@ -40,6 +40,7 @@ import {
   pruneOldSessions,
   appendTranscript,
 } from '../services/logService';
+import { getRepoRoot, isGitRepo } from '../services/gitService';
 
 // ─────────────────────────────────────────────
 // 插件注册
@@ -91,11 +92,28 @@ export default async function sessionsRoutes(app: FastifyInstance) {
       }
 
       try {
+        // 自动推断 gitRepoRoot（多 worktree 支持）：
+        // 若请求中未提供 gitRepoRoot，尝试通过 git rev-parse --show-toplevel 获取。
+        // 在多 worktree 场景下，workspacePath 为某个 worktree 的路径，
+        // gitRepoRoot 为所有 worktree 共享的仓库主目录。
+        let gitRepoRoot = body.gitRepoRoot;
+        if (!gitRepoRoot) {
+          try {
+            const isRepo = await isGitRepo(body.workspacePath);
+            if (isRepo) {
+              gitRepoRoot = await getRepoRoot(body.workspacePath);
+            }
+          } catch {
+            // 无法获取 git 信息时（非 git 路径等），跳过，保持 undefined
+          }
+        }
+
         const session = createSession({
           provider: body.provider as ModelProvider,
           model: body.model,
           source: (body.source as AgentSource) ?? 'unknown',
           workspacePath: body.workspacePath,
+          gitRepoRoot,
           prompt: body.prompt,
           reasoning: body.reasoning,
           response: body.response ?? '',

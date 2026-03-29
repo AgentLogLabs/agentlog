@@ -1440,7 +1440,7 @@ function registerCommands(
       commitBindingsProvider.refresh();
 
       vscode.window.showInformationMessage(
-        `✅ Git 钩子已安装\n仓库：${result.repoRootPath}\n分支：${result.currentBranch}`,
+        `Git 钩子已安装（仓库：${result.repoRootPath}，分支：${result.currentBranch}）。支持多 worktree：同仓库下的所有 worktree 提交均会自动绑定到正确的会话。`,
       );
     } catch (err) {
       if (err instanceof BackendUnreachableError) {

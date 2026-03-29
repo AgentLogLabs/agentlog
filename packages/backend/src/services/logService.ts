@@ -67,23 +67,6 @@ function rowToSession(row: SessionRow): AgentSession {
     ? fromJson<TokenUsage>(row.token_usage, undefined as unknown as TokenUsage)
     : undefined;
 
-  // 查询该会话的所有 Commit 绑定（多对多）
-  const db = getDatabase();
-  const sessionCommitsRows = db
-    .prepare(`
-      SELECT commit_hash, transcript_length, created_at
-      FROM session_commits
-      WHERE session_id = ?
-      ORDER BY created_at ASC
-    `)
-    .all(row.id) as Array<{commit_hash: string; transcript_length: number; created_at: string}>;
-
-  const sessionCommits: SessionCommit[] = sessionCommitsRows.map(sc => ({
-    commitHash: sc.commit_hash,
-    transcriptLength: sc.transcript_length,
-    createdAt: sc.created_at,
-  }));
-
   return {
     id: row.id,
     createdAt: row.created_at,
@@ -91,17 +74,16 @@ function rowToSession(row: SessionRow): AgentSession {
     model: row.model,
     source: row.source as AgentSession['source'],
     workspacePath: row.workspace_path,
+    gitRepoRoot: row.git_repo_root ?? undefined,
     prompt: row.prompt,
     reasoning: row.reasoning ?? undefined,
     response: row.response,
     commitHash: row.commit_hash ?? undefined,
-    sessionCommits: sessionCommits.length > 0 ? sessionCommits : undefined,
     affectedFiles: fromJson<string[]>(row.affected_files, []),
     durationMs: row.duration_ms,
     tags: fromJson<string[]>(row.tags, []),
     note: row.note ?? undefined,
     transcript: transcript.length > 0 ? transcript : undefined,
-    lastActivityAt: row.last_activity_at ?? undefined,
     tokenUsage: tokenUsage ?? undefined,
     metadata: fromJson<Record<string, unknown>>(row.metadata, {}),
   };
@@ -130,11 +112,11 @@ export function createSession(req: CreateSessionRequest): AgentSession {
 
   db.prepare(`
     INSERT INTO agent_sessions (
-      id, created_at, provider, model, source, workspace_path,
+      id, created_at, provider, model, source, workspace_path, git_repo_root,
       prompt, reasoning, response, affected_files,
       duration_ms, tags, note, metadata, transcript, token_usage
     ) VALUES (
-      @id, @created_at, @provider, @model, @source, @workspace_path,
+      @id, @created_at, @provider, @model, @source, @workspace_path, @git_repo_root,
       @prompt, @reasoning, @response, @affected_files,
       @duration_ms, @tags, @note, @metadata, @transcript, @token_usage
     )
@@ -145,6 +127,7 @@ export function createSession(req: CreateSessionRequest): AgentSession {
     model: req.model,
     source: req.source,
     workspace_path: req.workspacePath,
+    git_repo_root: req.gitRepoRoot ?? null,
     prompt: req.prompt,
     reasoning: autoReasoning,
     response: req.response,
@@ -331,6 +314,35 @@ export function getUnboundSessions(
       LIMIT ?
     `)
     .all(workspacePath, limit) as SessionRow[];
+  return rows.map(rowToSession);
+}
+
+/**
+ * 查询指定 Git 仓库根目录下所有 worktree 中尚未绑定任何 Commit 的会话（按时间倒序）。
+ *
+ * 多 worktree 场景专用：通过 git_repo_root 字段匹配，而非 workspace_path 精确匹配。
+ * 这样即使钩子上报的是某个 worktree 的路径，也能正确匹配到同仓库其他 worktree 的会话。
+ *
+ * @param gitRepoRoot Git 仓库根目录绝对路径
+ * @param limit       最多返回条数，默认 50
+ */
+export function getUnboundSessionsByRepoRoot(
+  gitRepoRoot: string,
+  limit = 50,
+): AgentSession[] {
+  const db = getDatabase();
+  const rows = db
+    .prepare(`
+      SELECT s.* 
+      FROM agent_sessions s
+      LEFT JOIN session_commits sc ON s.id = sc.session_id
+      WHERE s.git_repo_root = ? 
+        AND sc.session_id IS NULL 
+        AND s.commit_hash IS NULL
+      ORDER BY s.created_at DESC
+      LIMIT ?
+    `)
+    .all(gitRepoRoot, limit) as SessionRow[];
   return rows.map(rowToSession);
 }
 

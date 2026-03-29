@@ -19,6 +19,7 @@
 | 🎙️ **自动捕获** | 拦截发往 DeepSeek / Qwen / Kimi 等 API 的请求，提取 Prompt + Response |
 | 🧠 **推理过程保存** | 专项支持 DeepSeek-R1 的 `<think>` 推理链，完整存储中间思考步骤 |
 | 🔗 **Git Commit 绑定** | 通过 post-commit 钩子，自动将每次提交与相关 AI 会话关联 |
+| 🌿 **Git Worktree 支持** | 多个 AI Agent 可同时在不同 worktree 上并行工作，各自会话精准绑定到对应 Commit，互不干扰 |
 | 📊 **侧边栏面板** | VS Code 侧边栏显示会话列表、Commit 绑定关系、统计数据 |
 | 📝 **一键导出** | 支持导出为中文周报、PR/Code Review 说明、JSONL 原始数据、CSV 表格 |
 | 🏠 **本地优先** | 所有数据存储在本机 SQLite（`~/.agentlog/agentlog.db`），完全离线可用 |
@@ -200,7 +201,8 @@ interface AgentSession {
   provider: ModelProvider; // 'deepseek' | 'qwen' | 'kimi' | ...
   model: string;           // 实际模型名，例如 "deepseek-r1"
   source: AgentSource;     // 'cline' | 'cursor' | 'continue' | ...
-  workspacePath: string;   // 工作区绝对路径
+  workspacePath: string;   // 工作区绝对路径（多 worktree 场景下为各 worktree 路径）
+  gitRepoRoot?: string;    // Git 仓库根目录（多 worktree 共享，用于跨 worktree 绑定）
   prompt: string;          // 用户输入的完整 Prompt
   reasoning?: string;      // AI 推理过程（DeepSeek-R1 的 <think> 内容）
   response: string;        // AI 最终回复
@@ -268,6 +270,53 @@ interface CommitBinding {
 
 ---
 
+## Git Worktree 多 Agent 并行支持
+
+AgentLog 完整支持 `git worktree` 场景，多个 AI Agent 可以同时在同一仓库的不同 worktree 上独立工作，所有会话记录精准绑定到各自的 Commit，互不干扰。
+
+### 工作原理
+
+```
+主仓库                     Worktree A               Worktree B
+my-repo/                   my-repo-feat-login/       my-repo-fix-bug/
+  .git/                      (共享同一 .git)           (共享同一 .git)
+  src/                       src/                     src/
+    ...                        ...                      ...
+
+Agent-1 在此工作            Agent-2 在此工作          Agent-3 在此工作
+→ session.workspacePath     → session.workspacePath   → session.workspacePath
+  = "my-repo"                 = "my-repo-feat-login"    = "my-repo-fix-bug"
+→ session.gitRepoRoot       → session.gitRepoRoot     → session.gitRepoRoot
+  = "my-repo"                 = "my-repo"               = "my-repo"
+```
+
+**关键改进（Schema v4）**：
+
+1. **`gitRepoRoot` 字段**：`agent_sessions` 表新增此字段，存储 Git 仓库根目录路径。无论会话发生在哪个 worktree，同一仓库下的所有会话共享相同的 `gitRepoRoot`。
+
+2. **动态钩子脚本**：post-commit 钩子不再硬编码工作区路径，改为通过 `git rev-parse --show-toplevel` 在运行时动态获取当前 worktree 的真实路径，一次安装，所有 worktree 均生效。
+
+3. **三级匹配策略**：post-commit 触发时，后端按以下顺序查找未绑定会话：
+   - **Level 1（精确）**：按当前 worktree 的 `workspace_path` 精确匹配
+   - **Level 2（跨 worktree）**：按 `git_repo_root` 匹配同仓库其他 worktree 的会话
+   - **Level 3（兜底）**：生成自动摘要 Session（原有逻辑）
+
+4. **会话自动推断**：创建 Session 时后端自动通过 `git rev-parse --show-toplevel` 填充 `gitRepoRoot`，Agent 无需手动传入。
+
+### 使用方式
+
+只需在**任意一个** worktree（通常是主仓库）安装 Git 钩子，所有 worktree 均自动支持：
+
+```bash
+# 在 VS Code 中执行命令：AgentLog: Install Git Hook
+# 或通过 API：
+curl -X POST http://localhost:7892/api/commits/hook/install \
+  -H "Content-Type: application/json" \
+  -d '{"workspacePath": "/path/to/my-repo"}'
+```
+
+---
+
 ## 隐私与安全
 
 - **所有数据均存储在本机**，默认路径 `~/.agentlog/agentlog.db`
@@ -297,6 +346,7 @@ interface CommitBinding {
 - [x] Context & Explain REST API（GET/POST）
 - [x] 中英文国际化支持
 - [x] 内容截断 / 会话数量限制等精细控制选项
+- [x] **Git Worktree 多 Agent 并行支持**（多个 AI Agent 同时在不同 worktree 上工作，各自会话精准绑定，不互相干扰）
 
 ### 后续计划
 
