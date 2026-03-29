@@ -214,7 +214,8 @@ describe("Session CRUD", () => {
     assert.equal(session.source, "cline");
     assert.equal(session.workspacePath, "/tmp/test-project");
     assert.equal(session.prompt, SAMPLE_SESSION.prompt);
-    assert.ok(session.reasoning, "应该保存 reasoning");
+    assert.ok(session.formattedTranscript, "应该保存 formattedTranscript（向后兼容旧 reasoning）");
+    assert.equal(session.reasoning, undefined, "无 transcript 时 reasoningSummary 应为 undefined");
     assert.equal(session.durationMs, 3200);
     assert.deepEqual(session.tags, ["重构", "缓存"]);
     assert.equal(session.note, SAMPLE_SESSION.note);

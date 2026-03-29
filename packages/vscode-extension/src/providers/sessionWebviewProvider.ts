@@ -1322,11 +1322,11 @@ function getDetailScript(): string {
           '<div class="section-body">' + s.transcript.map(renderTurn).join('') + '</div></div>'
         : '';
 
-      // 会话级 reasoning（transcriptToReasoning 聚合结果）
+      // 会话级推理过程摘要（纯推理文本，不含用户消息和工具调用）
       // 有 transcript 时默认折叠，避免重复；无 transcript 时展开
       const hasTranscript = s.transcript && s.transcript.length > 0;
       const reasoningBlock = s.reasoning
-        ? '<div class="section"><div class="section-header" onclick="toggleSection(this)"><h2>💡 推理摘要 (' + s.reasoning.length + ' 字符)</h2><span>' + (hasTranscript ? '▶' : '▼') + '</span></div>' +
+        ? '<div class="section"><div class="section-header" onclick="toggleSection(this)"><h2>💡 推理过程摘要 (' + s.reasoning.length + ' 字符)</h2><span>' + (hasTranscript ? '▶' : '▼') + '</span></div>' +
           '<div class="section-body"' + (hasTranscript ? ' style="display:none"' : '') + '><pre class="reasoning-block">' + escHtml(s.reasoning) + '</pre></div></div>'
         : '';
 
@@ -1357,6 +1357,13 @@ function getDetailScript(): string {
           \${transcriptBlock}
 
           \${reasoningBlock}
+
+          \${s.formattedTranscript ? \`
+          <div class="section">
+            <div class="section-header" onclick="toggleSection(this)"><h2>📄 格式化对话记录 (\${s.formattedTranscript.length} 字符)</h2><span>▶</span></div>
+            <div class="section-body" style="display:none"><pre>\${escHtml(s.formattedTranscript)}</pre></div>
+          </div>
+          \` : ''}
 
           <div class="section">
             <div class="section-header" onclick="toggleSection(this)"><h2>🤖 AI 回复</h2><span>▼</span></div>

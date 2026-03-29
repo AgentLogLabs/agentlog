@@ -172,6 +172,10 @@ Backend runs on `http://localhost:7892` by default, can be overridden via `AGENT
 | `GET` | `/api/commits` | List all binding records |
 | `GET` | `/api/commits/:hash` | Query binding info for specific commit |
 | `GET` | `/api/commits/:hash/sessions` | Get all sessions associated with commit |
+| `GET` | `/api/commits/:hash/context` | Generate AI interaction context doc for commit (Query params) |
+| `POST` | `/api/commits/:hash/context` | Generate AI interaction context doc for commit (Body params) |
+| `GET` | `/api/commits/:hash/explain` | Generate AI interaction explanation summary for commit (Query params) |
+| `POST` | `/api/commits/:hash/explain` | Generate AI interaction explanation summary for commit (Body params) |
 | `POST` | `/api/commits/hook/install` | Inject Git hook |
 | `DELETE` | `/api/commits/hook/remove` | Remove Git hook |
 
@@ -196,7 +200,8 @@ interface AgentSession {
   provider: ModelProvider; // 'deepseek' | 'qwen' | 'kimi' | ...
   model: string;           // Actual model name, e.g. "deepseek-r1"
   source: AgentSource;     // 'cline' | 'cursor' | 'continue' | ...
-  workspacePath: string;   // Workspace absolute path
+  workspacePath: string;   // Workspace absolute path (in multi-worktree scenarios, each worktree's path)
+  gitRepoRoot?: string;    // Git repository root (shared across worktrees for cross-worktree binding)
   prompt: string;          // Complete user prompt
   reasoning?: string;      // AI reasoning process (DeepSeek-R1 <think> content)
   response: string;        // AI final response
@@ -224,6 +229,25 @@ interface CommitBinding {
 }
 ```
 
+### Commit Context & Explanation
+
+The `/api/commits/:hash/context` and `/api/commits/:hash/explain` endpoints can aggregate all AI interaction records associated with a specific commit into structured documents, directly usable for context injection in new AI conversations.
+
+**Context (Context Document)** supports Markdown / JSON / XML output formats, with options to control content:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `format` | `'markdown' \| 'json' \| 'xml'` | `'markdown'` | Output format |
+| `language` | `'zh' \| 'en'` | `'zh'` | Output language |
+| `includePrompts` | `boolean` | `true` | Include user prompts |
+| `includeResponses` | `boolean` | `true` | Include model responses |
+| `includeReasoning` | `boolean` | `true` | Include reasoning process |
+| `includeChangedFiles` | `boolean` | `true` | Include changed file list |
+| `maxContentLength` | `number` | `2000` | Max characters per content item (0 = no truncation) |
+| `maxSessions` | `number` | `0` | Maximum number of sessions to include (0 = no limit) |
+
+**Explain (Explanation Summary)** outputs Markdown format, containing overall summary, session-by-session key points (user intent / AI response / whether reasoning is included) and changed files summary.
+
 ---
 
 ## Configuration
@@ -242,6 +266,53 @@ In VS Code settings (`settings.json`), all configuration items use `agentlog.` p
 | `exportLanguage` | `zh` | Export language (`zh` / `en`) |
 | `interceptors.cline` | `true` | Whether to capture Cline requests |
 | `interceptors.cursor` | `true` | Whether to capture Cursor requests |
+
+---
+
+## Git Worktree Multi-Agent Parallel Support
+
+AgentLog fully supports `git worktree` scenarios, where multiple AI Agents can work independently on different worktrees of the same repository, with all session records precisely bound to their respective commits without interference.
+
+### How It Works
+
+```
+Main Repository              Worktree A                 Worktree B
+my-repo/                    my-repo-feat-login/        my-repo-fix-bug/
+  .git/                       (shares same .git)         (shares same .git)
+  src/                        src/                       src/
+    ...                         ...                       ...
+
+Agent-1 works here          Agent-2 works here         Agent-3 works here
+→ session.workspacePath     → session.workspacePath    → session.workspacePath
+  = "my-repo"                = "my-repo-feat-login"     = "my-repo-fix-bug"
+→ session.gitRepoRoot       → session.gitRepoRoot      → session.gitRepoRoot
+  = "my-repo"                = "my-repo"                = "my-repo"
+```
+
+**Key Improvements (Schema v4)**:
+
+1. **`gitRepoRoot` field**: New field in `agent_sessions` table, stores the Git repository root directory path. Regardless of which worktree a session occurs in, all sessions under the same repository share the same `gitRepoRoot`.
+
+2. **Dynamic hook script**: The post-commit hook no longer hardcodes the workspace path, instead dynamically obtains the current worktree's real path via `git rev-parse --show-toplevel` at runtime. One installation works for all worktrees.
+
+3. **Three-level matching strategy**: When post-commit triggers, the backend finds unbound sessions in the following order:
+   - **Level 1 (Exact)**: Exact match by current worktree's `workspace_path`
+   - **Level 2 (Cross-worktree)**: Match by `git_repo_root`, covering sessions from other worktrees in the same repository
+   - **Level 3 (Fallback)**: Generate auto-summary Session (original logic)
+
+4. **Automatic session inference**: The backend automatically fills `gitRepoRoot` via `git rev-parse --show-toplevel` when creating a session, so Agents don't need to pass it manually.
+
+### Usage
+
+Simply install the Git hook in **any one** worktree (usually the main repository), and all worktrees automatically support it:
+
+```bash
+# In VS Code, execute command: AgentLog: Install Git Hook
+# Or via API:
+curl -X POST http://localhost:7892/api/commits/hook/install \
+  -H "Content-Type: application/json" \
+  -d '{"workspacePath": "/path/to/my-repo"}'
+```
 
 ---
 
@@ -269,6 +340,16 @@ In VS Code settings (`settings.json`), all configuration items use `agentlog.` p
 
 ### Future Plans
 
+- [x] Commit context document generation (Markdown / JSON / XML)
+- [x] Commit AI interaction explanation summary generation
+- [x] Context & Explain REST API (GET/POST)
+- [x] Bilingual internationalization support (Chinese/English)
+- [x] Content truncation / session count limit fine-tuning options
+- [x] **Git Worktree Multi-Agent Parallel Support** (multiple AI Agents working on different worktrees simultaneously, each session precisely bound without interference)
+- [x] VS Code extension integration: Added "Generate Commit Context" and "Generate Commit Explanation" commands
+- [x] Sidebar / Webview displays context documents and explanation summaries, supports one-click copy
+- [ ] Seamless context document injection into new AI conversations (paste into Cline / Cursor / Continue dialog)
+- [ ] Context & Explain unit tests and integration tests
 - [ ] Webview dashboard UI refinement (React + VS Code UI Toolkit)
 - [ ] Deep integration with Cline extension API calls
 - [ ] AI-powered auto-tagging for sessions (bugfix / refactor / new feature)

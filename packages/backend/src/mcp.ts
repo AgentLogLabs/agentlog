@@ -154,7 +154,7 @@ async function patchTranscript(
 
 /**
  * 向 Backend 回写 intent 字段（response / affectedFiles / durationMs）。
- * reasoning 由后端从 transcript 自动生成，无需传入。
+ * formatted_transcript 和 reasoning_summary 由后端从 transcript 自动生成，无需传入。
  */
 async function patchIntent(
   sessionId: string,
@@ -408,7 +408,7 @@ async function main(): Promise<void> {
           name: "log_intent",
           description:
             "在完成一项任务后调用，记录任务目标和受影响文件。" +
-            "推理过程（reasoning）由系统从 transcript 自动生成，无需手动填写。" +
+             "推理过程摘要（reasoning_summary）和格式化对话记录（formatted_transcript）由系统从 transcript 自动生成，无需手动填写。" +
             "推荐与 log_turn 配合：先用 log_turn 逐轮记录，最后调用此工具汇总。",
           inputSchema: {
             type: "object" as const,
@@ -804,7 +804,7 @@ async function main(): Promise<void> {
         let resultId: string;
 
         if (existingSessionId) {
-          // 已有会话：回写 response/affectedFiles/durationMs，reasoning 由后端从 transcript 自动生成
+          // 已有会话：回写 response/affectedFiles/durationMs，formatted_transcript 和 reasoning_summary 由后端从 transcript 自动生成
           const intentBody: { response?: string; affectedFiles?: string[]; durationMs?: number } = {};
           if (task) intentBody.response = task;
           if (affectedFiles.length > 0) intentBody.affectedFiles = affectedFiles;
@@ -842,7 +842,7 @@ async function main(): Promise<void> {
           }
           resultId = existingSessionId;
         } else {
-          // 新建会话（reasoning 由 createSession 从 transcript 自动生成）
+          // 新建会话（formatted_transcript 和 reasoning_summary 由 createSession 从 transcript 自动生成）
           // 耗时：优先使用外部传入值，其次从 transcript 首尾时间戳推算
           let newSessionDurationMs = explicitDurationMs && explicitDurationMs > 0
             ? Math.round(explicitDurationMs)

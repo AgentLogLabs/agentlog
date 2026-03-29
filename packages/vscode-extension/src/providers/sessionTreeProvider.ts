@@ -258,7 +258,7 @@ export class SessionItem extends AgentLogTreeItem {
     // 推理标识
     if (session.reasoning) {
       md.appendMarkdown(
-        `\n_💡 包含 AI 推理过程（${session.reasoning.length} 字符）_\n`,
+        `\n_💡 包含 AI 推理过程摘要（${session.reasoning.length} 字符）_\n`,
       );
     }
 

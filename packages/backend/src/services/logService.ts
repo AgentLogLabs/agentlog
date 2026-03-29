@@ -23,7 +23,7 @@ import type {
 // ─────────────────────────────────────────────
 
 /**
- * 将 transcript 数组序列化为可读文本，作为 reasoning 字段存储。
+ * 将 transcript 数组序列化为可读文本，作为 formatted_transcript 字段存储。
  * 格式与 entire CLI 的 `entire explain` 输出对齐：
  *   [User] 消息内容
  *   [Assistant] 回复内容
@@ -48,6 +48,18 @@ function transcriptToReasoning(turns: TranscriptTurn[]): string {
       return `${label}${inputHint}${thinkingBlock}\n${t.content}`;
     })
     .join('\n\n');
+}
+
+/**
+ * 从 transcript 中提取纯推理过程摘要，仅聚合 TranscriptTurn.reasoning 内容。
+ * 用于填充 reasoning_summary 字段。
+ */
+function extractReasoningSummary(turns: TranscriptTurn[]): string | null {
+  const reasoningTexts = turns
+    .filter(t => t.role === 'assistant' && t.reasoning && t.reasoning.trim())
+    .map(t => t.reasoning!.trim());
+  if (reasoningTexts.length === 0) return null;
+  return reasoningTexts.join('\n\n');
 }
 import {
   closeDatabase,
@@ -76,7 +88,8 @@ function rowToSession(row: SessionRow): AgentSession {
     workspacePath: row.workspace_path,
     gitRepoRoot: row.git_repo_root ?? undefined,
     prompt: row.prompt,
-    reasoning: row.reasoning ?? undefined,
+    formattedTranscript: row.formatted_transcript ?? undefined,
+    reasoning: row.reasoning_summary ?? undefined,
     response: row.response,
     commitHash: row.commit_hash ?? undefined,
     affectedFiles: fromJson<string[]>(row.affected_files, []),
@@ -103,21 +116,22 @@ export function createSession(req: CreateSessionRequest): AgentSession {
   const id = nanoid();
   const createdAt = new Date().toISOString();
 
-  // 若创建时就携带了 transcript，自动从中生成 reasoning
+  // 若创建时就携带了 transcript，自动生成 formatted_transcript 和 reasoning_summary
   const transcriptTurns = req.transcript ?? [];
-  const autoReasoning =
+  const formattedTranscript =
     transcriptTurns.length > 0
       ? transcriptToReasoning(transcriptTurns)
-      : (req.reasoning ?? null);
+      : (req.reasoning ?? null); // 向后兼容：旧 req.reasoning 作为 formatted_transcript
+  const reasoningSummary = extractReasoningSummary(transcriptTurns);
 
   db.prepare(`
     INSERT INTO agent_sessions (
       id, created_at, provider, model, source, workspace_path, git_repo_root,
-      prompt, reasoning, response, affected_files,
+      prompt, formatted_transcript, reasoning_summary, response, affected_files,
       duration_ms, tags, note, metadata, transcript, token_usage
     ) VALUES (
       @id, @created_at, @provider, @model, @source, @workspace_path, @git_repo_root,
-      @prompt, @reasoning, @response, @affected_files,
+      @prompt, @formatted_transcript, @reasoning_summary, @response, @affected_files,
       @duration_ms, @tags, @note, @metadata, @transcript, @token_usage
     )
   `).run({
@@ -129,7 +143,8 @@ export function createSession(req: CreateSessionRequest): AgentSession {
     workspace_path: req.workspacePath,
     git_repo_root: req.gitRepoRoot ?? null,
     prompt: req.prompt,
-    reasoning: autoReasoning,
+    formatted_transcript: formattedTranscript,
+    reasoning_summary: reasoningSummary,
     response: req.response,
     affected_files: toJson(req.affectedFiles ?? []),
     duration_ms: req.durationMs,
@@ -502,10 +517,11 @@ export function updateSessionTags(
  * 更新会话的核心内容字段（由 log_intent 在任务完成后回写）。
  *
  * - response：填入 task 描述（当前值为占位符时替换）
- * - reasoning：从该会话当前 transcript 自动生成，如实呈现完整交互过程
+ * - formatted_transcript：从该会话当前 transcript 自动生成，如实呈现完整交互过程
+ * - reasoning_summary：从 transcript 中提取纯推理过程摘要
  * - affectedFiles：替换为传入的文件列表
  *
- * reasoning 不接受外部传入，始终由 transcript 生成，确保记录真实而非总结。
+ * formatted_transcript 和 reasoning_summary 不接受外部传入，始终由 transcript 生成，确保记录真实而非总结。
  */
 export function updateSessionIntent(
   sessionId: string,
@@ -528,11 +544,13 @@ export function updateSessionIntent(
     params.response = fields.response;
   }
 
-  // reasoning 始终从当前 transcript 生成
+  // formatted_transcript 和 reasoning_summary 始终从当前 transcript 生成
   const currentTranscript = existing.transcript ?? [];
   if (currentTranscript.length > 0) {
-    setClauses.push('reasoning = @reasoning');
-    params.reasoning = transcriptToReasoning(currentTranscript);
+    setClauses.push('formatted_transcript = @formatted_transcript');
+    params.formatted_transcript = transcriptToReasoning(currentTranscript);
+    setClauses.push('reasoning_summary = @reasoning_summary');
+    params.reasoning_summary = extractReasoningSummary(currentTranscript);
   }
 
   if (fields.affectedFiles !== undefined && fields.affectedFiles.length > 0) {
@@ -599,15 +617,17 @@ export function appendTranscript(
     : null;
 
   const now = new Date().toISOString();
+  const formattedTranscript = transcriptToReasoning(merged);
+  const reasoningSummary = extractReasoningSummary(merged);
 
   if (tokenUsageJson !== null) {
     db.prepare(
-      'UPDATE agent_sessions SET transcript = ?, token_usage = ?, last_activity_at = ? WHERE id = ?',
-    ).run(toJson(merged), tokenUsageJson, now, sessionId);
+      'UPDATE agent_sessions SET transcript = ?, formatted_transcript = ?, reasoning_summary = ?, token_usage = ?, last_activity_at = ? WHERE id = ?',
+    ).run(toJson(merged), formattedTranscript, reasoningSummary, tokenUsageJson, now, sessionId);
   } else {
     db.prepare(
-      'UPDATE agent_sessions SET transcript = ?, last_activity_at = ? WHERE id = ?',
-    ).run(toJson(merged), now, sessionId);
+      'UPDATE agent_sessions SET transcript = ?, formatted_transcript = ?, reasoning_summary = ?, last_activity_at = ? WHERE id = ?',
+    ).run(toJson(merged), formattedTranscript, reasoningSummary, now, sessionId);
   }
 
   return getSessionById(sessionId);

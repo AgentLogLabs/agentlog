@@ -169,9 +169,14 @@ export interface AgentSession {
   prompt: string;
 
   /**
-   * 模型的中间推理过程（Chain-of-Thought / Thinking）。
-   * DeepSeek-R1 的 꽁...ground 内容会存放在这里。
-   * 不支持推理输出的模型此字段为 undefined。
+   * 格式化后的完整对话记录，包含用户消息、AI回复、工具调用及推理过程。
+   * 由 transcriptToReasoning() 函数生成，用于快速预览和导出。
+   */
+  formattedTranscript?: string;
+
+  /**
+   * 纯推理过程摘要，仅聚合 TranscriptTurn.reasoning 内容。
+   * 用于分析 AI 思考链条，不包含用户消息和工具调用记录。
    */
   reasoning?: string;
 

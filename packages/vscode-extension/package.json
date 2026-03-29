@@ -260,6 +260,26 @@
           "group": "agentlog@3"
         },
         {
+          "command": "agentlog.viewSessionDetail",
+          "when": "view == agentlog.sessionList && viewItem == session-bound",
+          "group": "inline"
+        },
+        {
+          "command": "agentlog.unbindCommit",
+          "when": "view == agentlog.sessionList && viewItem == session-bound",
+          "group": "agentlog@1"
+        },
+        {
+          "command": "agentlog.resumeContext",
+          "when": "view == agentlog.sessionList && viewItem == session-bound",
+          "group": "agentlog@2"
+        },
+        {
+          "command": "agentlog.deleteSession",
+          "when": "view == agentlog.sessionList && viewItem == session-bound",
+          "group": "agentlog@3"
+        },
+        {
           "command": "agentlog.resumeContext",
           "when": "view == agentlog.commitBindings && viewItem == commit-session",
           "group": "agentlog@2"

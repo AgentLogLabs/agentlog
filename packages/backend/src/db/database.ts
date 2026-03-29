@@ -33,7 +33,7 @@ function resolveDbPath(): string {
  * 当前 Schema 版本。
  * 每次变更 DDL 时递增，迁移系统据此判断是否需要升级。
  */
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 const DDL_SCHEMA_VERSION = `
   CREATE TABLE IF NOT EXISTS schema_version (
@@ -44,16 +44,13 @@ const DDL_SCHEMA_VERSION = `
 
 /**
  * agent_sessions — 每一次 AI 交互会话的完整记录。
+ * 初始 v1 schema，后续通过迁移添加新字段。
  *
  * 字段说明：
  *  - reasoning      : DeepSeek-R1 等模型的 <think> 推理过程（可为 NULL）
  *  - affected_files : JSON 数组字符串，例如 '["src/foo.ts","src/bar.ts"]'
  *  - tags           : JSON 数组字符串，例如 '["bugfix","重构"]'
  *  - metadata       : JSON 对象字符串，存放 provider 特定扩展字段
- *  - git_repo_root  : Git 仓库根目录绝对路径（v4 新增）
- *                     在多 worktree 场景下，workspace_path 为 worktree 路径，
- *                     git_repo_root 为仓库主目录路径（两者可能不同）。
- *                     用于跨 worktree 的会话匹配与绑定。
  */
 const DDL_AGENT_SESSIONS = `
   CREATE TABLE IF NOT EXISTS agent_sessions (
@@ -63,7 +60,6 @@ const DDL_AGENT_SESSIONS = `
     model           TEXT    NOT NULL,
     source          TEXT    NOT NULL DEFAULT 'unknown',
     workspace_path  TEXT    NOT NULL,
-    git_repo_root   TEXT,
     prompt          TEXT    NOT NULL,
     reasoning       TEXT,
     response        TEXT    NOT NULL,
@@ -79,7 +75,6 @@ const DDL_AGENT_SESSIONS = `
 const DDL_AGENT_SESSIONS_INDEXES = `
   CREATE INDEX IF NOT EXISTS idx_sessions_created_at    ON agent_sessions (created_at);
   CREATE INDEX IF NOT EXISTS idx_sessions_workspace     ON agent_sessions (workspace_path);
-  CREATE INDEX IF NOT EXISTS idx_sessions_git_repo_root ON agent_sessions (git_repo_root);
   CREATE INDEX IF NOT EXISTS idx_sessions_provider      ON agent_sessions (provider);
   CREATE INDEX IF NOT EXISTS idx_sessions_commit_hash   ON agent_sessions (commit_hash);
 `;
@@ -208,6 +203,17 @@ const MIGRATIONS: Array<{ version: number; up: MigrationFn }> = [
       // 存量数据：git_repo_root 暂不填充（历史数据无 worktree 信息），保持 NULL 即可
     },
   },
+  {
+    version: 5,
+    up: (db) => {
+      // 语义清晰化：重命名 reasoning -> formatted_transcript，新增 reasoning_summary 字段
+      // SQLite 3.25+ 支持 RENAME COLUMN
+      db.exec(`ALTER TABLE agent_sessions RENAME COLUMN reasoning TO formatted_transcript;`);
+      db.exec(`ALTER TABLE agent_sessions ADD COLUMN reasoning_summary TEXT;`);
+      // 将现有 formatted_transcript 内容作为格式化对话记录，reasoning_summary 暂为 NULL
+      // reasoning_summary 后续可由业务逻辑填充纯推理摘要
+    },
+  },
 ];
 
 function getCurrentSchemaVersion(db: Database.Database): number {
@@ -324,7 +330,8 @@ export type SessionRow = {
   /** Git 仓库根目录路径，多 worktree 场景下与 workspace_path 不同 (v4 新增) */
   git_repo_root: string | null;
   prompt: string;
-  reasoning: string | null;
+  formatted_transcript: string | null;
+  reasoning_summary: string | null;
   response: string;
   commit_hash: string | null;
   affected_files: string; // JSON

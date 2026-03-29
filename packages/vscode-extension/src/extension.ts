@@ -583,6 +583,11 @@ function buildAgentRulesBlock(): string {
 - 普通模型（GPT-4o等）：省略 \`reasoning\` 字段
 - **不得截断或省略**推理文本，这是理解 AI 决策逻辑的核心证据
 
+**字段语义**：
+- \`reasoning\` 参数存储每轮思考过程（TranscriptTurn.reasoning）
+- 会话级 \`reasoning_summary\` 字段自动从 transcript 聚合纯推理文本
+- 会话级 \`formatted_transcript\` 字段自动生成格式化完整对话（含用户消息、AI回复、工具调用和推理块）
+
 #### 第 3 步：每次工具执行完毕后
 每次工具调用（bash/read/edit/write/grep 等）执行完毕后立即调用：
 
@@ -629,7 +634,7 @@ function buildAgentRulesBlock(): string {
 | \`role\` | 是 | \`user\` / \`assistant\` / \`tool\` | \`"assistant"\` |
 | \`content\` | 是 | 消息正文（推理阶段可为空） | \`"已完成函数重构..."\` |
 | \`session_id\` | 首次否，后续是 | 会话标识 | \`"abc123xyz"\` |
-| \`reasoning\` | 推理模型必填 | 完整思考过程 | \`"分析原函数职责..."\` |
+| \`reasoning\` | 推理模型必填 | 单轮思考过程（TranscriptTurn.reasoning） | \`"分析原函数职责..."\` |
 | \`tool_name\` | role=tool 时必填 | 工具名称 | \`"edit"\` |
 | \`tool_input\` | role=tool 时推荐 | 关键参数 | \`"filePath=src/utils.ts"\` |
 | \`model\` | 首次调用必填 | 模型完整名称 | \`"deepseek-r1"\` |
@@ -1403,6 +1408,39 @@ function registerCommands(
     } catch (err) {
       vscode.window.showErrorMessage(
         `绑定失败：${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  });
+
+  register("agentlog.unbindCommit", async (item: unknown) => {
+    let sessionId: string | undefined;
+
+    if (item instanceof SessionItem) {
+      sessionId = item.session.id;
+    }
+
+    if (!sessionId) {
+      vscode.window.showErrorMessage("无法解析要解除绑定的会话 ID");
+      return;
+    }
+
+    const confirm = await vscode.window.showWarningMessage(
+      `确定要解除此会话的所有 Commit 绑定吗？`,
+      { modal: true },
+      "确认解除",
+    );
+
+    if (confirm !== "确认解除") return;
+
+    try {
+      const client = getBackendClient();
+      await client.unbindSession(sessionId);
+      sessionTreeProvider.refresh();
+      commitBindingsProvider.refresh();
+      vscode.window.showInformationMessage("✅ 已解除所有 Commit 绑定");
+    } catch (err) {
+      vscode.window.showErrorMessage(
+        `解除绑定失败：${err instanceof Error ? err.message : String(err)}`,
       );
     }
   });

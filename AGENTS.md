@@ -147,6 +147,10 @@ This project has an AgentLog MCP server configured. You MUST use it to record ev
 - **Complete content**: Pass FULL response text, not summaries or abbreviations.
 - **File paths**: Always include `filePath=` in `tool_input` for file operations.
 - **Reasoning**: For reasoning models (DeepSeek-R1, Claude), pass complete thinking process in `reasoning` field.
+- **Field semantics**: 
+  - `reasoning` field in transcript stores per-turn thinking process.
+  - Session-level `formatted_transcript` contains formatted full conversation (auto-generated).
+  - Session-level `reasoning_summary` contains pure reasoning extract (auto-generated).
 
 ### Quick Validation
 ```bash
