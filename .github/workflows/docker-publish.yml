@@ -1,0 +1,128 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# AgentLog Docker 镜像多平台构建与发布
+# ─────────────────────────────────────────────────────────────────────────────
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: 'Target platforms (comma-separated)'
+        required: false
+        default: 'linux/amd64,linux/arm64'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ── 构建镜像 ──────────────────────────────────────────────────────────────
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Determine target platforms
+        id: platforms
+        run: |
+          PLATFORMS="${{ github.event.inputs.platforms || 'linux/amd64,linux/arm64' }}"
+          echo "platforms=$PLATFORMS" >> $GITHUB_OUTPUT
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: ${{ steps.platforms.outputs.platforms }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NODE_VERSION=18
+
+  # ── 测试镜像 ──────────────────────────────────────────────────────────────
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build test image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          load: true
+          tags: agentlog:test
+          build-args: |
+            NODE_VERSION=18
+
+      - name: Test HTTP API health
+        run: |
+          # 启动容器
+          docker run -d --name agentlog-test -p 7892:7892 -v agentlog-test-data:/data agentlog:test
+          
+          # 等待服务启动
+          sleep 5
+          
+          # 测试健康检查
+          curl -f http://localhost:7892/health || exit 1
+          
+          # 测试 API 状态
+          curl -f http://localhost:7892/api/status || exit 1
+          
+          # 清理
+          docker stop agentlog-test && docker rm agentlog-test
+
+      - name: Test MCP Server startup
+        run: |
+          # 测试 MCP Server 启动（不会真正连接，所以只测试启动不报错）
+          timeout 5 docker run --rm agentlog:test mcp || test $? -eq 124

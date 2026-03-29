@@ -1,0 +1,80 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# AgentLog Backend Docker Compose 配置
+# ─────────────────────────────────────────────────────────────────────────────
+# 用法:
+#   docker-compose up -d          # 后台启动 HTTP API 服务
+#   docker-compose logs -f        # 查看日志
+#   docker-compose down           # 停止服务
+#   docker-compose --profile mcp up -d   # 同时启动 MCP Server
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  # ── HTTP API 服务 ────────────────────────────────────────────────────────
+  agentlog-api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: agentlog:latest
+    container_name: agentlog-api
+    restart: unless-stopped
+    ports:
+      - "${AGENTLOG_PORT:-7892}:7892"
+    environment:
+      - NODE_ENV=production
+      - AGENTLOG_PORT=${AGENTLOG_PORT:-7892}
+      - AGENTLOG_HOST=0.0.0.0
+      - AGENTLOG_DB_PATH=/data/agentlog.db
+    volumes:
+      - agentlog-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:7892/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    profiles:
+      - api
+    networks:
+      - agentlog-net
+
+  # ── MCP Server（stdio 模式）──────────────────────────────────────────────
+  # 使用方式：
+  #   docker run --rm -i agentlog-mcp mcp
+  # 或通过 docker-compose 运行：
+  #   docker-compose --profile mcp run --rm agentlog-mcp
+  agentlog-mcp:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: agentlog:latest
+    container_name: agentlog-mcp
+    # 直接使用 agentlog-mcp 命令（已在 Dockerfile 中链接）
+    command: agentlog-mcp
+    environment:
+      - NODE_ENV=production
+      - AGENTLOG_PORT=${AGENTLOG_PORT:-7892}
+      - AGENTLOG_HOST=agentlog-api
+      - AGENTLOG_DB_PATH=/data/agentlog.db
+    volumes:
+      - agentlog-data:/data
+    profiles:
+      - mcp
+    networks:
+      - agentlog-net
+    # MCP Server 需要交互式运行
+    stdin_open: true
+    tty: true
+
+# ── 数据卷 ──────────────────────────────────────────────────────────────────
+volumes:
+  agentlog-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${AGENTLOG_DATA_PATH:-./data}
+
+# ── 网络 ────────────────────────────────────────────────────────────────────
+networks:
+  agentlog-net:
+    driver: bridge

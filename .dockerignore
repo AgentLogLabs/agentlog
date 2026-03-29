@@ -1,0 +1,54 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# AgentLog .dockerignore
+# 排除不需要复制到 Docker 构建上下文的文件
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# 文档
+*.md
+!package.json
+!packages/*/package.json
+
+# 构建产物（会在 Docker 内重新构建）
+dist/
+packages/*/dist/
+
+# 开发文件
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 测试
+packages/*/test/
+packages/*/test/**
+*.test.ts
+*.spec.ts
+
+# 临时文件
+.tmp/
+*.tmp
+entire/
+*.log
+
+# 配置文件（不需要的）
+*.config.js
+*.config.ts
+tsconfig.json
+!packages/*/tsconfig.json
+
+# 其他
+.env
+.env.local
+.env.*.local
+.DS_Store
+Thumbs.db
