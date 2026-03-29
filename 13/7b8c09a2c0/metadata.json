@@ -1,0 +1,28 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "137b8c09a2c0",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "AGENTS.md",
+    "README.en.md",
+    "packages/backend/src/db/database.ts",
+    "packages/backend/src/mcp.ts",
+    "packages/backend/src/services/logService.ts",
+    "packages/backend/test/integration.test.ts",
+    "packages/shared/src/types.ts",
+    "packages/vscode-extension/package.json",
+    "packages/vscode-extension/src/extension.ts",
+    "packages/vscode-extension/src/providers/sessionTreeProvider.ts",
+    "packages/vscode-extension/src/providers/sessionWebviewProvider.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/13/7b8c09a2c0/0/metadata.json",
+      "transcript": "/13/7b8c09a2c0/0/full.jsonl",
+      "content_hash": "/13/7b8c09a2c0/0/content_hash.txt",
+      "prompt": ""
+    }
+  ]
+}
