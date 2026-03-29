@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "1499832fb97b",
+  "strategy": "manual-commit",
+  "branch": "hotfix",
+  "checkpoints_count": 3,
+  "files_touched": [
+    ".vscode/tasks.json",
+    "packages/backend/build.mjs",
+    "packages/backend/src/routes/commits.ts",
+    "packages/backend/src/services/gitService.ts",
+    "packages/vscode-extension/LICENSE.txt",
+    "packages/vscode-extension/src/providers/sessionWebviewProvider.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/14/99832fb97b/0/metadata.json",
+      "transcript": "/14/99832fb97b/0/full.jsonl",
+      "content_hash": "/14/99832fb97b/0/content_hash.txt",
+      "prompt": "/14/99832fb97b/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 12,
+    "cache_creation_tokens": 27236,
+    "cache_read_tokens": 230278,
+    "output_tokens": 1955,
+    "api_call_count": 10
+  }
+}

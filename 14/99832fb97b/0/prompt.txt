@@ -1,0 +1,128 @@
+vscode F5启动调试AgentLog服务启动失败，日志如下：[Pasted ~40 line[AgentLog] [后台][ERR] [AgentLog] 数据库初始化失败，服务退出 Error: Could not locate the bindings file. Tried:
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/build/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/build/Debug/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/build/Release/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/out/Debug/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/Debug/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/out/Release/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/Release/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/build/default/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/compiled/22.22.0/darwin/arm64/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/addon-build/release/install-root/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/addon-build/debug/install-root/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/addon-build/default/install-root/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/lib/binding/node-v127-darwin-arm64/better_sqlite3.node
+    at bindings (/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/bindings@1.5.0/node_modules/bindings/bindings.js:126:9)
+    at new Database (/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/lib/database.js:48:64)
+    at getDatabase (/Users/hobo/Projects/AgentLog_dashboard_fix/packages/backend/src/db/database.ts:261:14)
+    at initDatabase (/Users/hobo/Projects/AgentLog_dashboard_fix/packages/backend/src/index.ts:35:5)
+    at start (/Users/hobo/Projects/AgentLog_dashboard_fix/packages/backend/src/index.ts:68:3)
+    at hooksRoutes (/Users/hobo/Projects/AgentLog_dashboard_fix/packages/backend/src/index.ts:232:1)
+    at Object.<anonymous> (/Users/hobo/Projects/AgentLog_dashboard_fix/packages/backend/src/index.ts:232:7)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object.transformer (/Users/hobo/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/register-D46fvsV_.cjs:3:1104)
+    at Module.load (node:internal/modules/cjs/loader:1441:32) {
+  tries: [
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/build/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/build/Debug/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/build/Release/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/out/Debug/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/Debug/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/out/Release/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/Release/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/build/default/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/compiled/22.22.0/darwin/arm64/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/addon-build/release/install-root/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/addon-build/debug/install-root/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/addon-build/default/install-root/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/lib/binding/node-v127-darwin-arm64/better_sqlite3.node'
+  ]
+}
+
+---
+
+报错：[Pa[AgentLog] [后台][ERR] [AgentLog] 数据库初始化失败，服务退出 Error: Could not locate the bindings file. Tried:
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/build/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/build/Debug/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/build/Release/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/out/Debug/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/Debug/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/out/Release/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/Release/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/build/default/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/compiled/22.22.0/darwin/arm64/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/addon-build/release/install-root/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/addon-build/debug/install-root/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/addon-build/default/install-root/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/lib/binding/node-v127-darwin-arm64/better_sqlite3.node
+    at bindings (/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/bindings@1.5.0/node_modules/bindings/bindings.js:126:9)
+    at new Database (/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/lib/database.js:48:64)
+    at getDatabase (/Users/hobo/Projects/AgentLog_dashboard_fix/packages/backend/src/db/database.ts:261:14)
+    at initDatabase (/Users/hobo/Projects/AgentLog_dashboard_fix/packages/backend/src/index.ts:35:5)
+    at start (/Users/hobo/Projects/AgentLog_dashboard_fix/packages/backend/src/index.ts:68:3)
+    at hooksRoutes (/Users/hobo/Projects/AgentLog_dashboard_fix/packages/backend/src/index.ts:232:1)
+    at Object.<anonymous> (/Users/hobo/Projects/AgentLog_dashboard_fix/packages/backend/src/index.ts:232:7)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object.transformer (/Users/hobo/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/register-D46fvsV_.cjs:3:1104)
+    at Module.load (node:internal/modules/cjs/loader:1441:32) {
+  tries: [
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/build/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/build/Debug/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/build/Release/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/out/Debug/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/Debug/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/out/Release/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/Release/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/build/default/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/compiled/22.22.0/darwin/arm64/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/addon-build/release/install-root/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/addon-build/debug/install-root/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/addon-build/default/install-root/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/lib/binding/node-v127-darwin-arm64/better_sqlite3.node'
+  ]
+}
+[AgentLog] [后台] 进程退出，退出码：1
+[AgentLog] [后台] 服务启动超时
+
+---
+
+启动失败：[Past[AgentLog] [后台][ERR] [AgentLog] 数据库初始化失败，服务退出 Error: Could not locate the bindings file. Tried:
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/build/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/build/Debug/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/build/Release/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/out/Debug/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/Debug/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/out/Release/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/Release/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/build/default/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/compiled/22.22.0/darwin/arm64/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/addon-build/release/install-root/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/addon-build/debug/install-root/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/addon-build/default/install-root/better_sqlite3.node
+ → /Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/lib/binding/node-v127-darwin-arm64/better_sqlite3.node
+    at bindings (/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/bindings@1.5.0/node_modules/bindings/bindings.js:126:9)
+    at new Database (/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/lib/database.js:48:64)
+    at getDatabase (/Users/hobo/Projects/AgentLog_dashboard_fix/packages/backend/src/db/database.ts:261:14)
+    at initDatabase (/Users/hobo/Projects/AgentLog_dashboard_fix/packages/backend/src/index.ts:35:5)
+    at start (/Users/hobo/Projects/AgentLog_dashboard_fix/packages/backend/src/index.ts:68:3)
+    at hooksRoutes (/Users/hobo/Projects/AgentLog_dashboard_fix/packages/backend/src/index.ts:232:1)
+    at Object.<anonymous> (/Users/hobo/Projects/AgentLog_dashboard_fix/packages/backend/src/index.ts:232:7)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object.transformer (/Users/hobo/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/register-D46fvsV_.cjs:3:1104)
+    at Module.load (node:internal/modules/cjs/loader:1441:32) {
+  tries: [
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/build/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/build/Debug/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/build/Release/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/out/Debug/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/Debug/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/out/Release/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/Release/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/build/default/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/compiled/22.22.0/darwin/arm64/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/addon-build/release/install-root/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/addon-build/debug/install-root/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/addon-build/default/install-root/better_sqlite3.node',
+    '/Users/hobo/Projects/AgentLog_dashboard_fix/node_modules/.pnpm/better-sqlite3@9.6.0/node_modules/better-sqlite3/lib/binding/node-v127-darwin-arm64/better_sqlite3.node'
+  ]
+}
