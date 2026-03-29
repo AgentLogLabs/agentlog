@@ -43,6 +43,7 @@
     "onCommand:agentlog.generateCommitContext",
     "onCommand:agentlog.generateCommitExplain",
     "onCommand:agentlog.bindCommit",
+    "onCommand:agentlog.unbindCommit",
     "onCommand:agentlog.installGitHook",
     "onCommand:agentlog.removeGitHook",
     "onCommand:agentlog.viewSessionDetail",
@@ -86,6 +87,11 @@
       {
         "command": "agentlog.bindCommit",
         "title": "AgentLog: 手动绑定 Commit",
+        "icon": "$(git-commit)"
+      },
+      {
+        "command": "agentlog.unbindCommit",
+        "title": "AgentLog: 解除 Commit 绑定",
         "icon": "$(git-commit)"
       },
       {
@@ -322,12 +328,7 @@
           "description": "AgentLog 本地后台服务地址。修改后需重启插件生效。",
           "order": 1
         },
-        "agentlog.mcp.clientConfigPath": {
-          "type": "string",
-          "default": "",
-          "markdownDescription": "【已废弃】请改用命令 **AgentLog: 配置 AI Agent MCP 接入** 自动完成配置。\n\n（向下兼容）若填写，插件仍将自动注册 AgentLog MCP 到此文件。",
-          "order": 2
-        },
+
         "agentlog.mcp.configuredClients": {
           "type": "array",
           "default": [],

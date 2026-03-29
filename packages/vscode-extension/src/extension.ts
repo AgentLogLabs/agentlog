@@ -990,60 +990,7 @@ async function configureMcpClient(
   }
 }
 
-/**
- * 向下兼容：读取旧版 clientConfigPath 配置，自动注册 MCP。
- * 新用户请使用 configureMcpClient() 命令。
- */
-async function updateMcpClientConfig(
-  context: vscode.ExtensionContext,
-  config: AgentLogConfig,
-): Promise<void> {
-  const clientConfigPath = config.mcp?.clientConfigPath;
-  if (!clientConfigPath) {
-    return;
-  }
 
-  const resolvedPath = resolveTilde(clientConfigPath);
-
-  if (!fs.existsSync(resolvedPath)) {
-    log(`[MCP-CFG] 配置文件不存在，跳过自动配置: ${resolvedPath}`);
-    return;
-  }
-
-  try {
-    const isDevMode = context.extensionMode === vscode.ExtensionMode.Development;
-    const mcpEntry = isDevMode
-      ? path.join(context.extensionPath, "..", "backend", "src", "mcp.ts")
-      : path.join(context.extensionPath, "dist", "backend", "mcp.js");
-
-    const mcpCommand = isDevMode ? "npx" : "node";
-    const mcpArgs = isDevMode ? ["tsx", mcpEntry] : [mcpEntry];
-
-    // 根据路径推断配置格式
-    const basename = path.basename(resolvedPath).toLowerCase();
-    let format: McpClientProfile["format"] = "mcpServers";
-    if (basename.includes("opencode") || resolvedPath.includes("opencode")) {
-      format = "opencode";
-    } else if (basename.includes("cline")) {
-      format = "cline";
-    } else if (basename.includes("qoder")) {
-      format = "qoder";
-    }
-
-    await writeMcpEntryToConfig(resolvedPath, format, mcpCommand, mcpArgs);
-
-    log(`[MCP-CFG] 成功更新配置文件: ${resolvedPath}`);
-    vscode.window.showInformationMessage(
-      `AgentLog 已自动更新您的 AI Agent (MCP) 配置文件`,
-    );
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    log(`[MCP-CFG] 更新配置文件失败: ${msg}`);
-    vscode.window.showErrorMessage(
-      `AgentLog 自动配置 MCP 客户端失败: ${msg}`,
-    );
-  }
-}
 
 /**
  * 验证当前 MCP 配置状态，检查 OpenCode 规则文件和后端连接。
@@ -2210,11 +2157,6 @@ function registerConfigWatcher(context: vscode.ExtensionContext): void {
         updateStatusBar("backend-offline");
       }
 
-      // 若 clientConfigPath（旧版配置）发生变更，重新注册 MCP
-      if (e.affectsConfiguration("agentlog.mcp.clientConfigPath")) {
-        await updateMcpClientConfig(context, newConfig);
-      }
-
       log("[配置] 模块重新初始化完成");
     }),
   );
@@ -2250,7 +2192,6 @@ export async function activate(
       await startBackendProcess(context, config);
     }
     await startMcpServerProcess(context);
-    await updateMcpClientConfig(context, config);
   }, 1000);
 
   // ── 注册命令 ────────────────────────────────

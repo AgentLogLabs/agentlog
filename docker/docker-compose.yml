@@ -48,8 +48,8 @@ services:
       dockerfile: docker/Dockerfile
     image: agentlog:latest
     container_name: agentlog-mcp
-    # 直接使用 agentlog-mcp 命令（已在 Dockerfile 中链接）
-    command: agentlog-mcp
+    # 覆盖 entrypoint，使用 mcp-start.sh 启动 MCP Server
+    entrypoint: ["./mcp-start.sh"]
     environment:
       - NODE_ENV=production
       - AGENTLOG_PORT=${AGENTLOG_PORT:-7892}

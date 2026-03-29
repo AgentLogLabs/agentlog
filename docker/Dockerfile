@@ -68,9 +68,10 @@ COPY docker/mcp-start.sh ./mcp-start.sh
 RUN chmod +x start.sh mcp-start.sh
 
 # 安装 agentlog-mcp 全局命令
-# 将 dist/mcp.js 链接到 PATH 中
-RUN ln -s /app/dist/mcp.js /usr/local/bin/agentlog-mcp && \
-    chmod +x /app/dist/mcp.js
+# 创建 wrapper 脚本调用 node 运行 mcp.js
+RUN echo '#!/bin/sh' > /usr/local/bin/agentlog-mcp && \
+    echo 'exec node /app/dist/mcp.js "$@"' >> /usr/local/bin/agentlog-mcp && \
+    chmod +x /usr/local/bin/agentlog-mcp
 
 # 创建数据目录
 RUN mkdir -p /data && chown -R agentlog:agentlog /data
