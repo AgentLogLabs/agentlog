@@ -1,0 +1,42 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "544db097a6ec",
+  "session_id": "ses_2c54df33cffeBVrZx35Ce062cS",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-30T05:11:33.143426Z",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "packages/vscode-extension/assets/1024.png",
+    "packages/vscode-extension/assets/128透明.png",
+    "packages/vscode-extension/assets/16透明.png",
+    "packages/vscode-extension/assets/sidebar-icon.svg",
+    "packages/vscode-extension/assets/sidebar-icon1.svg",
+    "packages/vscode-extension/package.json",
+    "LICENSE",
+    "packages/vscode-extension/assets/128.png",
+    "packages/vscode-extension/assets/128备份 3.png",
+    "packages/vscode-extension/assets/128备份.png",
+    "packages/vscode-extension/assets/icon.svg",
+    "AGENTS.md",
+    "packages/vscode-extension/LICENSE",
+    "packages/vscode-extension/assets/128备份 2.png",
+    "packages/vscode-extension/assets/16.png",
+    "packages/vscode-extension/assets/512.png",
+    "packages/vscode-extension/assets/sidebar-icon0.svg",
+    "packages/vscode-extension/assets/logo.jpg",
+    "packages/vscode-extension/assets/logo.png"
+  ],
+  "agent": "OpenCode",
+  "model": "MiniMax-M2.7",
+  "turn_id": "efc7660b8b32",
+  "initial_attribution": {
+    "calculated_at": "2026-03-30T05:11:33.142901Z",
+    "agent_lines": 0,
+    "human_added": 0,
+    "human_modified": 29,
+    "human_removed": 8,
+    "total_committed": 21,
+    "agent_percentage": 0
+  }
+}
