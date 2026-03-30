@@ -1,6 +1,6 @@
 {
   "name": "agentlog",
-  "version": "0.1.0",
+  "version": "0.1.4",
   "private": true,
   "description": "AI 编程行车记录仪 —— 自动捕获 AI Agent 交互日志，与 Git Commit 绑定",
   "scripts": {

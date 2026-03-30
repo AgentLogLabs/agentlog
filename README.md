@@ -457,4 +457,4 @@ pnpm lint
 
 ## License
 
-MIT © AgentLog Contributors
+Apache 2.0 © AgentLog Contributors
