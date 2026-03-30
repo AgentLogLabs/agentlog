@@ -1,0 +1,5 @@
+：GitHub 已于 2024 年底至 2025 年初开始关闭 macos-13 镜像。尝试使用macos-latest构建x64
+
+---
+
+GitHub 已于 2024 年底至 2025 年初开始关闭 macos-13 镜像。尝试使用macos-latest构建x64
