@@ -103,8 +103,12 @@ const nodeFile = bsqlitePkg ? join(bsqlitePkg, 'build', 'Release', 'better_sqlit
 
 const shouldRebuild = process.env.CI || !nodeFile || !existsSync(nodeFile);
 
+// 优先使用 npm_config_arch 环境变量（CI 多平台构建时由 workflow 注入）
+// 否则回退到当前进程架构
+const targetArch = process.env.npm_config_arch || process.arch;
+
 if (shouldRebuild) {
-  console.log('Building better-sqlite3 native module...');
+  console.log(`Building better-sqlite3 native module (arch=${targetArch})...`);
   try {
     if (bsqlitePkg && existsSync(bsqlitePkg)) {
       // 删除旧产物强制重编译
@@ -112,7 +116,8 @@ if (shouldRebuild) {
       if (existsSync(buildDir)) {
         execSync('rm -rf build', { cwd: bsqlitePkg, stdio: 'ignore' });
       }
-      execSync('npx --yes node-gyp rebuild', { cwd: bsqlitePkg, stdio: 'inherit' });
+      // 显式传入 --arch，避免在 arm64 runner 上交叉编译时使用宿主架构
+      execSync(`npx --yes node-gyp rebuild --arch=${targetArch}`, { cwd: bsqlitePkg, stdio: 'inherit' });
     } else {
       execSync('pnpm rebuild better-sqlite3', { cwd: join(__dirname, '..', '..'), stdio: 'inherit' });
     }
@@ -120,7 +125,7 @@ if (shouldRebuild) {
     console.warn('Failed to rebuild better-sqlite3, attempting to continue:', err.message);
   }
 } else {
-  console.log('better-sqlite3 native module already built, skipping rebuild.');
+  console.log(`better-sqlite3 native module already built (arch=${targetArch}), skipping rebuild.`);
 }
 
 // better-sqlite3 依赖链

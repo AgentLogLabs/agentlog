@@ -42,7 +42,7 @@ jobs:
       matrix:
         include:
           - target: darwin-x64
-            runner: macos-latest
+            runner: macos-13
             platform: darwin
             arch: x64
           - target: darwin-arm64
