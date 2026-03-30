@@ -92,7 +92,7 @@ jobs:
       - name: Package VSIX
         run: |
           cd packages/vscode-extension
-          pnpm exec vsce package --no-dependencies --target ${{ matrix.target }}
+          pnpm exec vsce package --no-dependencies
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
