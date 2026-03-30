@@ -1,0 +1,85 @@
+{
+  "info": {
+    "id": "ses_2c1da8a35ffeJPfhuGLVs1HcJW",
+    "slug": "quiet-island",
+    "projectID": "bf4c3e099400a06715a042f25f06edf8caeff610",
+    "directory": "/Users/hobo/Projects/AgentLog",
+    "title": "更新README许可证为Apache2",
+    "version": "1.3.6",
+    "summary": {
+      "additions": 0,
+      "deletions": 0,
+      "files": 0
+    },
+    "time": {
+      "created": 1774864135627,
+      "updated": 1774864141099
+    }
+  },
+  "messages": [
+    {
+      "info": {
+        "role": "user",
+        "time": {
+          "created": 1774864135642
+        },
+        "summary": {
+          "diffs": []
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "minimax-cn-coding-plan",
+          "modelID": "MiniMax-M2.7"
+        },
+        "id": "msg_d3e2575d300164X4Ye0XGv7xCa",
+        "sessionID": "ses_2c1da8a35ffeJPfhuGLVs1HcJW"
+      },
+      "parts": [
+        {
+          "type": "text",
+          "text": "readme的license还是MIT，改为Apache2",
+          "id": "prt_d3e2575d4001IGtSNjjEyzsVCL",
+          "sessionID": "ses_2c1da8a35ffeJPfhuGLVs1HcJW",
+          "messageID": "msg_d3e2575d300164X4Ye0XGv7xCa"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1774864135652,
+          "completed": 1774864157382
+        },
+        "parentID": "msg_d3e2575d300164X4Ye0XGv7xCa",
+        "modelID": "MiniMax-M2.7",
+        "providerID": "minimax-cn-coding-plan",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "cache": {
+            "read": 0,
+            "write": 0
+          }
+        },
+        "error": {
+          "name": "MessageAbortedError",
+          "data": {
+            "message": "Aborted"
+          }
+        },
+        "id": "msg_d3e2575e4001ruU2666MExMvjl",
+        "sessionID": "ses_2c1da8a35ffeJPfhuGLVs1HcJW"
+      },
+      "parts": []
+    }
+  ]
+}
