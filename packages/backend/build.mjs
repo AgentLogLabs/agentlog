@@ -97,14 +97,21 @@ await Promise.all([
 console.log('\nCopying external packages to dist/node_modules/...');
 
 // 确保 better-sqlite3 原生模块已构建
-// 只在 .node 文件缺失时才执行 rebuild（避免每次构建都重编译，也避免 node-gyp clean 清除已有产物）
+// 始终 rebuild，避免使用过时或不兼容的预编译产物
 const bsqlitePkg = findPkg('better-sqlite3');
 const nodeFile = bsqlitePkg ? join(bsqlitePkg, 'build', 'Release', 'better_sqlite3.node') : null;
 
-if (!nodeFile || !existsSync(nodeFile)) {
-  console.log('Building better-sqlite3 native module (not found, rebuilding)...');
+const shouldRebuild = process.env.CI || !nodeFile || !existsSync(nodeFile);
+
+if (shouldRebuild) {
+  console.log('Building better-sqlite3 native module...');
   try {
     if (bsqlitePkg && existsSync(bsqlitePkg)) {
+      // 删除旧产物强制重编译
+      const buildDir = join(bsqlitePkg, 'build');
+      if (existsSync(buildDir)) {
+        execSync('rm -rf build', { cwd: bsqlitePkg, stdio: 'ignore' });
+      }
       execSync('npx --yes node-gyp rebuild', { cwd: bsqlitePkg, stdio: 'inherit' });
     } else {
       execSync('pnpm rebuild better-sqlite3', { cwd: join(__dirname, '..', '..'), stdio: 'inherit' });
