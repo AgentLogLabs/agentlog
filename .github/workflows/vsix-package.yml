@@ -50,11 +50,11 @@ jobs:
             platform: darwin
             arch: arm64
           - target: linux-x64
-            runner: ubuntu-latest
+            runner: ubuntu-22.04
             platform: linux
             arch: x64
           - target: win32-x64
-            runner: windows-latest
+            runner: windows-2019
             platform: win32
             arch: x64
 
@@ -92,7 +92,7 @@ jobs:
       - name: Package VSIX
         run: |
           cd packages/vscode-extension
-          vsce package --no-dependencies --target ${{ matrix.target }}
+          pnpm exec vsce package --no-dependencies --target ${{ matrix.target }}
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
@@ -120,6 +120,9 @@ jobs:
 
       - name: List artifacts
         run: ls -la artifacts/
+
+      - name: Install vsce globally
+        run: npm install -g @vscode/vsce
 
       - name: Publish to Marketplace (darwin-x64)
         run: vsce publish --packagePath artifacts/agentlog-vscode-darwin-x64/agentlog-*.vsix
