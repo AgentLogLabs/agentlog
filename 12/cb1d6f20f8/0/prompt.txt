@@ -1,0 +1,10 @@
+darwin-64 build仍然报错：The configuration 'macos-13-us-default' is not supported；win32-x64 build一直停留在waiting，日志：[Pasted ~6 lineEvaluating build.if
+Evaluating: success()
+Result: true
+Requested labels: windows-2019
+Job defined at: AgentLogLabs/agentlog/.github/workflows/vsix-package.yml@refs/tags/v0.1.2
+Waiting for a runner to pick up this job...
+
+---
+
+现在是build模式
