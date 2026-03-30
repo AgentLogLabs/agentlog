@@ -1,0 +1,28 @@
+是的，持续关注
+
+---
+
+action执行失败，darwin-x64发布报错：The configuration 'macos-13-us-default' is not supported；drawin-arm64发布报错：[Pasted ~9 linesRun cd packages/vscode-extension
+  cd packages/vscode-extension
+  vsce package --no-dependencies --target darwin-arm64
+  shell: /bin/bash -e {0}
+  env:
+    PNPM_HOME: /Users/runner/setup-pnpm/node_modules/.bin
+    VSCE_PAT: ***
+/Users/runner/work/_temp/e04b2cc7-d3a3-4ee8-8556-214b7b0be6c8.sh: line 2: vsce: command not found
+Error: Process completed with exit code 127.ted ~9 lines] Run cd packages/vscode-extension
+  cd packages/vscode-extension
+  vsce package --no-dependencies --target linux-x64
+  shell: /usr/bin/bash -e {0}
+  env:
+    PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+    VSCE_PAT: ***
+/home/runner/work/_temp/e389ec86-4657-415f-a67c-010ca50eb03d.sh: line 2: vsce: command not found
+Error: Process completed with exit code 127. ~8 lines] Run cd packages/vscode-extension
+vsce: D:\a\_temp\bd69fdcb-7942-44ff-9add-9834e8b44374.ps1:3
+Line |
+   3 |  vsce package --no-dependencies --target win32-x64
+     |  ~~~~
+     | The term 'vsce' is not recognized as a name of a cmdlet, function, script file, or executable program. Check the
+     | spelling of the name, or if a path was included, verify that the path is correct and try again.
+Error: Process completed with exit code 1.
