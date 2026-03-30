@@ -2,7 +2,7 @@
   "name": "agentlog-vscode",
   "displayName": "AgentLog — AI 编程飞行记录仪",
   "description": "自动捕获 AI Agent 交互日志（Prompt / Reasoning / Response），与 Git Commit 绑定，一键导出周报或 PR 说明",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": false,
   "publisher": "agentloglabs",
   "license": "Apache-2.0",
