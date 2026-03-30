@@ -1,0 +1,17 @@
+0.1.1版本插件在drawin-arm64平台启动agentlog服务报错：[Pasted ~17 li[AgentLog] [后台][ERR] [AgentLog] 数据库初始化失败，服务退出 Error: The module '/Users/hobo/.vscode/extensions/agentloglabs.agentlog-vscode-0.1.1-darwin-arm64/dist/backend/node_modules/better-sqlite3/build/Release/better_sqlite3.node'
+was compiled against a different Node.js version using
+NODE_MODULE_VERSION 115. This version of Node.js requires
+NODE_MODULE_VERSION 127. Please try re-compiling or re-installing
+the module (for instance, using `npm rebuild` or `npm install`).
+    at Object..node (node:internal/modules/cjs/loader:1865:18)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+    at require (node:internal/modules/helpers:147:16)
+    at bindings (/Users/hobo/.vscode/extensions/agentloglabs.agentlog-vscode-0.1.1-darwin-arm64/dist/backend/node_modules/bindings/bindings.js:112:48)
+    at new Database (/Users/hobo/.vscode/extensions/agentloglabs.agentlog-vscode-0.1.1-darwin-arm64/dist/backend/node_modules/better-sqlite3/lib/database.js:48:64)
+    at getDatabase (/Users/hobo/.vscode/extensions/agentloglabs.agentlog-vscode-0.1.1-darwin-arm64/dist/backend/index.js:31447:14) {
+  code: 'ERR_DLOPEN_FAILED'
+}布平台是否有同样的问题。然后删掉git tag 0.1.1，重新发布0.1.1版本
