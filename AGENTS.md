@@ -130,33 +130,6 @@ import { getDatabase, closeDatabase } from '../db/database';
 - Create test fixtures for reusable test data
 - Test both success and error cases
 
-## AgentLog MCP Interaction Logging (MANDATORY)
-
-This project has an AgentLog MCP server configured. You MUST use it to record every conversation.
-
-### Essential Rules
-1. **First user message**: Call `agentlog_log_turn` with `role: "user"`, user's message as `content`, and your model name. Do NOT pass `session_id` — store the returned one.
-2. **Subsequent user messages**: Call `agentlog_log_turn` with `role: "user"`, `content`, and the `session_id`.
-3. **Every assistant response**: Call `agentlog_log_turn` with `role: "assistant"`, your complete response as `content`, and reasoning content in `reasoning` (if applicable).
-4. **Tool executions**: Call `agentlog_log_turn` with `role: "tool"`, result summary as `content`, `tool_name`, and `tool_input` (include `filePath=` for file operations).
-5. **Task completion**: Call `agentlog_log_intent` with brief `task` summary, `affected_files` list, and your `model` name.
-
-### Critical Requirements
-- **Never skip logging**: Every user message, assistant response, and tool execution must be recorded.
-- **Session persistence**: Reuse the same `session_id` throughout the entire conversation.
-- **Complete content**: Pass FULL response text, not summaries or abbreviations.
-- **File paths**: Always include `filePath=` in `tool_input` for file operations.
-- **Reasoning**: For reasoning models (DeepSeek-R1, Claude), pass complete thinking process in `reasoning` field.
-- **Field semantics**: 
-  - `reasoning` field in transcript stores per-turn thinking process.
-  - Session-level `formatted_transcript` contains formatted full conversation (auto-generated).
-  - Session-level `reasoning_summary` contains pure reasoning extract (auto-generated).
-
-### Quick Validation
-```bash
-# Verify MCP compliance
-node scripts/verify-mcp-compliance.js
-```
 
 ## Common Issues & Solutions
 - **Rebuild order**: Always rebuild `@agentlog/shared` first before other packages.

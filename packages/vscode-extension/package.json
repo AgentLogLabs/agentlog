@@ -5,7 +5,8 @@
   "version": "0.1.0",
   "private": false,
   "publisher": "agentloglabs",
-  "license": "MIT",
+  "license": "Apache-2.0",
+  "icon": "assets/128.png",
   "homepage": "https://github.com/agentlog/agentlog",
   "repository": {
     "type": "git",
@@ -174,7 +175,7 @@
         {
           "id": "agentlog-sidebar",
           "title": "AgentLog",
-          "icon": "assets/sidebar-icon2.png"
+          "icon": "assets/128备份 2.png"
         }
       ]
     },

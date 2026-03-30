@@ -1,13 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none">
-  <!-- Scroll / log document body -->
-  <rect x="2" y="1" width="10" height="13" rx="1.5" fill="currentColor" opacity="0.15"/>
-  <rect x="2" y="1" width="10" height="13" rx="1.5" stroke="currentColor" stroke-width="1.2" fill="none"/>
-  <!-- Text lines representing log entries -->
-  <line x1="4.5" y1="4.5" x2="9.5" y2="4.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-  <line x1="4.5" y1="6.5" x2="9.5" y2="6.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-  <line x1="4.5" y1="8.5" x2="7.5" y2="8.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-  <!-- AI spark / bot indicator dot at bottom-right -->
-  <circle cx="11" cy="12" r="2.5" fill="currentColor"/>
-  <line x1="11" y1="10.5" x2="11" y2="11" stroke="white" stroke-width="0.8" stroke-linecap="round"/>
-  <circle cx="11" cy="12" r="0.5" fill="white"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" height="40px" viewBox="0 -960 960 960" width="40px" fill="#1f1f1f"><path d="m371-80-42-43 173-173 43 42L371-80Zm207 0-43-42 154-154 42 43L578-80ZM123-534l-43-43 153-153 43 43-153 153Zm0 206-43-42 174-174 43 42-174 174Zm648-26-99-247-97 98 20 97-34 34-68-121-121-68 34-34 98 20 97-97-247-99 45-42 297 47 98-99q7-7 16-10.5t19-3.5q10 0 19 3.5t17 11.5q8 7 11.5 16t3.5 18q0 10-4 19t-12 17l-98 98 47 297-42 45Z"/></svg>
