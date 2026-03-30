@@ -1,0 +1,28 @@
+有用户上报了bug，vscode启动agent服务失败，日志：[Pasted ~12 linesAgentLog] [后台][ERR] [AgentLog] 数据库初始化失败，服务退出 Error: dlopen(/Users/zhaoyan/.vscode/extensions/agentloglabs.agentlog-vscode-0.1.0/dist/backend/node_modules/better-sqlite3/build/Release/better_sqlite3.node, 0x0001): tried: '/Users/zhaoyan/.vscode/extensions/agentloglabs.agentlog-vscode-0.1.0/dist/backend/node_modules/better-sqlite3/build/Release/better_sqlite3.node' (mach-o file, but is an incompatible architecture (have 'arm64', need 'x86_64h' or 'x86_64')), '/System/Volumes/Preboot/Cryptexes/OS/Users/zhaoyan/.vscode/extensions/agentloglabs.agentlog-vscode-0.1.0/dist/backend/node_modules/better-sqlite3/build/Release/better_sqlite3.node' (no such file), '/Users/zhaoyan/.vscode/extensions/agentloglabs.agentlog-vscode-0.1.0/dist/backend/node_modules/better-sqlite3/build/Release/better_sqlite3.node' (mach-o file, but is an incompatible architecture (have 'arm64', need 'x86_64h' or 'x86_64'))
+    at Module._extensions..node (node:internal/modules/cjs/loader:1967:18)
+    at Module.load (node:internal/modules/cjs/loader:1530:32)
+    at Module._load (node:internal/modules/cjs/loader:1332:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.require (node:internal/modules/cjs/loader:1553:12)
+    at require (node:internal/modules/helpers:152:16)
+    at bindings (/Users/zhaoyan/.vscode/extensions/agentloglabs.agentlog-vscode-0.1.0/dist/backend/node_modules/bindings/bindings.js:112:48)
+    at new Database (/Users/zhaoyan/.vscode/extensions/agentloglabs.agentlog-vscode-0.1.0/dist/backend/node_modules/better-sqlite3/lib/database.js:48:64)
+    at getDatabase (/Users/zhaoyan/.vscode/extensions/agentloglabs.agentlog-vscode-0.1.0/dist/backend/index.js:31447:14)
+    at initDatabase (/Users/zhaoyan/.vscode/extensions/agentloglabs.agentlog-vscode-0.1.0/dist/backend/index.js:38911:5) {
+  code: 'ERR_DLOPEN_FAILED'
+
+---
+
+记得调用agentlog-mcp
+
+---
+
+请考虑多平台打包问题，是发布多个包还是兼容？
+
+---
+
+vscode插件市场是如何兼容多平台的？
+
+---
+
+选择方案A执行
