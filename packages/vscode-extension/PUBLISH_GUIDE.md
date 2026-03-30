@@ -49,7 +49,7 @@
      - **Publisher ID**: `agentloglabs`（必须与 package.json 中的 `"publisher"` 一致）
      - **Publisher Name**: `AgentLog Labs`（显示名称，可自定义）
      - **Description**: 简短描述，如 "Tools for AI-powered development"
-     - **Website**: `https://github.com/agentlog/agentlog`
+     - **Website**: `https://github.com/AgentLogLabs/agentlog`
      - **Support**: GitHub Issues URL
 
 3. **获取 Personal Access Token (PAT)**：
@@ -143,7 +143,7 @@ ovsx publish agentlog-vscode-0.1.0.vsix -p <your-pat>
 5. **发布**：`vsce publish`
 
 ## 资源与支持
-- **项目仓库**：https://github.com/agentlog/agentlog
+- **项目仓库**：https://github.com/AgentLogLabs/agentlog
 - **VS Code 扩展开发文档**：https://code.visualstudio.com/api
 - **Marketplace 发布文档**：https://code.visualstudio.com/api/working-with-extensions/publishing-extension
 - **问题反馈**：GitHub Issues

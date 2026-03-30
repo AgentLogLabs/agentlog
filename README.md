@@ -437,7 +437,7 @@ curl -s http://localhost:7892/api/sessions/你的会话ID | jq '.data.tokenUsage
 
 ```bash
 # 克隆仓库
-git clone https://github.com/agentlog/agentlog.git
+git clone https://github.com/AgentLogLabs/agentlog.git
 cd agentlog
 
 # 安装依赖

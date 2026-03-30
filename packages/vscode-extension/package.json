@@ -7,10 +7,10 @@
   "publisher": "agentloglabs",
   "license": "Apache-2.0",
   "icon": "assets/128.png",
-  "homepage": "https://github.com/agentlog/agentlog",
+  "homepage": "https://github.com/AgentLogLabs/agentlog",
   "repository": {
     "type": "git",
-    "url": "https://github.com/agentlog/agentlog.git"
+    "url": "https://github.com/AgentLogLabs/agentlog.git"
   },
   "readme": "README.md",
   "engines": {
@@ -59,108 +59,6 @@
   "main": "./dist/extension.js",
 
   "contributes": {
-    "commands": [
-      {
-        "command": "agentlog.openDashboard",
-        "title": "AgentLog: 打开交互日志面板",
-        "icon": "$(history)"
-      },
-      {
-        "command": "agentlog.exportWeeklyReport",
-        "title": "AgentLog: 导出本周 AI 开发周报",
-        "icon": "$(file-text)"
-      },
-      {
-        "command": "agentlog.exportPrDescription",
-        "title": "AgentLog: 导出 PR / Code Review 说明",
-        "icon": "$(git-pull-request)"
-      },
-      {
-        "command": "agentlog.generateCommitContext",
-        "title": "AgentLog: 生成 Commit 上下文文档",
-        "icon": "$(book)"
-      },
-      {
-        "command": "agentlog.generateCommitExplain",
-        "title": "AgentLog: 生成 Commit AI 交互解释",
-        "icon": "$(comment-discussion)"
-      },
-      {
-        "command": "agentlog.bindCommit",
-        "title": "AgentLog: 手动绑定 Commit",
-        "icon": "$(git-commit)"
-      },
-      {
-        "command": "agentlog.unbindCommit",
-        "title": "AgentLog: 解除 Commit 绑定",
-        "icon": "$(git-commit)"
-      },
-      {
-        "command": "agentlog.installGitHook",
-        "title": "AgentLog: 安装 Git post-commit 钩子（自动绑定）",
-        "icon": "$(plug)"
-      },
-      {
-        "command": "agentlog.removeGitHook",
-        "title": "AgentLog: 移除 Git post-commit 钩子",
-        "icon": "$(trash)"
-      },
-      {
-        "command": "agentlog.viewSessionDetail",
-        "title": "AgentLog: 查看会话详情",
-        "icon": "$(eye)"
-      },
-      {
-        "command": "agentlog.deleteSession",
-        "title": "AgentLog: 删除会话记录",
-        "icon": "$(trash)"
-      },
-      {
-        "command": "agentlog.refreshSessionList",
-        "title": "AgentLog: 刷新会话列表",
-        "icon": "$(refresh)"
-      },
-      {
-        "command": "agentlog.startBackend",
-        "title": "AgentLog: 启动本地后台服务",
-        "icon": "$(server-process)"
-      },
-      {
-        "command": "agentlog.stopBackend",
-        "title": "AgentLog: 停止本地后台服务",
-        "icon": "$(debug-stop)"
-      },
-      {
-        "command": "agentlog.showBackendStatus",
-        "title": "AgentLog: 查看后台服务状态",
-        "icon": "$(pulse)"
-      },
-      {
-        "command": "agentlog.installHooks",
-        "title": "AgentLog: 安装 Claude Code Hook（自动上报 AI 会话）",
-        "icon": "$(plug)"
-      },
-      {
-        "command": "agentlog.uninstallHooks",
-        "title": "AgentLog: 移除 Claude Code Hook",
-        "icon": "$(trash)"
-      },
-      {
-        "command": "agentlog.resumeContext",
-        "title": "AgentLog: 复活上下文 (Resume Context)",
-        "icon": "$(debug-restart)"
-      },
-      {
-        "command": "agentlog.configureMcpClient",
-        "title": "AgentLog: 配置 AI Agent MCP 接入",
-        "icon": "$(plug)"
-      },
-      {
-        "command": "agentlog.verifyMcpConnection",
-        "title": "AgentLog: 验证 MCP 连接",
-        "icon": "$(check)"
-      }
-    ],
     "chatParticipants": [
       {
         "id": "agentlog.chat",
@@ -175,7 +73,7 @@
         {
           "id": "agentlog-sidebar",
           "title": "AgentLog",
-          "icon": "assets/128备份 2.png"
+          "icon": "assets/128.png"
         }
       ]
     },

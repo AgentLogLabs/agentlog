@@ -363,7 +363,7 @@ curl -X POST http://localhost:7892/api/commits/hook/install \
 
 ```bash
 # Clone repository
-git clone https://github.com/agentlog/agentlog.git
+git clone https://github.com/AgentLogLabs/agentlog.git
 cd agentlog
 
 # Install dependencies
