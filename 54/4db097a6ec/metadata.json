@@ -3,7 +3,7 @@
   "checkpoint_id": "544db097a6ec",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 0,
+  "checkpoints_count": 1,
   "files_touched": [
     "AGENTS.md",
     "LICENSE",
@@ -31,6 +31,19 @@
       "transcript": "/54/4db097a6ec/0/full.jsonl",
       "content_hash": "/54/4db097a6ec/0/content_hash.txt",
       "prompt": ""
+    },
+    {
+      "metadata": "/54/4db097a6ec/1/metadata.json",
+      "transcript": "/54/4db097a6ec/1/full.jsonl",
+      "content_hash": "/54/4db097a6ec/1/content_hash.txt",
+      "prompt": "/54/4db097a6ec/1/prompt.txt"
     }
-  ]
+  ],
+  "token_usage": {
+    "input_tokens": 2786,
+    "cache_creation_tokens": 16321,
+    "cache_read_tokens": 16231,
+    "output_tokens": 275,
+    "api_call_count": 2
+  }
 }
