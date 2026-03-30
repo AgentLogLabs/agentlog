@@ -1,0 +1,25 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "ec9421c0fd03",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "packages/vscode-extension/package.json"
+  ],
+  "sessions": [
+    {
+      "metadata": "/ec/9421c0fd03/0/metadata.json",
+      "transcript": "/ec/9421c0fd03/0/full.jsonl",
+      "content_hash": "/ec/9421c0fd03/0/content_hash.txt",
+      "prompt": "/ec/9421c0fd03/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 6726,
+    "cache_creation_tokens": 26736,
+    "cache_read_tokens": 94832,
+    "output_tokens": 1457,
+    "api_call_count": 6
+  }
+}
