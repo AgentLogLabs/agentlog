@@ -54,7 +54,7 @@ jobs:
             platform: linux
             arch: x64
           - target: win32-x64
-            runner: windows-2019
+            runner: windows-latest
             platform: win32
             arch: x64
 
@@ -92,7 +92,8 @@ jobs:
       - name: Package VSIX
         run: |
           cd packages/vscode-extension
-          pnpm exec vsce package --no-dependencies
+          npm install -g @vscode/vsce@2.24.0
+          pnpm exec vsce package --no-dependencies --target ${{ matrix.target }}
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
