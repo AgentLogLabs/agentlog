@@ -1,4 +1,6 @@
-# AgentLog — AI 编程行车记录仪 🚗📹
+# AgentLog — AI 编程飞行记录仪
+
+<img src="packages/vscode-extension/assets/logo.png" width="128" />
 
 > 一款面向国内主流大模型的 VS Code/Cursor 插件 + 本地轻量后台，自动捕获 AI Agent 交互日志，与 Git Commit 绑定，一键导出周报或 PR 说明。
 
