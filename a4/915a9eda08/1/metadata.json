@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "a4915a9eda08",
+  "session_id": "ses_2c1e96221ffeW7L0OmYarZ3gvl",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-30T09:56:03.329948Z",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "packages/vscode-extension/package.json",
+    "README.md",
+    "package.json",
+    "packages/vscode-extension/RELEASE_NOTES.md"
+  ],
+  "agent": "OpenCode",
+  "model": "MiniMax-M2.7",
+  "turn_id": "f2703a5fd797",
+  "initial_attribution": {
+    "calculated_at": "2026-03-30T09:56:03.329471Z",
+    "agent_lines": 98,
+    "human_added": 0,
+    "human_modified": 4,
+    "human_removed": 0,
+    "total_committed": 102,
+    "agent_percentage": 96.07843137254902
+  }
+}
