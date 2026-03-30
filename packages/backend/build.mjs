@@ -96,16 +96,16 @@ await Promise.all([
 
 console.log('\nCopying external packages to dist/node_modules/...');
 
-// 确保 better-sqlite3 原生模块已构建
-// 始终 rebuild，避免使用过时或不兼容的预编译产物
-const bsqlitePkg = findPkg('better-sqlite3');
-const nodeFile = bsqlitePkg ? join(bsqlitePkg, 'build', 'Release', 'better_sqlite3.node') : null;
-
-const shouldRebuild = process.env.CI || !nodeFile || !existsSync(nodeFile);
-
 // 优先使用 npm_config_arch 环境变量（CI 多平台构建时由 workflow 注入）
 // 否则回退到当前进程架构
 const targetArch = process.env.npm_config_arch || process.arch;
+
+// 确保 better-sqlite3 原生模块已构建
+// 若目标架构与当前进程架构不同，强制 rebuild（交叉编译场景）
+const bsqlitePkg = findPkg('better-sqlite3');
+const nodeFile = bsqlitePkg ? join(bsqlitePkg, 'build', 'Release', 'better_sqlite3.node') : null;
+
+const shouldRebuild = process.env.CI || !nodeFile || !existsSync(nodeFile) || targetArch !== process.arch;
 
 if (shouldRebuild) {
   console.log(`Building better-sqlite3 native module (arch=${targetArch})...`);
