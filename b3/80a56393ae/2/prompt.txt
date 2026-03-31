@@ -1,0 +1,5 @@
+我准备建立github反馈系统，**GitHub 阵地**：开启 GitHub Discussions，并配置专用的 **Bug Report / Feature Request Issue Template**。请帮我设计相关模版
+
+---
+
+是的

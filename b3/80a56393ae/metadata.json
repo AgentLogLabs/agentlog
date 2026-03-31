@@ -3,7 +3,7 @@
   "checkpoint_id": "b380a56393ae",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 0,
+  "checkpoints_count": 1,
   "files_touched": [
     ".github/ISSUE_TEMPLATE/bug_report.yml",
     ".github/ISSUE_TEMPLATE/feature_request.yml",
@@ -23,6 +23,19 @@
       "transcript": "/b3/80a56393ae/1/full.jsonl",
       "content_hash": "/b3/80a56393ae/1/content_hash.txt",
       "prompt": ""
+    },
+    {
+      "metadata": "/b3/80a56393ae/2/metadata.json",
+      "transcript": "/b3/80a56393ae/2/full.jsonl",
+      "content_hash": "/b3/80a56393ae/2/content_hash.txt",
+      "prompt": "/b3/80a56393ae/2/prompt.txt"
     }
-  ]
+  ],
+  "token_usage": {
+    "input_tokens": 6370,
+    "cache_creation_tokens": 23806,
+    "cache_read_tokens": 49766,
+    "output_tokens": 2786,
+    "api_call_count": 4
+  }
 }

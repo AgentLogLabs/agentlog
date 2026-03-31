@@ -1,0 +1,550 @@
+{
+  "info": {
+    "id": "ses_2be1a77fdffeHpKN2lttaYZCXV",
+    "slug": "eager-planet",
+    "projectID": "bf4c3e099400a06715a042f25f06edf8caeff610",
+    "directory": "/Users/hobo/Projects/AgentLog",
+    "title": "GitHub反馈系统模板设计",
+    "version": "1.3.7",
+    "summary": {
+      "additions": 0,
+      "deletions": 0,
+      "files": 0
+    },
+    "time": {
+      "created": 1774927054852,
+      "updated": 1774927122495
+    }
+  },
+  "messages": [
+    {
+      "info": {
+        "role": "user",
+        "time": {
+          "created": 1774927054915
+        },
+        "summary": {
+          "diffs": []
+        },
+        "agent": "plan",
+        "model": {
+          "providerID": "minimax-cn-coding-plan",
+          "modelID": "MiniMax-M2.7"
+        },
+        "id": "msg_d41e5883d001pqK8caQKHzyqF9",
+        "sessionID": "ses_2be1a77fdffeHpKN2lttaYZCXV"
+      },
+      "parts": [
+        {
+          "type": "text",
+          "text": "我准备建立github反馈系统，**GitHub 阵地**：开启 GitHub Discussions，并配置专用的 **Bug Report / Feature Request Issue Template**。请帮我设计相关模版",
+          "id": "prt_d41e5883e001HNC0vbulJrDkvj",
+          "sessionID": "ses_2be1a77fdffeHpKN2lttaYZCXV",
+          "messageID": "msg_d41e5883d001pqK8caQKHzyqF9"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1774927054922,
+          "completed": 1774927063105
+        },
+        "parentID": "msg_d41e5883d001pqK8caQKHzyqF9",
+        "modelID": "MiniMax-M2.7",
+        "providerID": "minimax-cn-coding-plan",
+        "mode": "plan",
+        "agent": "plan",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 16817,
+          "input": 72,
+          "output": 154,
+          "reasoning": 0,
+          "cache": {
+            "write": 16591,
+            "read": 0
+          }
+        },
+        "finish": "tool-calls",
+        "id": "msg_d41e5884a002h2id2FwLEvAROY",
+        "sessionID": "ses_2be1a77fdffeHpKN2lttaYZCXV"
+      },
+      "parts": [
+        {
+          "snapshot": "43d27534ee5679230bc8bd3acfeab69011d410b2",
+          "type": "step-start",
+          "id": "prt_d41e59a2e001QxBwFptdoik1Nk",
+          "sessionID": "ses_2be1a77fdffeHpKN2lttaYZCXV",
+          "messageID": "msg_d41e5884a002h2id2FwLEvAROY"
+        },
+        {
+          "type": "reasoning",
+          "text": "The user wants to set up a GitHub feedback system with:\n1. GitHub Discussions enabled\n2. Bug Report Issue Template\n3. Feature Request Issue Template\n\nThey're asking me to help design these templates. I'm in plan mode so I can only read and plan - no modifications allowed.\n\nLet me first explore the project structure to understand what kind of project this is, then design appropriate templates.",
+          "time": {
+            "start": 1774927059503,
+            "end": 1774927061805
+          },
+          "metadata": {
+            "anthropic": {
+              "signature": "9d3fd842e55d6c8d0456a556c380e6649432736b626a3a589bdc18dff1544bb3"
+            }
+          },
+          "id": "prt_d41e59a2f001GAP0zcWtQ2wHZm",
+          "sessionID": "ses_2be1a77fdffeHpKN2lttaYZCXV",
+          "messageID": "msg_d41e5884a002h2id2FwLEvAROY"
+        },
+        {
+          "type": "text",
+          "text": "我来先了解一下项目结构，然后为你设计合适的 GitHub 反馈模板。",
+          "time": {
+            "start": 1774927062452,
+            "end": 1774927062452
+          },
+          "id": "prt_d41e5a330001OCNXQnDQOMXqi7",
+          "sessionID": "ses_2be1a77fdffeHpKN2lttaYZCXV",
+          "messageID": "msg_d41e5884a002h2id2FwLEvAROY"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "call_function_hv1j39n0cax9_1",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "**/{package.json,README.md,CONTRIBUTING.md}"
+            },
+            "output": "/Users/hobo/Projects/AgentLog/packages/vscode-extension/package.json\n/Users/hobo/Projects/AgentLog/package.json\n/Users/hobo/Projects/AgentLog/README.md\n/Users/hobo/Projects/AgentLog/.opencode/package.json\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/README.md\n/Users/hobo/Projects/AgentLog/docker/README.md\n/Users/hobo/Projects/AgentLog/packages/backend/package.json\n/Users/hobo/Projects/AgentLog/packages/shared/package.json",
+            "metadata": {
+              "count": 8,
+              "truncated": false
+            },
+            "title": "",
+            "time": {
+              "start": 1774927062998,
+              "end": 1774927063051
+            }
+          },
+          "id": "prt_d41e5a5b7001cNvPYQXeyBurKs",
+          "sessionID": "ses_2be1a77fdffeHpKN2lttaYZCXV",
+          "messageID": "msg_d41e5884a002h2id2FwLEvAROY"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "call_function_hv1j39n0cax9_2",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": ".github/**/*"
+            },
+            "output": "/Users/hobo/Projects/AgentLog/.github/workflows/vsix-package.yml\n/Users/hobo/Projects/AgentLog/.github/workflows/docker-publish.yml\n/Users/hobo/Projects/AgentLog/.github/hooks/entire.json",
+            "metadata": {
+              "count": 3,
+              "truncated": false
+            },
+            "title": "",
+            "time": {
+              "start": 1774927063008,
+              "end": 1774927063051
+            }
+          },
+          "id": "prt_d41e5a7da0014KultxekRffxjL",
+          "sessionID": "ses_2be1a77fdffeHpKN2lttaYZCXV",
+          "messageID": "msg_d41e5884a002h2id2FwLEvAROY"
+        },
+        {
+          "reason": "tool-calls",
+          "snapshot": "43d27534ee5679230bc8bd3acfeab69011d410b2",
+          "type": "step-finish",
+          "tokens": {
+            "total": 16817,
+            "input": 72,
+            "output": 154,
+            "reasoning": 0,
+            "cache": {
+              "write": 16591,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_d41e5a80c002AVgtXEnD9s0GMQ",
+          "sessionID": "ses_2be1a77fdffeHpKN2lttaYZCXV",
+          "messageID": "msg_d41e5884a002h2id2FwLEvAROY"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1774927063106,
+          "completed": 1774927066072
+        },
+        "parentID": "msg_d41e5883d001pqK8caQKHzyqF9",
+        "modelID": "MiniMax-M2.7",
+        "providerID": "minimax-cn-coding-plan",
+        "mode": "plan",
+        "agent": "plan",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 17079,
+          "input": 246,
+          "output": 83,
+          "reasoning": 0,
+          "cache": {
+            "write": 499,
+            "read": 16251
+          }
+        },
+        "finish": "tool-calls",
+        "id": "msg_d41e5a842002j26j7kU1gAIsMp",
+        "sessionID": "ses_2be1a77fdffeHpKN2lttaYZCXV"
+      },
+      "parts": [
+        {
+          "snapshot": "43d27534ee5679230bc8bd3acfeab69011d410b2",
+          "type": "step-start",
+          "id": "prt_d41e5af58001YOWtqgSBA3ym8p",
+          "sessionID": "ses_2be1a77fdffeHpKN2lttaYZCXV",
+          "messageID": "msg_d41e5a842002j26j7kU1gAIsMp"
+        },
+        {
+          "type": "reasoning",
+          "text": "Let me check the README to understand the project better, and look at the existing .github structure.",
+          "time": {
+            "start": 1774927064921,
+            "end": 1774927064922
+          },
+          "metadata": {
+            "anthropic": {
+              "signature": "f2b4b4e8856598e288534e3ed65bcaad7f87800c2edcb6a1c4575f47449c7ca7"
+            }
+          },
+          "id": "prt_d41e5af59002mzBlE0EM93GIaf",
+          "sessionID": "ses_2be1a77fdffeHpKN2lttaYZCXV",
+          "messageID": "msg_d41e5a842002j26j7kU1gAIsMp"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "call_function_g0kb6mnxe065_1",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/Users/hobo/Projects/AgentLog/README.md"
+            },
+            "output": "<path>/Users/hobo/Projects/AgentLog/README.md</path>\n<type>file</type>\n<content>1: # AgentLog — AI 编程飞行记录仪\n2: \n3: <img src=\"packages/vscode-extension/assets/logo.png\" width=\"128\" />\n4: \n5: > 一款面向国内主流大模型的 VS Code/Cursor 插件 + 本地轻量后台，自动捕获 AI Agent 交互日志，与 Git Commit 绑定，一键导出周报或 PR 说明。\n6: \n7: ---\n8: \n9: ## 背景与痛点\n10: \n11: 国内开发者大量使用 Cursor、Cline 或基于 DeepSeek/Qwen API 的本地 Agent。代码虽然写得快，但过几天开发者自己都忘了当时 AI 为什么这么改，出了 Bug 无从下手。\n12: \n13: **AgentLog** 解决的就是这个问题：在你与 AI 交互时，静默地在后台记录一切，并在你 `git commit` 时自动将这些记录与代码变更绑定。\n14: \n15: ---\n16: \n17: ## 核心功能\n18: \n19: | 功能 | 说明 |\n20: |------|------|\n21: | 🎙️ **自动捕获** | 拦截发往 DeepSeek / Qwen / Kimi 等 API 的请求，提取 Prompt + Response |\n22: | 🧠 **推理过程保存** | 专项支持 DeepSeek-R1 的 `<think>` 推理链，完整存储中间思考步骤 |\n23: | 🔗 **Git Commit 绑定** | 通过 post-commit 钩子，自动将每次提交与相关 AI 会话关联 |\n24: | 🌿 **Git Worktree 支持** | 多个 AI Agent 可同时在不同 worktree 上并行工作，各自会话精准绑定到对应 Commit，互不干扰 |\n25: | 📊 **侧边栏面板** | VS Code 侧边栏显示会话列表、Commit 绑定关系、统计数据 |\n26: | 📝 **一键导出** | 支持导出为中文周报、PR/Code Review 说明、JSONL 原始数据、CSV 表格 |\n27: | 🏠 **本地优先** | 所有数据存储在本机 SQLite（`~/.agentlog/agentlog.db`），完全离线可用 |\n28: \n29: ---\n30: \n31: ## 支持的模型与工具\n32: \n33: ### 国内主流模型\n34: \n35: | 模型 | 提供商 | 说明 |\n36: |------|--------|------|\n37: | DeepSeek-V3 / R1 | DeepSeek | 完整支持推理链捕获 |\n38: | 通义千问 Qwen-Max / Plus | 阿里云 DashScope | OpenAI 兼容模式 |\n39: | Kimi / Moonshot | 月之暗面 | OpenAI 兼容模式 |\n40: | 豆包 | 字节跳动 Ark | OpenAI 兼容模式 |\n41: | ChatGLM | 智谱 AI | OpenAI 兼容模式 |\n42: | 本地模型 | Ollama / LM Studio | 本地 HTTP 接口 |\n43: \n44: ### 支持的 AI 编程工具\n45: \n46: - **Cline**（VS Code 插件）\n47: - **Cursor**（IDE 内置 AI）\n48: - **Continue**（VS Code 插件）\n49: - **直接 API 调用**（通过 HTTP 拦截）\n50: \n51: ---\n52: \n53: ## 项目架构\n54: \n55: ```\n56: AgentLog/\n57: ├── packages/\n58: │   ├── shared/                    # 共享类型定义（TypeScript）\n59: │   │   └── src/\n60: │   │       ├── index.ts\n61: │   │       └── types.ts           # AgentSession、CommitBinding 等核心类型\n62: │   │\n63: │   ├── backend/                   # 本地轻量后台（Fastify + SQLite）\n64: │   │   └── src/\n65: │   │       ├── index.ts           # 服务入口，默认端口 7892\n66: │   │       ├── db/\n67: │   │       │   └── database.ts    # SQLite 初始化 + Schema + 迁移系统\n68: │   │       ├── routes/\n69: │   │       │   ├── sessions.ts    # /api/sessions CRUD + 查询 + 统计\n70: │   │       │   ├── commits.ts     # /api/commits 绑定 + Git Hook + 上下文/解释\n71: │   │       │   └── export.ts      # /api/export 导出（周报/PR/JSONL/CSV）\n72: │   │       └── services/\n73: │   │           ├── logService.ts  # AgentSession CRUD 业务逻辑\n74: │   │           ├── gitService.ts  # Git 集成（simple-git + 钩子注入）\n75: │   │           ├── exportService.ts # 报告渲染（Markdown / CSV）\n76: │   │           └── contextService.ts # Commit 上下文文档 & 解释摘要生成\n77: │   │\n78: │   └── vscode-extension/          # VS Code/Cursor 插件\n79: │       └── src/\n80: │           ├── extension.ts       # 插件主入口（activate / deactivate）\n81: │           ├── client/\n82: │           │   └── backendClient.ts   # 与后台通信的 HTTP 客户端\n83: │           ├── interceptors/\n84: │           │   └── apiInterceptor.ts  # HTTP Monkey-patch 拦截器\n85: │           └── providers/\n86: │               ├── sessionTreeProvider.ts    # 侧边栏会话列表 TreeView\n87: │               └── sessionWebviewProvider.ts # 会话详情 & 仪表板 Webview\n88: │\n89: ├── package.json                   # pnpm monorepo 根配置\n90: ├── pnpm-workspace.yaml\n91: └── README.md\n92: ```\n93: \n94: ---\n95: \n96: ## 技术栈\n97: \n98: | 层次 | 技术 |\n99: |------|------|\n100: | Monorepo | pnpm workspaces |\n101: | 语言 | TypeScript 5.x（全栈） |\n102: | 后台框架 | Fastify 4.x |\n103: | 数据库 | SQLite via `better-sqlite3`（WAL 模式） |\n104: | Git 集成 | `simple-git` |\n105: | VS Code API | `@types/vscode ^1.85` |\n106: | 拦截机制 | Node.js `http/https` Monkey-patch |\n107: | ID 生成 | `nanoid` |\n108: \n109: ---\n110: \n111: ## 快速开始\n112: \n113: ### 前置要求\n114: \n115: - Node.js >= 18\n116: - pnpm >= 9\n117: - Git\n118: \n119: ### 安装依赖\n120: \n121: ```bash\n122: pnpm install\n123: ```\n124: \n125: ### 开发模式\n126: \n127: ```bash\n128: # 启动后台服务（热重载）\n129: pnpm dev\n130: \n131: # 或分别启动各包的 watch 模式\n132: pnpm build:shared   # 先构建共享类型\n133: pnpm dev:backend    # 启动后台（tsx watch）\n134: ```\n135: \n136: ### 构建全部\n137: \n138: ```bash\n139: pnpm build\n140: ```\n141: \n142: ### 在 VS Code 中调试插件\n143: \n144: 1. 用 VS Code 打开项目根目录\n145: 2. 按 `F5` 启动扩展调试（会打开新的 Extension Development Host 窗口）\n146: 3. 在新窗口中，后台服务会自动启动\n147: \n148: ---\n149: \n150: ## 后台 API 一览\n151: \n152: 后台默认运行在 `http://localhost:7892`，可通过环境变量 `AGENTLOG_PORT` 覆盖。\n153: \n154: ### 会话接口\n155: \n156: | 方法 | 路径 | 说明 |\n157: |------|------|------|\n158: | `POST` | `/api/sessions` | 上报新会话 |\n159: | `GET` | `/api/sessions` | 分页查询（支持多维过滤） |\n160: | `GET` | `/api/sessions/stats` | 统计数据 |\n161: | `GET` | `/api/sessions/unbound` | 查询未绑定 Commit 的会话 |\n162: | `GET` | `/api/sessions/:id` | 获取单条会话详情 |\n163: | `PATCH` | `/api/sessions/:id/tags` | 更新标签 |\n164: | `PATCH` | `/api/sessions/:id/note` | 更新备注 |\n165: | `PATCH` | `/api/sessions/:id/commit` | 手动绑定/解绑 Commit |\n166: | `DELETE` | `/api/sessions/:id` | 删除会话 |\n167: \n168: ### Commit 绑定接口\n169: \n170: | 方法 | 路径 | 说明 |\n171: |------|------|------|\n172: | `POST` | `/api/commits/hook` | Git post-commit 钩子接收端 |\n173: | `POST` | `/api/commits/bind` | 手动批量绑定 |\n174: | `DELETE` | `/api/commits/unbind/:sessionId` | 解绑 |\n175: | `GET` | `/api/commits` | 列出所有绑定记录 |\n176: | `GET` | `/api/commits/:hash` | 查询指定 Commit 的绑定信息 |\n177: | `GET` | `/api/commits/:hash/sessions` | 获取 Commit 关联的所有会话 |\n178: | `GET` | `/api/commits/:hash/context` | 生成 Commit 的 AI 交互上下文文档（Query 传参） |\n179: | `POST` | `/api/commits/:hash/context` | 生成 Commit 的 AI 交互上下文文档（Body 传参） |\n180: | `GET` | `/api/commits/:hash/explain` | 生成 Commit 的 AI 交互解释摘要（Query 传参） |\n181: | `POST` | `/api/commits/:hash/explain` | 生成 Commit 的 AI 交互解释摘要（Body 传参） |\n182: | `POST` | `/api/commits/hook/install` | 注入 Git 钩子 |\n183: | `DELETE` | `/api/commits/hook/remove` | 移除 Git 钩子 |\n184: \n185: ### 导出接口\n186: \n187: | 方法 | 路径 | 说明 |\n188: |------|------|------|\n189: | `GET` | `/api/export/formats` | 获取支持的导出格式列表 |\n190: | `POST` | `/api/export` | 生成导出内容 |\n191: | `POST` | `/api/export/preview` | 预览（前 50 行） |\n192: \n193: ---\n194: \n195: ## 数据模型\n196: \n197: ### AgentSession（AI 交互会话）\n198: \n199: ```typescript\n200: interface AgentSession {\n201:   id: string;              // nanoid\n202:   createdAt: string;       // ISO 8601\n203:   provider: ModelProvider; // 'deepseek' | 'qwen' | 'kimi' | ...\n204:   model: string;           // 实际模型名，例如 \"deepseek-r1\"\n205:   source: AgentSource;     // 'cline' | 'cursor' | 'continue' | ...\n206:   workspacePath: string;   // 工作区绝对路径（多 worktree 场景下为各 worktree 路径）\n207:   gitRepoRoot?: string;    // Git 仓库根目录（多 worktree 共享，用于跨 worktree 绑定）\n208:   prompt: string;          // 用户输入的完整 Prompt\n209:   reasoning?: string;      // AI 推理过程（DeepSeek-R1 的 <think> 内容）\n210:   response: string;        // AI 最终回复\n211:   commitHash?: string;     // 绑定的 Git Commit SHA\n212:   affectedFiles: string[]; // 涉及的文件列表\n213:   durationMs: number;      // 交互耗时（毫秒）\n214:   tags?: string[];         // 用户标签\n215:   note?: string;           // 用户备注\n216:   metadata?: Record<string, unknown>; // 扩展字段\n217: }\n218: ```\n219: \n220: ### CommitBinding（Commit 绑定）\n221: \n222: ```typescript\n223: interface CommitBinding {\n224:   commitHash: string;      // Git 完整 SHA-1\n225:   sessionIds: string[];    // 关联的会话 ID 列表\n226:   message: string;         // Commit message\n227:   committedAt: string;     // 提交时间\n228:   authorName: string;      // 提交者\n229:   authorEmail: string;\n230:   changedFiles: string[];  // 变更文件列表\n231:   workspacePath: string;\n232: }\n233: ```\n234: \n235: ### Commit 上下文与解释\n236: \n237: 通过 `/api/commits/:hash/context` 和 `/api/commits/:hash/explain` 接口，可以将指定 Commit 关联的所有 AI 交互记录汇总为结构化文档，直接用于新 AI 对话的上下文注入。\n238: \n239: **Context（上下文文档）**支持 Markdown / JSON / XML 三种格式输出，可通过以下选项控制内容：\n240: \n241: | 选项 | 类型 | 默认值 | 说明 |\n242: |------|------|--------|------|\n243: | `format` | `'markdown' \\| 'json' \\| 'xml'` | `'markdown'` | 输出格式 |\n244: | `language` | `'zh' \\| 'en'` | `'zh'` | 输出语言 |\n245: | `includePrompts` | `boolean` | `true` | 是否包含用户 Prompt |\n246: | `includeResponses` | `boolean` | `true` | 是否包含模型 Response |\n247: | `includeReasoning` | `boolean` | `true` | 是否包含推理过程 |\n248: | `includeChangedFiles` | `boolean` | `true` | 是否包含变更文件列表 |\n249: | `maxContentLength` | `number` | `2000` | 单条内容最大字符数（0 = 不截断） |\n250: | `maxSessions` | `number` | `0` | 最多包含的会话数量（0 = 不限制） |\n251: \n252: **Explain（解释摘要）**输出 Markdown 格式，包含总体概述、逐条会话要点（用户意图 / AI 回应 / 是否包含推理）以及涉及文件汇总。\n253: \n254: ---\n255: \n256: ## 配置项\n257: \n258: 在 VS Code 设置（`settings.json`）中，所有配置项以 `agentlog.` 为前缀：\n259: \n260: | 配置项 | 默认值 | 说明 |\n261: |--------|--------|------|\n262: | `backendUrl` | `http://localhost:7892` | 后台服务地址 |\n263: | `autoCapture` | `true` | 是否自动捕获 AI 交互 |\n264: | `captureReasoning` | `true` | 是否捕获推理过程 |\n265: | `autoBindOnCommit` | `true` | commit 时自动绑定最近未绑定的会话 |\n266: | `retentionDays` | `90` | 数据保留天数（0 = 永久） |\n267: | `autoStartBackend` | `true` | VS Code 启动时自动启动后台 |\n268: | `debug` | `false` | 开启调试日志 |\n269: | `exportLanguage` | `zh` | 导出语言（`zh` / `en`） |\n270: | `interceptors.cline` | `true` | 是否捕获 Cline 的请求 |\n271: | `interceptors.cursor` | `true` | 是否捕获 Cursor 的请求 |\n272: \n273: ---\n274: \n275: ## Git Worktree 多 Agent 并行支持\n276: \n277: AgentLog 完整支持 `git worktree` 场景，多个 AI Agent 可以同时在同一仓库的不同 worktree 上独立工作，所有会话记录精准绑定到各自的 Commit，互不干扰。\n278: \n279: ### 工作原理\n280: \n281: ```\n282: 主仓库                     Worktree A               Worktree B\n283: my-repo/                   my-repo-feat-login/       my-repo-fix-bug/\n284:   .git/                      (共享同一 .git)           (共享同一 .git)\n285:   src/                       src/                     src/\n286:     ...                        ...                      ...\n287: \n288: Agent-1 在此工作            Agent-2 在此工作          Agent-3 在此工作\n289: → session.workspacePath     → session.workspacePath   → session.workspacePath\n290:   = \"my-repo\"                 = \"my-repo-feat-login\"    = \"my-repo-fix-bug\"\n291: → session.gitRepoRoot       → session.gitRepoRoot     → session.gitRepoRoot\n292:   = \"my-repo\"                 = \"my-repo\"               = \"my-repo\"\n293: ```\n294: \n295: **关键改进（Schema v4）**：\n296: \n297: 1. **`gitRepoRoot` 字段**：`agent_sessions` 表新增此字段，存储 Git 仓库根目录路径。无论会话发生在哪个 worktree，同一仓库下的所有会话共享相同的 `gitRepoRoot`。\n298: \n299: 2. **动态钩子脚本**：post-commit 钩子不再硬编码工作区路径，改为通过 `git rev-parse --show-toplevel` 在运行时动态获取当前 worktree 的真实路径，一次安装，所有 worktree 均生效。\n300: \n301: 3. **三级匹配策略**：post-commit 触发时，后端按以下顺序查找未绑定会话：\n302:    - **Level 1（精确）**：按当前 worktree 的 `workspace_path` 精确匹配\n303:    - **Level 2（跨 worktree）**：按 `git_repo_root` 匹配同仓库其他 worktree 的会话\n304:    - **Level 3（兜底）**：生成自动摘要 Session（原有逻辑）\n305: \n306: 4. **会话自动推断**：创建 Session 时后端自动通过 `git rev-parse --show-toplevel` 填充 `gitRepoRoot`，Agent 无需手动传入。\n307: \n308: ### 使用方式\n309: \n310: 只需在**任意一个** worktree（通常是主仓库）安装 Git 钩子，所有 worktree 均自动支持：\n311: \n312: ```bash\n313: # 在 VS Code 中执行命令：AgentLog: Install Git Hook\n314: # 或通过 API：\n315: curl -X POST http://localhost:7892/api/commits/hook/install \\\n316:   -H \"Content-Type: application/json\" \\\n317:   -d '{\"workspacePath\": \"/path/to/my-repo\"}'\n318: ```\n319: \n320: ---\n321: \n322: ## 隐私与安全\n323: \n324: - **所有数据均存储在本机**，默认路径 `~/.agentlog/agentlog.db`\n325: - 后台服务仅监听 `127.0.0.1`，不对外网暴露\n326: - CORS 策略仅允许 `localhost` 和 VS Code Webview 来源\n327: - 不收集任何遥测数据，不联网上报\n328: \n329: ---\n330: \n331: ## 路线图\n332: \n333: ### MVP（当前）\n334: \n335: - [x] 基础脚手架（monorepo + 类型定义 + 后台 + 插件）\n336: - [x] SQLite 数据库 + 迁移系统\n337: - [x] REST API（会话 CRUD + 导出 + Commit 绑定）\n338: - [x] HTTP 拦截器（支持流式 SSE 响应）\n339: - [x] VS Code 侧边栏 TreeView\n340: - [x] 会话详情 Webview + 仪表板\n341: - [x] Git post-commit 钩子注入\n342: - [x] 中文周报 / PR 说明导出\n343: \n344: ### 已完成\n345: \n346: - [x] Commit 上下文文档生成（Markdown / JSON / XML）\n347: - [x] Commit AI 交互解释摘要生成\n348: - [x] Context & Explain REST API（GET/POST）\n349: - [x] 中英文国际化支持\n350: - [x] 内容截断 / 会话数量限制等精细控制选项\n351: - [x] **Git Worktree 多 Agent 并行支持**（多个 AI Agent 同时在不同 worktree 上工作，各自会话精准绑定，不互相干扰）\n352: \n353: ### 后续计划\n354: \n355: - [x] VS Code 扩展集成：新增「生成 Commit 上下文」「生成 Commit 解释」命令\n356: - [x] 侧边栏 / Webview 中展示上下文文档与解释摘要，支持一键复制\n357: - [ ] 将上下文文档无缝注入新 AI 对话（粘贴到 Cline / Cursor / Continue 对话框）\n358: - [ ] Context & Explain 单元测试与集成测试\n359: - [ ] Webview 仪表板 UI 完善（React + VS Code UI Toolkit）\n360: - [ ] 支持 Cline 扩展的 API 调用深度集成\n361: - [ ] 基于 AI 的会话自动打标签（bugfix / 重构 / 新功能）\n362: - [ ] 数据可视化（按模型 / 按时间的 AI 使用量统计）\n363: - [ ] 支持团队协作（共享导出、代码审查集成）\n364: - [ ] 本地向量化搜索（语义检索历史 Prompt）\n365: \n366: ---\n367: \n368: ## 常见问题（FAQ）\n369: \n370: ### ❓ 为什么 OpenCode/Cursor 显示的 token 数量（例如 58,809）与 AgentLog 记录的 token 数量（例如 685）不一致？\n371: \n372: 这是**统计范围不同**导致的正常现象，两者均正确但反映不同维度的信息：\n373: \n374: | 统计维度 | OpenCode/Cursor 显示 | AgentLog 记录 |\n375: |----------|---------------------|---------------|\n376: | **统计范围** | 整个上下文窗口 **所有内容** | 仅 **用户消息 + 助理回复** |\n377: | **包含内容** | 系统提示 + 历史消息 + 工具结果 + 文件内容 + 模型输入输出 | 模型输入输出（API 返回的 `usage` 数据） |\n378: | **典型值** | 数万 tokens | 数百 tokens |\n379: \n380: #### 📊 详细解释\n381: \n382: **OpenCode/Cursor 的 ~58,809 tokens 包含**：\n383: 1. **系统提示**：AGENTS.md、项目文档、指令等（约 7,283 tokens）\n384: 2. **工具调用结果**：读取的文件内容、命令输出、代码片段等（约 50,000 tokens）\n385: 3. **历史消息**：所有 user/assistant/tool 消息的完整文本（约 1,421 tokens）\n386: 4. **当前模型输入**：上述所有内容的聚合上下文\n387: \n388: **AgentLog 的 ~685 tokens 仅包含**：\n389: - `input_tokens`：模型实际消耗的输入 token（约 285）\n390: - `output_tokens`：模型实际生成的输出 token（约 400）\n391: - 符合 MCP 协议 `token_usage` 字段的定义\n392: \n393: #### 🎯 核心结论\n394: \n395: 1. **OpenCode/Cursor 显示的是「上下文窗口总负载」**：反映 AI 处理的实际上下文大小和工作复杂度。\n396: 2. **AgentLog 记录的是「模型实际消耗」**：反映模型 API 的成本和资源消耗。\n397: 3. **两者互补**：前者帮助评估上下文复杂度，后者帮助核算 API 成本。\n398: \n399: #### 🔧 建议\n400: \n401: - **无需担心**：这是预期行为，并非数据缺失或错误。\n402: - **统一统计**：如需统一，可在 `log_turn(role='tool')` 中传入工具内容的实际 token 数。\n403: - **界面区分**：建议在界面中明确标注「上下文 tokens」vs「模型 tokens」。\n404: \n405: ### ❓ 为什么 token_usage 字段有时不更新？如何解决？\n406: \n407: **问题**：OpenCode/Cursor 等 MCP 客户端有时未在 `log_turn` 调用中传入 `token_usage` 参数，导致会话的 token 消耗统计停滞。\n408: \n409: **原因**：\n410: - MCP 协议要求 `token_usage` 为累计值，需每次调用时传入\n411: - 客户端实现可能遗漏该参数，尤其当工具调用频繁时\n412: - 若不传入，AgentLog 后端保持原有 `token_usage` 不变\n413: \n414: **解决方案**：\n415: 1. **客户端改进**：确保每次 `log_turn` 调用都传入累计 `token_usage`\n416: 2. **服务端估算（已实现）**：AgentLog MCP 服务器 v0.4.0+ 在未收到 `token_usage` 时会自动估算：\n417:    - 从现有会话读取当前 `token_usage`\n418:    - 按 4 字符 ≈ 1 token 估算新消息的 token 数\n419:    - 用户/工具消息计入 `inputTokens`，助理消息计入 `outputTokens`\n420:    - 更新后写回会话\n421: 3. **手动补全**：对已有会话运行脚本补全 token 统计\n422: \n423: **验证方法**：\n424: ```bash\n425: # 检查会话的 token_usage 是否自动更新\n426: curl -s http://localhost:7892/api/sessions/你的会话ID | jq '.data.tokenUsage'\n427: ```\n428: \n429: **注意事项**：\n430: - 自动估算基于字符数，与模型实际消耗可能有 ±20% 误差\n431: - 如需精确统计，仍需客户端传入准确的 `token_usage`\n432: - 重启 OpenCode/Cursor 后 MCP 服务器重新加载，新逻辑生效\n433: \n434: ---\n435: \n436: ## 开发贡献\n437: \n438: ```bash\n439: # 克隆仓库\n440: git clone https://github.com/AgentLogLabs/agentlog.git\n441: cd agentlog\n442: \n443: # 安装依赖\n444: pnpm install\n445: \n446: # 构建共享类型（其他包依赖此包）\n447: pnpm build:shared\n448: \n449: # 启动后台开发服务\n450: pnpm dev\n451: \n452: # 类型检查\n453: pnpm lint\n454: ```\n455: \n456: ---\n457: \n458: ## License\n459: \n460: Apache 2.0 © AgentLog Contributors\n\n(End of file - total 460 lines)\n</content>",
+            "metadata": {
+              "preview": "# AgentLog — AI 编程飞行记录仪\n\n<img src=\"packages/vscode-extension/assets/logo.png\" width=\"128\" />\n\n> 一款面向国内主流大模型的 VS Code/Cursor 插件 + 本地轻量后台，自动捕获 AI Agent 交互日志，与 Git Commit 绑定，一键导出周报或 PR 说明。\n\n---\n\n## 背景与痛点\n\n国内开发者大量使用 Cursor、Cline 或基于 DeepSeek/Qwen API 的本地 Agent。代码虽然写得快，但过几天开发者自己都忘了当时 AI 为什么这么改，出了 Bug 无从下手。\n\n**AgentLog** 解决的就是这个问题：在你与 AI 交互时，静默地在后台记录一切，并在你 `git commit` 时自动将这些记录与代码变更绑定。\n\n---\n\n## 核心功能\n\n| 功能 | 说明 |\n|------|------|",
+              "truncated": false,
+              "loaded": []
+            },
+            "title": "README.md",
+            "time": {
+              "start": 1774927065574,
+              "end": 1774927065588
+            }
+          },
+          "id": "prt_d41e5b1df001SE30ho5ufdjm9z",
+          "sessionID": "ses_2be1a77fdffeHpKN2lttaYZCXV",
+          "messageID": "msg_d41e5a842002j26j7kU1gAIsMp"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "call_function_g0kb6mnxe065_2",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": ".github/ISSUE_TEMPLATE/**/*"
+            },
+            "output": "No files found",
+            "metadata": {
+              "count": 0,
+              "truncated": false
+            },
+            "title": "",
+            "time": {
+              "start": 1774927066001,
+              "end": 1774927066017
+            }
+          },
+          "id": "prt_d41e5b1e9001pS96gXuHTHWnbI",
+          "sessionID": "ses_2be1a77fdffeHpKN2lttaYZCXV",
+          "messageID": "msg_d41e5a842002j26j7kU1gAIsMp"
+        },
+        {
+          "reason": "tool-calls",
+          "snapshot": "43d27534ee5679230bc8bd3acfeab69011d410b2",
+          "type": "step-finish",
+          "tokens": {
+            "total": 17079,
+            "input": 246,
+            "output": 83,
+            "reasoning": 0,
+            "cache": {
+              "write": 499,
+              "read": 16251
+            }
+          },
+          "cost": 0,
+          "id": "prt_d41e5b3a2001Rxpf9ds8bebtnf",
+          "sessionID": "ses_2be1a77fdffeHpKN2lttaYZCXV",
+          "messageID": "msg_d41e5a842002j26j7kU1gAIsMp"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1774927066073,
+          "completed": 1774927122472
+        },
+        "parentID": "msg_d41e5883d001pqK8caQKHzyqF9",
+        "modelID": "MiniMax-M2.7",
+        "providerID": "minimax-cn-coding-plan",
+        "mode": "plan",
+        "agent": "plan",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 23286,
+          "input": 5925,
+          "output": 349,
+          "reasoning": 0,
+          "cache": {
+            "write": 421,
+            "read": 16591
+          }
+        },
+        "finish": "tool-calls",
+        "id": "msg_d41e5b3d9002E40nVBgFNTux11",
+        "sessionID": "ses_2be1a77fdffeHpKN2lttaYZCXV"
+      },
+      "parts": [
+        {
+          "snapshot": "43d27534ee5679230bc8bd3acfeab69011d410b2",
+          "type": "step-start",
+          "id": "prt_d41e5d3b5001jW8yEk6h7XwhBG",
+          "sessionID": "ses_2be1a77fdffeHpKN2lttaYZCXV",
+          "messageID": "msg_d41e5b3d9002E40nVBgFNTux11"
+        },
+        {
+          "type": "reasoning",
+          "text": "Now I have a good understanding of the project. It's AgentLog, a VS Code/Cursor extension for capturing AI agent interaction logs and binding them to Git commits. The project is a pnpm monorepo with TypeScript.\n\nThe user wants to set up:\n1. GitHub Discussions enabled\n2. Bug Report Issue Template\n3. Feature Request Issue Template\n\nLet me design appropriate templates based on the project context. Since this is a Chinese project, the user likely wants Chinese templates.\n\nLet me provide the user with a plan for designing these templates. I should ask some clarifying questions first.",
+          "time": {
+            "start": 1774927074229,
+            "end": 1774927077254
+          },
+          "metadata": {
+            "anthropic": {
+              "signature": "e741d8dfc165d195032433ea8636ea5d46ed78184f14c77e000abe7bdb0744b6"
+            }
+          },
+          "id": "prt_d41e5d3b5003XAoAH3utqYirGS",
+          "sessionID": "ses_2be1a77fdffeHpKN2lttaYZCXV",
+          "messageID": "msg_d41e5b3d9002E40nVBgFNTux11"
+        },
+        {
+          "type": "text",
+          "text": "了解了！AgentLog 是一个 VS Code/Cursor 插件，用于捕获 AI Agent 交互日志并与 Git Commit 绑定。\n\n在设计模板前，我有几个问题想确认：",
+          "time": {
+            "start": 1774927078029,
+            "end": 1774927078029
+          },
+          "id": "prt_d41e5df88001kH6EQcFgdMOeBC",
+          "sessionID": "ses_2be1a77fdffeHpKN2lttaYZCXV",
+          "messageID": "msg_d41e5b3d9002E40nVBgFNTux11"
+        },
+        {
+          "type": "tool",
+          "tool": "question",
+          "callID": "call_function_mi696kp3unq1_1",
+          "state": {
+            "status": "completed",
+            "input": {
+              "questions": [
+                {
+                  "question": "Issue Template 和 Discussion 使用什么语言？",
+                  "header": "语言偏好",
+                  "options": [
+                    {
+                      "label": "中英双语",
+                      "description": "标题和正文使用中文，说明部分提供英文对照"
+                    },
+                    {
+                      "label": "仅中文",
+                      "description": "全部使用中文"
+                    },
+                    {
+                      "label": "仅英文",
+                      "description": "全部使用英文，适合国际开源项目"
+                    }
+                  ]
+                },
+                {
+                  "question": "是否需要其他类型的模板？",
+                  "header": "额外模板",
+                  "options": [
+                    {
+                      "label": "Bug Report + Feature Request",
+                      "description": "最常见的两种模板"
+                    },
+                    {
+                      "label": "加上 Question",
+                      "description": "包含 Bug Report / Feature Request / Question 三种"
+                    },
+                    {
+                      "label": "加上 Performance Issue",
+                      "description": "包含 Bug Report / Feature Request / Performance Problem 四种"
+                    }
+                  ]
+                }
+              ]
+            },
+            "output": "User has answered your questions: \"Issue Template 和 Discussion 使用什么语言？\"=\"中英双语\", \"是否需要其他类型的模板？\"=\"Bug Report + Feature Request\". You can now continue with the user's answers in mind.",
+            "metadata": {
+              "answers": [
+                [
+                  "中英双语"
+                ],
+                [
+                  "Bug Report + Feature Request"
+                ]
+              ],
+              "truncated": false
+            },
+            "title": "Asked 2 questions",
+            "time": {
+              "start": 1774927083824,
+              "end": 1774927122404
+            }
+          },
+          "id": "prt_d41e5e28f001VWzFXPnsMpKAYs",
+          "sessionID": "ses_2be1a77fdffeHpKN2lttaYZCXV",
+          "messageID": "msg_d41e5b3d9002E40nVBgFNTux11"
+        },
+        {
+          "reason": "tool-calls",
+          "snapshot": "43d27534ee5679230bc8bd3acfeab69011d410b2",
+          "type": "step-finish",
+          "tokens": {
+            "total": 23286,
+            "input": 5925,
+            "output": 349,
+            "reasoning": 0,
+            "cache": {
+              "write": 421,
+              "read": 16591
+            }
+          },
+          "cost": 0,
+          "id": "prt_d41e68fe8001jRVkh4P60VZJs2",
+          "sessionID": "ses_2be1a77fdffeHpKN2lttaYZCXV",
+          "messageID": "msg_d41e5b3d9002E40nVBgFNTux11"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1774927122474,
+          "completed": 1774927185982
+        },
+        "parentID": "msg_d41e5883d001pqK8caQKHzyqF9",
+        "modelID": "MiniMax-M2.7",
+        "providerID": "minimax-cn-coding-plan",
+        "mode": "plan",
+        "agent": "plan",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 25546,
+          "input": 127,
+          "output": 2200,
+          "reasoning": 0,
+          "cache": {
+            "write": 6295,
+            "read": 16924
+          }
+        },
+        "finish": "stop",
+        "id": "msg_d41e6902a002eC1UM1wEnC3kYN",
+        "sessionID": "ses_2be1a77fdffeHpKN2lttaYZCXV"
+      },
+      "parts": [
+        {
+          "snapshot": "43d27534ee5679230bc8bd3acfeab69011d410b2",
+          "type": "step-start",
+          "id": "prt_d41e6972f001RaRUB4P3FclQfY",
+          "sessionID": "ses_2be1a77fdffeHpKN2lttaYZCXV",
+          "messageID": "msg_d41e6902a002eC1UM1wEnC3kYN"
+        },
+        {
+          "type": "reasoning",
+          "text": "The user wants:\n1. Chinese-English bilingual templates\n2. Bug Report + Feature Request templates only\n\nNow let me design a comprehensive plan for the GitHub feedback system including:\n1. Bug Report Issue Template\n2. Feature Request Issue Template\n3. GitHub Discussions setup (categories configuration)\n\nI'll create detailed template designs for the user to review.",
+          "time": {
+            "start": 1774927124272,
+            "end": 1774927125850
+          },
+          "metadata": {
+            "anthropic": {
+              "signature": "c8cf4761647f47bd8e4066da5f8554a011fc31dea3d3082655e4478bb3232195"
+            }
+          },
+          "id": "prt_d41e69730001jpUbinIuKGdRYP",
+          "sessionID": "ses_2be1a77fdffeHpKN2lttaYZCXV",
+          "messageID": "msg_d41e6902a002eC1UM1wEnC3kYN"
+        },
+        {
+          "type": "text",
+          "text": "好的，以下是为 AgentLog 设计的 GitHub 反馈系统方案：\n\n---\n\n## GitHub 反馈系统设计方案\n\n### 文件结构\n\n```\n.github/\n├── ISSUE_TEMPLATE/\n│   ├── bug_report.yml      # Bug Report 模板\n│   └── feature_request.yml  # Feature Request 模板\n├── discussions/\n│   └── welcome.md           # Discussion 欢迎页（可选）\n└── config.yml               # Discussion 分类配置\n```\n\n---\n\n### 1. Bug Report Template (`bug_report.yml`)\n\n```yaml\nname: 🐛 Bug Report / Bug 报告\ndescription: Report something that doesn't work correctly / 报告功能异常或错误\nlabels: [bug]\nbody:\n  - type: markdown\n    attributes:\n      value: |\n        ## 🐛 Bug Report / Bug 报告\n        \n        > **Important**: Before submitting, please search for existing issues to avoid duplicates.\n        > **重要**: 提交前请搜索现有 Issue，避免重复。\n        \n        ---\n        \n        ### Environment / 环境信息\n        \n        Please run `AgentLog: 显示诊断信息` in VS Code and paste the output below.\n        请在 VS Code 中运行 `AgentLog: 显示诊断信息` 命令，将结果粘贴到下方。\n\n  - type: textarea\n    id: version-info\n    attributes:\n      label: Diagnostic Info / 诊断信息\n      description: Output from `AgentLog: 显示诊断信息` command / 上述命令的输出结果\n      placeholder: |\n        AgentLog Version: x.x.x\n        VS Code Version: x.x.x\n        Backend Status: Running / Not Running\n        ...\n    validations:\n      required: true\n\n  - type: dropdown\n    id: os\n    attributes:\n      label: Operating System / 操作系统\n      options:\n        - Windows\n        - macOS\n        - Linux\n        - Other / 其他\n    validations:\n      required: true\n\n  - type: dropdown\n    id: ai-tool\n    attributes:\n      label: AI Programming Tool / AI 编程工具\n      options:\n        - Cursor\n        - Cline\n        - Continue\n        - OpenCode\n        - Direct API Call / 直接 API 调用\n        - Other / 其他\n    validations:\n      required: true\n\n  - type: dropdown\n    id: model\n    attributes:\n      label: Model / 模型\n      options:\n        - DeepSeek-V3\n        - DeepSeek-R1\n        - Qwen-Max\n        - Qwen-Plus\n        - Kimi / Moonshot\n        - ChatGLM\n        - Other / 其他\n\n  - type: textarea\n    id: bug-description\n    attributes:\n      label: Bug Description / Bug 描述\n      description: Describe what went wrong / 描述出现问题\n      placeholder: |\n        1. [Short description of the bug]\n        2. [Steps to reproduce]\n        3. [Expected behavior]\n        4. [Actual behavior]\n        \n        1. [Bug 的简短描述]\n        2. [复现步骤]\n        3. [预期行为]\n        4. [实际行为]\n    validations:\n      required: true\n\n  - type: textarea\n    id: logs\n    attributes:\n      label: Relevant Logs / 相关日志\n      description: |\n        Please include any error logs from:\n        - VS Code Output Panel > AgentLog\n        - Backend terminal output\n        \n        请包含以下错误日志：\n        - VS Code 输出面板 > AgentLog\n        - 后台终端输出\n      placeholder: |\n        [Paste error logs here / 将错误日志粘贴到此处]\n\n  - type: textarea\n    id: screenshots\n    attributes:\n      label: Screenshots / 屏幕截图\n      description: Add screenshots if applicable / 如有截图请附上\n      placeholder: |\n        ![description](image-url or drag & drop)\n\n  - type: textarea\n    id: additional-context\n    attributes:\n      label: Additional Context / 补充信息\n      description: Any other context that might be relevant / 其他可能相关的信息\n```\n\n---\n\n### 2. Feature Request Template (`feature_request.yml`)\n\n```yaml\nname: 💡 Feature Request / 功能请求\ndescription: Suggest a new feature or improvement / 提出新功能或改进建议\nlabels: [enhancement]\nbody:\n  - type: markdown\n    attributes:\n      value: |\n        ## 💡 Feature Request / 功能请求\n        \n        ---\n        \n        ### Is your feature request related to a problem? / 您的功能请求与问题相关吗？\n        \n        > Please describe the problem you're trying to solve.\n        > 请描述您想要解决的问题。\n        \n        **English:** \n        \n        **中文:**\n\n  - type: textarea\n    id: problem\n    attributes:\n      label: Problem Description / 问题描述\n      placeholder: |\n        [Describe the problem or limitation you're facing]\n        [描述您遇到的问题或限制]\n    validations:\n      required: true\n\n  - type: textarea\n    id: solution\n    attributes:\n      label: Proposed Solution / 解决方案\n      description: Describe the solution you'd like / 描述您想要的解决方案\n      placeholder: |\n        **English:** [What would you like to happen?]\n        \n        **中文:** [您希望发生什么？]\n    validations:\n      required: true\n\n  - type: textarea\n    id: alternatives\n    attributes:\n      label: Alternatives Considered / 考虑的替代方案\n      description: Any alternative solutions you've considered / 您考虑过的其他解决方案\n      placeholder: |\n        [Describe any alternative solutions or workarounds]\n\n  - type: textarea\n    id: use-case\n    attributes:\n      label: Use Case / 使用场景\n      description: |\n        Describe a specific use case where this feature would be helpful.\n        描述一个此功能有帮助的具体使用场景。\n      placeholder: |\n        **Scenario / 场景:**\n        [Describe the scenario]\n        \n        **Current workaround / 当前解决方案:**\n        [How do you solve this now?]\n        \n        **Would make it better because / 这样更好的原因:**\n        [Why would this improvement help?]\n\n  - type: checkboxes\n    id: priority\n    attributes:\n      label: Priority / 优先级\n      options:\n        - label: \"Critical - Blocks my daily workflow / 关键 - 影响日常工作流\"\n          required: false\n        - label: \"High - Frequently encounter this need / 高 - 经常遇到此需求\"\n          required: false\n        - label: \"Medium - Would improve my experience / 中 - 会提升使用体验\"\n          required: false\n        - label: \"Low - Nice to have / 低 - 锦上添花\"\n          required: false\n\n  - type: textarea\n    id: additional-context\n    attributes:\n      label: Additional Context / 补充信息\n      description: Any other context or mockups / 其他信息或草图\n      placeholder: |\n        [Add any other context, mockups, or examples]\n```\n\n---\n\n### 3. GitHub Discussions 分类配置 (`config.yml`)\n\n```yaml\n# .github/discussions.yml\ncategories:\n  - name: General\n    description: General discussion about AgentLog / 关于 AgentLog 的一般性讨论\n    emoji: 💬\n  - name: Q&A\n    description: Questions about how to use AgentLog / 关于如何使用 AgentLog 的问题\n    emoji: ❓\n  - name: Ideas\n    description: Suggestions and ideas for new features / 新功能建议和想法\n    emoji: 💡\n  - name: Show & Tell\n    description: Share what you've built with AgentLog / 分享您使用 AgentLog 构建的作品\n    emoji: 🎨\n  - name: Announcements\n    description: Official announcements and releases / 官方公告和发布\n    emoji: 📢\n```\n\n---\n\n### 4. Discussion 欢迎页 (`welcome.md`)\n\n```markdown\n# Welcome to AgentLog Discussions! / 欢迎来到 AgentLog 讨论区！\n\n🎙️ **AgentLog** — AI 编程飞行记录仪，捕获 AI Agent 交互日志，与 Git Commit 绑定。\n\n## How to Get Help / 如何获得帮助\n\n| Type | Where to Post |\n|------|---------------|\n| 🐛 **Bug Reports** | [Open an Issue](https://github.com/AgentLogLabs/agentlog/issues/new/choose) with the Bug Report template |\n| 💡 **Feature Requests** | [Open an Issue](https://github.com/AgentLogLabs/agentlog/issues/new/choose) with the Feature Request template |\n| ❓ **Questions** | Start a [Q&A Discussion](https://github.com/AgentLogLabs/agentlog/discussions/new?category=Q&A) |\n| 💬 **General Discussion** | Start a [General Discussion](https://github.com/AgentLogLabs/agentlog/discussions/new?category=General) |\n\n## Guidelines / 社区准则\n\n1. **Search First / 先搜索** — Please search for existing discussions before creating new ones.\n2. **Be Specific / 具体明确** — Provide as much context as possible.\n3. **Follow the Template / 遵循模板** — Use the provided templates for Issues.\n4. **Be Respectful / 互相尊重** — Follow our [Code of Conduct](./CODE_OF_CONDUCT.md).\n\n## Resources / 资源\n\n- 📖 [Documentation](https://github.com/AgentLogLabs/agentlog#readme)\n- 🐛 [Known Issues](https://github.com/AgentLogLabs/agentlog/labels/bug)\n- 🗺️ [Roadmap](https://github.com/AgentLogLabs/agentlog#路线图)\n```\n\n---\n\n### 实施步骤\n\n1. **创建 Issue Template 目录和文件**\n   - 创建 `.github/ISSUE_TEMPLATE/` 目录\n   - 添加 `bug_report.yml` 和 `feature_request.yml`\n\n2. **启用并配置 GitHub Discussions**\n   - 在仓库 Settings → Features 中启用 Discussions\n   - 创建 `.github/discussions.yml` 配置分类\n\n3. **可选：添加 `welcome.md` 作为 Discussions 置顶帖**\n\n---\n\n是否需要我将此方案实现到仓库中？",
+          "time": {
+            "start": 1774927185913,
+            "end": 1774927185913
+          },
+          "id": "prt_d41e69d5c00149u1E3onC2L6QH",
+          "sessionID": "ses_2be1a77fdffeHpKN2lttaYZCXV",
+          "messageID": "msg_d41e6902a002eC1UM1wEnC3kYN"
+        },
+        {
+          "reason": "stop",
+          "snapshot": "43d27534ee5679230bc8bd3acfeab69011d410b2",
+          "type": "step-finish",
+          "tokens": {
+            "total": 25546,
+            "input": 127,
+            "output": 2200,
+            "reasoning": 0,
+            "cache": {
+              "write": 6295,
+              "read": 16924
+            }
+          },
+          "cost": 0,
+          "id": "prt_d41e787fc001Nh18jz3WmrBKKx",
+          "sessionID": "ses_2be1a77fdffeHpKN2lttaYZCXV",
+          "messageID": "msg_d41e6902a002eC1UM1wEnC3kYN"
+        }
+      ]
+    }
+  ]
+}
