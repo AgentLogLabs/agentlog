@@ -159,6 +159,11 @@
         "command": "agentlog.verifyMcpConnection",
         "title": "AgentLog: 验证 MCP 连接",
         "icon": "$(check)"
+      },
+      {
+        "command": "agentlog.openGitHub",
+        "title": "AgentLog: 帮助与反馈",
+        "icon": "$(feedback)"
       }
     ],
     "chatParticipants": [
@@ -209,6 +214,11 @@
     ],
     "menus": {
       "view/title": [
+        {
+          "command": "agentlog.openGitHub",
+          "when": "view == agentlog.sessionList",
+          "group": "navigation@10"
+        },
         {
           "command": "agentlog.configureMcpClient",
           "when": "view == agentlog.sessionList",

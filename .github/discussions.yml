@@ -1,0 +1,16 @@
+categories:
+  - name: General
+    description: General discussion about AgentLog / 关于 AgentLog 的一般性讨论
+    emoji: 💬
+  - name: Q&A
+    description: Questions about how to use AgentLog / 关于如何使用 AgentLog 的问题
+    emoji: ❓
+  - name: Ideas
+    description: Suggestions and ideas for new features / 新功能建议和想法
+    emoji: 💡
+  - name: "Show & Tell"
+    description: Share what you've built with AgentLog / 分享您使用 AgentLog 构建的作品
+    emoji: 🎨
+  - name: Announcements
+    description: Official announcements and releases / 官方公告和发布
+    emoji: 📢

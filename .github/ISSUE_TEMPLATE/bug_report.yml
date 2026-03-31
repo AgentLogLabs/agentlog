@@ -1,0 +1,117 @@
+name: 🐛 Bug Report / Bug 报告
+description: Report something that doesn't work correctly / 报告功能异常或错误
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🐛 Bug Report / Bug 报告
+        
+        > **Important**: Before submitting, please search for existing issues to avoid duplicates.
+        > **重要**: 提交前请搜索现有 Issue，避免重复。
+        
+        ---
+        
+        ### Environment / 环境信息
+        
+        Please run `AgentLog: 显示诊断信息` in VS Code and paste the output below.
+        请在 VS Code 中运行 `AgentLog: 显示诊断信息` 命令，将结果粘贴到下方。
+
+  - type: textarea
+    id: version-info
+    attributes:
+      label: Diagnostic Info / 诊断信息
+      description: "Output from 'AgentLog: 显示诊断信息' command / 上述命令的输出结果"
+      placeholder: |
+        AgentLog Version: "x.x.x"
+        VS Code Version: "x.x.x"
+        Backend Status: "Running / Not Running"
+        ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System / 操作系统
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Other / 其他
+    validations:
+      required: true
+
+  - type: dropdown
+    id: ai-tool
+    attributes:
+      label: AI Programming Tool / AI 编程工具
+      options:
+        - Cursor
+        - Cline
+        - Continue
+        - OpenCode
+        - Direct API Call / 直接 API 调用
+        - Other / 其他
+    validations:
+      required: true
+
+  - type: dropdown
+    id: model
+    attributes:
+      label: Model / 模型
+      options:
+        - DeepSeek-V3
+        - DeepSeek-R1
+        - Qwen-Max
+        - Qwen-Plus
+        - Kimi / Moonshot
+        - ChatGLM
+        - Other / 其他
+
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: Bug Description / Bug 描述
+      description: Describe what went wrong / 描述出现问题
+      placeholder: |
+        1. [Short description of the bug]
+        2. [Steps to reproduce]
+        3. [Expected behavior]
+        4. [Actual behavior]
+        
+        1. [Bug 的简短描述]
+        2. [复现步骤]
+        3. [预期行为]
+        4. [实际行为]
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs / 相关日志
+      description: |
+        Please include any error logs from:
+        - VS Code Output Panel > AgentLog
+        - Backend terminal output
+        
+        请包含以下错误日志：
+        - VS Code 输出面板 > AgentLog
+        - 后台终端输出
+      placeholder: |
+        [Paste error logs here / 将错误日志粘贴到此处]
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots / 屏幕截图
+      description: Add screenshots if applicable / 如有截图请附上
+      placeholder: |
+        ![description](image-url or drag & drop)
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context / 补充信息
+      description: Any other context that might be relevant / 其他可能相关的信息

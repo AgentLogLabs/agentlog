@@ -1537,6 +1537,12 @@ function registerCommands(
     await verifyMcpConnection();
   });
 
+  register("agentlog.openGitHub", async () => {
+    await vscode.env.openExternal(
+      vscode.Uri.parse("https://github.com/AgentLogLabs/agentlog/issues"),
+    );
+  });
+
   // ── Git Hook ──────────────────────────────
 
   register("agentlog.installGitHook", async () => {
