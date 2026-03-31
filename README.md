@@ -50,49 +50,6 @@
 
 ---
 
-## 项目架构
-
-```
-AgentLog/
-├── packages/
-│   ├── shared/                    # 共享类型定义（TypeScript）
-│   │   └── src/
-│   │       ├── index.ts
-│   │       └── types.ts           # AgentSession、CommitBinding 等核心类型
-│   │
-│   ├── backend/                   # 本地轻量后台（Fastify + SQLite）
-│   │   └── src/
-│   │       ├── index.ts           # 服务入口，默认端口 7892
-│   │       ├── db/
-│   │       │   └── database.ts    # SQLite 初始化 + Schema + 迁移系统
-│   │       ├── routes/
-│   │       │   ├── sessions.ts    # /api/sessions CRUD + 查询 + 统计
-│   │       │   ├── commits.ts     # /api/commits 绑定 + Git Hook + 上下文/解释
-│   │       │   └── export.ts      # /api/export 导出（周报/PR/JSONL/CSV）
-│   │       └── services/
-│   │           ├── logService.ts  # AgentSession CRUD 业务逻辑
-│   │           ├── gitService.ts  # Git 集成（simple-git + 钩子注入）
-│   │           ├── exportService.ts # 报告渲染（Markdown / CSV）
-│   │           └── contextService.ts # Commit 上下文文档 & 解释摘要生成
-│   │
-│   └── vscode-extension/          # VS Code/Cursor 插件
-│       └── src/
-│           ├── extension.ts       # 插件主入口（activate / deactivate）
-│           ├── client/
-│           │   └── backendClient.ts   # 与后台通信的 HTTP 客户端
-│           ├── interceptors/
-│           │   └── apiInterceptor.ts  # HTTP Monkey-patch 拦截器
-│           └── providers/
-│               ├── sessionTreeProvider.ts    # 侧边栏会话列表 TreeView
-│               └── sessionWebviewProvider.ts # 会话详情 & 仪表板 Webview
-│
-├── package.json                   # pnpm monorepo 根配置
-├── pnpm-workspace.yaml
-└── README.md
-```
-
----
-
 ## 技术栈
 
 | 层次 | 技术 |
@@ -110,40 +67,18 @@ AgentLog/
 
 ## 快速开始
 
-### 前置要求
-
-- Node.js >= 18
-- pnpm >= 9
-- Git
-
-### 安装依赖
-
 ```bash
-pnpm install
-```
+# 克隆并安装依赖
+git clone https://github.com/AgentLogLabs/agentlog.git && cd agentlog && pnpm install
 
-### 开发模式
+# 构建全部
+pnpm build
 
-```bash
-# 启动后台服务（热重载）
+# 启动后台开发服务
 pnpm dev
 
-# 或分别启动各包的 watch 模式
-pnpm build:shared   # 先构建共享类型
-pnpm dev:backend    # 启动后台（tsx watch）
+# 在 VS Code 中按 F5 调试扩展
 ```
-
-### 构建全部
-
-```bash
-pnpm build
-```
-
-### 在 VS Code 中调试插件
-
-1. 用 VS Code 打开项目根目录
-2. 按 `F5` 启动扩展调试（会打开新的 Extension Development Host 窗口）
-3. 在新窗口中，后台服务会自动启动
 
 ---
 
@@ -435,6 +370,13 @@ curl -s http://localhost:7892/api/sessions/你的会话ID | jq '.data.tokenUsage
 
 ## 开发贡献
 
+### 环境要求
+
+- Node.js >= 18
+- pnpm >= 9
+
+### 快速开始
+
 ```bash
 # 克隆仓库
 git clone https://github.com/AgentLogLabs/agentlog.git
@@ -443,15 +385,87 @@ cd agentlog
 # 安装依赖
 pnpm install
 
-# 构建共享类型（其他包依赖此包）
-pnpm build:shared
+# 构建全部（按顺序：shared → backend → vscode-extension）
+pnpm build
 
-# 启动后台开发服务
+# 启动后台开发服务（热重载）
+pnpm dev
+```
+
+### 分包构建
+
+```bash
+pnpm build:shared   # 必须先构建（其他包依赖共享类型）
+pnpm build:backend  # 构建后端服务
+pnpm build:ext      # 构建 VS Code 扩展
+```
+
+### 开发调试
+
+```bash
+# 后端热重载开发
 pnpm dev
 
-# 类型检查
-pnpm lint
+# 后端 MCP 服务器开发（tsx watch）
+cd packages/backend && pnpm dev:mcp
+
+# 在 VS Code 中调试扩展
+# 1. 用 VS Code 打开项目根目录
+# 2. 按 F5 启动扩展调试（Extension Development Host）
 ```
+
+### 代码检查
+
+```bash
+# 类型检查（所有包）
+pnpm lint
+
+# 后端单独检查
+cd packages/backend && pnpm lint
+
+# 扩展单独检查
+cd packages/vscode-extension && pnpm lint
+```
+
+### 测试
+
+```bash
+# 后端集成测试
+cd packages/backend && pnpm test
+```
+
+### Docker 部署
+
+```bash
+# 构建镜像
+pnpm docker:build
+
+# 运行容器
+pnpm docker:run
+
+# 查看日志
+pnpm docker:logs
+
+# Docker Compose
+pnpm docker:compose:up
+pnpm docker:compose:logs
+pnpm docker:compose:down
+```
+
+### 清理
+
+```bash
+# 清理所有 dist 和 node_modules
+pnpm clean
+```
+
+---
+
+## 社区交流 / Community
+
+欢迎加入 AgentLog 微信社区，与开发者和其他用户交流心得。
+
+<img src="docs/assert/AgentLog-wechat-QR.png" width="200" alt="AgentLog WeChat QR Code" />
 
 ---
 
