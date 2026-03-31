@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "b380a56393ae",
+  "session_id": "ses_2be16e224ffewT7yhASoWbNIDM",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-31T03:28:41.704927Z",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    ".github/ISSUE_TEMPLATE/bug_report.yml",
+    ".github/ISSUE_TEMPLATE/feature_request.yml",
+    ".github/discussions.yml",
+    "packages/vscode-extension/package.json",
+    "packages/vscode-extension/src/extension.ts"
+  ],
+  "agent": "OpenCode",
+  "turn_id": "342d1bd067c0",
+  "initial_attribution": {
+    "calculated_at": "2026-03-31T03:28:41.704089Z",
+    "agent_lines": 218,
+    "human_added": 16,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 234,
+    "agent_percentage": 93.16239316239316
+  }
+}
