@@ -4,6 +4,46 @@ All notable changes to the "AgentLog — AI 编程行车记录仪" extension wil
 
 Check [Keep a Changelog](https://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [0.1.6]
+
+### Added
+- GitHub feedback command in sidebar (opens Issues page)
+- Issue templates for bug reports and feature requests
+
+## [0.1.5] - 2026-03-30
+
+### Fixed
+- Native module cross-arch build support
+- darwin-x64 architecture detection for better-sqlite3
+- macOS runner for darwin-x64 builds
+- package.sh multi-target support
+
+## [0.1.4] - 2026-03-30
+
+### Changed
+- License updated to Apache 2.0
+
+## [0.1.3] - 2026-03-30
+
+### Changed
+- VSIX packaging workflow improvements
+
+## [0.1.2] - 2026-03-30
+
+### Fixed
+- better-sqlite3 native module rebuild in CI (use Node.js 22 to match VS Code extension host)
+
+## [0.1.1] - 2026-03-30
+
+### Added
+- Multi-platform VSIX build workflow (Windows, macOS, Linux)
+
+### Fixed
+- VSIX package workflow YAML indentation and vsce path
+- vsce --target flag auto-detection
+- macos-latest runner for darwin-x64 (macos-13 deprecated)
+- vsce@2.24.0 to avoid macos runner bug
+
 ## [0.1.0] - 2026-03-29
 
 ### Added
