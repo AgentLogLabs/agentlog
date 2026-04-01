@@ -56,6 +56,7 @@ function inferSource(clientName: string): string {
   if (name.includes("claude")) return "claude-code";
   if (name.includes("copilot") || name.includes("vscode")) return "copilot";
   if (name.includes("continue")) return "continue";
+  if (name.includes("trae")) return "trae";
 
   return "mcp-tool-call";
 }

@@ -30,6 +30,7 @@ export type AgentSource =
   | "copilot" // GitHub Copilot
   | "continue" // Continue 插件
   | "opencode" // OpenCode CLI AI Agent
+  | "trae" // Trae IDE（字节跳动 AI 编程 IDE）
   | "direct-api" // 直接调用 HTTP API
   | "mcp-tool-call" // MCP 工具主动上报（Agent 意图记录）
   | "unknown";
