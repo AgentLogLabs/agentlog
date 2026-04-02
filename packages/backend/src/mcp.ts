@@ -876,12 +876,39 @@ async function main(): Promise<void> {
           }
           resultId = existingSessionId;
         } else {
-          // 新建会话（formatted_transcript 和 reasoning_summary 由 createSession 从 transcript 自动生成）
+          // ── 方案 A：强制检查 ──────────────────────────────────────
+          // 没有 session_id 且没有 transcript 时，拒绝创建无意义的 session
+          if (!transcript || transcript.length === 0) {
+            return {
+              isError: true,
+              content: [{
+                type: "text" as const,
+                text: "错误：log_intent 需要先通过 log_turn 建立 session，或传入完整 transcript"
+              }]
+            };
+          }
+
+          // ── 方案 B：使用 task 作为 prompt ─────────────────────────
+          // 有 transcript 但没有 session_id 时，直接用 task 作为 prompt，不占位
+          const finalPrompt = task || "Untitled Task";
+
+          // 从 transcript 生成 summary（用于 response 字段）
+          let summary = "";
+          if (transcript && transcript.length > 0) {
+            summary = transcript
+              .filter(t => t.role === "assistant")
+              .map(t => {
+                const content = t.content || "";
+                return content.length > 200 ? content.slice(0, 200) + "..." : content;
+              })
+              .join("; ");
+          }
+
           // 耗时：优先使用外部传入值，其次从 transcript 首尾时间戳推算
           let newSessionDurationMs = explicitDurationMs && explicitDurationMs > 0
             ? Math.round(explicitDurationMs)
             : 0;
-          if (newSessionDurationMs === 0 && transcript && transcript.length > 0) {
+          if (newSessionDurationMs === 0 && transcript.length > 0) {
             const firstTs = transcript[0].timestamp;
             if (firstTs) {
               const firstTime = new Date(firstTs).getTime();
@@ -896,8 +923,8 @@ async function main(): Promise<void> {
             model,
             source,
             workspacePath,
-            prompt: task,
-            response: task,
+            prompt: finalPrompt,                    // 直接用 task，不占位
+            response: summary || finalPrompt,        // 用 summary 作为 response
             affectedFiles,
             durationMs: newSessionDurationMs,
             ...(transcript && transcript.length > 0 ? { transcript } : {}),
