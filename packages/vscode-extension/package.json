@@ -58,7 +58,6 @@
     "onCommand:agentlog.verifyMcpConnection"
   ],
   "main": "./dist/extension.js",
-
   "contributes": {
     "commands": [
       {
@@ -340,7 +339,6 @@
           "description": "AgentLog 本地后台服务地址。修改后需重启插件生效。",
           "order": 1
         },
-
         "agentlog.mcp.configuredClients": {
           "type": "array",
           "default": [],
@@ -407,13 +405,19 @@
     "test:fetch": "node --import tsx --test test/fetchInterception.test.ts"
   },
   "dependencies": {
-    "@agentlog/shared": "workspace:*"
+    "@agentlog/shared": "workspace:*",
+    "playwright": "^1.59.1"
   },
   "devDependencies": {
+    "@types/chai": "^5.2.3",
+    "@types/mocha": "^10.0.10",
     "@types/node": "^20.11.30",
     "@types/vscode": "^1.85.0",
+    "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^2.24.0",
+    "chai": "^6.2.2",
     "esbuild": "^0.27.4",
+    "mocha": "^11.7.5",
     "tsx": "^4.7.2",
     "typescript": "^5.4.5"
   }
