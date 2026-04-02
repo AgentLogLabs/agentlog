@@ -46,9 +46,20 @@ const BACKEND_BASE = process.env.AGENTLOG_BACKEND_URL ?? `http://localhost:${BAC
 /**
  * 根据 MCP clientInfo.name 推断 source（调用工具的 Agent 名称）。
  * clientInfo 在 MCP initialize 握手阶段由客户端主动上报，工具调用时实时读取。
+ * 
+ * OpenClaw agents are identified via:
+ * 1. Environment variable AGENTLOG_AGENT_ID (set by OpenClaw runtime)
+ * 2. Environment variable AGENT (agent name)
+ * 3. Client name pattern matching
  */
 function inferSource(clientName: string): string {
   const name = clientName.toLowerCase();
+
+  // Check environment variables first (OpenClaw agents)
+  const agentId = process.env.AGENTLOG_AGENT_ID || process.env.AGENT || "";
+  if (agentId) {
+    return `openclaw:${agentId}`;
+  }
 
   if (name.includes("opencode")) return "opencode";
   if (name.includes("cline") || name.includes("roo")) return "cline";
@@ -57,6 +68,7 @@ function inferSource(clientName: string): string {
   if (name.includes("copilot") || name.includes("vscode")) return "copilot";
   if (name.includes("continue")) return "continue";
   if (name.includes("trae")) return "trae";
+  if (name.includes("openclaw") || name.includes("agent")) return "openclaw";
 
   return "mcp-tool-call";
 }
@@ -833,9 +845,30 @@ async function main(): Promise<void> {
 
           await patchIntent(existingSessionId, intentBody);
 
-          if (transcript && transcript.length > 0) {
+          // Auto-fill transcript from database if not provided
+          let finalTranscript = transcript;
+          if ((!finalTranscript || finalTranscript.length === 0) && existingSessionId) {
+            try {
+              const sessionResp = await fetchSessionById(existingSessionId);
+              const sessionData = sessionResp.data as { transcript?: Array<Record<string, unknown>> } | undefined;
+              if (sessionData?.transcript && sessionData.transcript.length > 0) {
+                finalTranscript = sessionData.transcript.map((t) => ({
+                  role: t.role as "user" | "assistant" | "tool",
+                  content: t.content as string,
+                  ...(t.toolName ? { toolName: t.toolName } : {}),
+                  ...(t.toolInput ? { toolInput: t.toolInput } : {}),
+                  ...(t.timestamp ? { timestamp: t.timestamp as string } : {}),
+                }));
+                process.stderr.write(`[agentlog-mcp] log_intent: 自动从数据库填充 transcript (${finalTranscript.length} turns)\n`);
+              }
+            } catch {
+              process.stderr.write(`[agentlog-mcp] log_intent: 自动填充 transcript 失败，继续\n`);
+            }
+          }
+
+          if (finalTranscript && finalTranscript.length > 0) {
             await patchTranscript(existingSessionId, {
-              turns: transcript,
+              turns: finalTranscript,
               ...(tokenUsage ? { tokenUsage } : {}),
             });
           } else if (tokenUsage) {
