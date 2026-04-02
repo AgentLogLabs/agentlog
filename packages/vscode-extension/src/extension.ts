@@ -420,6 +420,13 @@ const MCP_CLIENT_PROFILES: McpClientProfile[] = [
     detail: "Cursor IDE (全局) — ~/.cursor/mcp.json",
   },
   {
+    id: "trae",
+    label: "Trae",
+    configPath: "~/.trae/mcp.json",
+    format: "mcpServers",
+    detail: "Trae IDE (全局) — ~/.trae/mcp.json",
+  },
+  {
     id: "claude-desktop",
     label: "Claude Desktop",
     configPath:
