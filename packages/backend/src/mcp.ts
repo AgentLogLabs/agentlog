@@ -897,7 +897,7 @@ async function main(): Promise<void> {
           let newSessionDurationMs = explicitDurationMs && explicitDurationMs > 0
             ? Math.round(explicitDurationMs)
             : 0;
-          if (newSessionDurationMs === 0 && transcript.length > 0) {
+          if (newSessionDurationMs === 0 && transcript && transcript.length > 0) {
             const firstTs = transcript[0].timestamp;
             if (firstTs) {
               const firstTime = new Date(firstTs).getTime();
