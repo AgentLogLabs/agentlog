@@ -420,9 +420,10 @@ async function main(): Promise<void> {
         {
           name: "log_intent",
           description:
+            "⚠️ 强制调用顺序：1) log_turn(首次) → 2) log_turn(后续) → 3) log_intent(最后)" +
+            "禁止在 log_turn 之前调用此工具，否则存证数据将不完整。" +
             "在完成一项任务后调用，记录任务目标和受影响文件。" +
-             "推理过程摘要（reasoning_summary）和格式化对话记录（formatted_transcript）由系统从 transcript 自动生成，无需手动填写。" +
-            "推荐与 log_turn 配合：先用 log_turn 逐轮记录，最后调用此工具汇总。",
+            "推理过程摘要（reasoning_summary）和格式化对话记录（formatted_transcript）由系统从 transcript 自动生成，无需手动填写。",
           inputSchema: {
             type: "object" as const,
             properties: {
@@ -876,20 +877,8 @@ async function main(): Promise<void> {
           }
           resultId = existingSessionId;
         } else {
-          // ── 方案 A：强制检查 ──────────────────────────────────────
-          // 没有 session_id 且没有 transcript 时，拒绝创建无意义的 session
-          if (!transcript || transcript.length === 0) {
-            return {
-              isError: true,
-              content: [{
-                type: "text" as const,
-                text: "错误：log_intent 需要先通过 log_turn 建立 session，或传入完整 transcript"
-              }]
-            };
-          }
-
-          // ── 方案 B：使用 task 作为 prompt ─────────────────────────
-          // 有 transcript 但没有 session_id 时，直接用 task 作为 prompt，不占位
+          // ── 方案 A+B：兜底逻辑 ─────────────────────────────────
+          // 没有 session_id 时，用 task 作为 prompt
           const finalPrompt = task || "Untitled Task";
 
           // 从 transcript 生成 summary（用于 response 字段）
