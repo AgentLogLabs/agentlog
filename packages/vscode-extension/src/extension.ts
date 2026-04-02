@@ -399,7 +399,8 @@ interface McpClientProfile {
     | "opencode"   // { mcp: { "agentlog-mcp": { type, command, enabled } } }
     | "mcpServers" // { mcpServers: { "agentlog-mcp": { command, args } } }
     | "cline"      // { mcpServers: { "agentlog-mcp": { command, args, disabled } } }
-    | "qoder";     // { mcpServers: { "agentlog-mcp": { type, command, args } } }
+    | "qoder"      // { mcpServers: { "agentlog-mcp": { type, command, args } } }
+    | "trae";      // { mcpServers: { "agentlog-mcp": { command: "node /path/to/mcp.js" } } }
   /** 客户端说明（显示在 QuickPick detail） */
   detail: string;
 }
@@ -418,6 +419,16 @@ const MCP_CLIENT_PROFILES: McpClientProfile[] = [
     configPath: "~/.cursor/mcp.json",
     format: "mcpServers",
     detail: "Cursor IDE (全局) — ~/.cursor/mcp.json",
+  },
+  {
+    id: "trae",
+    label: "Trae",
+    configPath:
+      process.platform === "win32"
+        ? path.join(os.homedir(), "AppData", "Roaming", "Trae", "User", "mcp.json")
+        : path.join(os.homedir(), "Library", "Application Support", "Trae", "User", "mcp.json"),
+    format: "trae",
+    detail: "Trae IDE (全局) — ~/Library/Application Support/Trae/User/mcp.json",
   },
   {
     id: "claude-desktop",
@@ -554,6 +565,19 @@ async function writeMcpEntryToConfig(
       type: "stdio",
       command: mcpCommand,
       args: mcpArgs,
+    };
+  } else if (format === "trae") {
+    // { mcpServers: { "agentlog-mcp": { command: "node /path/to/mcp.js" } } }
+    if (
+      !configJson.mcpServers ||
+      typeof configJson.mcpServers !== "object" ||
+      Array.isArray(configJson.mcpServers)
+    ) {
+      configJson.mcpServers = {};
+    }
+    const servers = configJson.mcpServers as Record<string, unknown>;
+    servers["agentlog-mcp"] = {
+      command: `${mcpCommand} ${mcpArgs.join(" ")}`,
     };
   }
 

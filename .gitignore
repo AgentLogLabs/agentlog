@@ -56,3 +56,5 @@ coverage/
 .tmp/
 .cache/
 tmp/
+
+.vscode-test/

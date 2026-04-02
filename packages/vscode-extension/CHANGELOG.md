@@ -4,6 +4,16 @@ All notable changes to the "AgentLog — AI 编程行车记录仪" extension wil
 
 Check [Keep a Changelog](https://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.0.1] - 2026-04-01
+
+### Added
+- **关键字优化**：插件描述增加 DeepSeek、Git、编程助手等关键字，提升 marketplace 搜索曝光
+- **Trae IDE 支持**：新增对字节跳动 Trae AI 编程 IDE 的支持
+- **用户增长支持**：优化产品说明文档
+
+### Changed
+- 版本升级至 v1.0.1
+
 ## [0.1.6]
 
 ### Added

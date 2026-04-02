@@ -33,7 +33,7 @@ function resolveDbPath(): string {
  * 当前 Schema 版本。
  * 每次变更 DDL 时递增，迁移系统据此判断是否需要升级。
  */
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 const DDL_SCHEMA_VERSION = `
   CREATE TABLE IF NOT EXISTS schema_version (
@@ -128,6 +128,108 @@ const DDL_SESSION_COMMITS_INDEXES = `
   CREATE INDEX IF NOT EXISTS idx_session_commits_commit_hash ON session_commits (commit_hash);
 `;
 
+/**
+ * enterprise_audit_log — 企业审计日志表（v6 新增）
+ *
+ * 用于存储完整的 AI 操作审计记录，支持合规审查和代码来源追溯。
+ */
+const DDL_ENTERPRISE_AUDIT_LOG = `
+  CREATE TABLE IF NOT EXISTS enterprise_audit_log (
+    id              TEXT    NOT NULL PRIMARY KEY,
+    session_id      TEXT    NOT NULL,
+    timestamp       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    user_id         TEXT    NOT NULL,
+    user_name       TEXT,
+    user_department TEXT,
+    agent_source    TEXT    NOT NULL DEFAULT 'unknown',
+    model_provider  TEXT    NOT NULL,
+    model_name      TEXT    NOT NULL,
+    action_type     TEXT    NOT NULL DEFAULT 'log_turn',
+    content_hash    TEXT    NOT NULL,
+    ip_address      TEXT,
+    workspace_path  TEXT,
+    git_repo_root   TEXT,
+    commit_hash     TEXT,
+    affected_files  TEXT    NOT NULL DEFAULT '[]',
+    prompt_tokens   INTEGER,
+    completion_tokens INTEGER,
+    reasoning_length INTEGER,
+    metadata        TEXT    NOT NULL DEFAULT '{}',
+    created_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  );
+`;
+
+const DDL_ENTERPRISE_AUDIT_LOG_INDEXES = `
+  CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON enterprise_audit_log (timestamp);
+  CREATE INDEX IF NOT EXISTS idx_audit_user_id ON enterprise_audit_log (user_id);
+  CREATE INDEX IF NOT EXISTS idx_audit_session_id ON enterprise_audit_log (session_id);
+  CREATE INDEX IF NOT EXISTS idx_audit_commit_hash ON enterprise_audit_log (commit_hash);
+  CREATE INDEX IF NOT EXISTS idx_audit_agent_source ON enterprise_audit_log (agent_source);
+  CREATE INDEX IF NOT EXISTS idx_audit_model_provider ON enterprise_audit_log (model_provider);
+`;
+
+/**
+ * compliance_reports — 合规报告表（v6 新增）
+ *
+ * 存储生成的合规报告，支持周报、月报、事件报告等类型。
+ */
+const DDL_COMPLIANCE_REPORTS = `
+  CREATE TABLE IF NOT EXISTS compliance_reports (
+    id              TEXT    NOT NULL PRIMARY KEY,
+    report_type     TEXT    NOT NULL,
+    period_start    TEXT    NOT NULL,
+    period_end      TEXT    NOT NULL,
+    generated_by    TEXT    NOT NULL,
+    status          TEXT    NOT NULL DEFAULT 'draft',
+    summary         TEXT    NOT NULL DEFAULT '{}',
+    total_sessions  INTEGER NOT NULL DEFAULT 0,
+    total_users     INTEGER NOT NULL DEFAULT 0,
+    models_used     TEXT    NOT NULL DEFAULT '[]',
+    files_modified  INTEGER NOT NULL DEFAULT 0,
+    commits_count   INTEGER NOT NULL DEFAULT 0,
+    compliance_flags TEXT   NOT NULL DEFAULT '[]',
+    content         TEXT    NOT NULL DEFAULT '{}',
+    exported_file   TEXT,
+    approved_by     TEXT,
+    approved_at     TEXT,
+    created_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  );
+`;
+
+const DDL_COMPLIANCE_REPORTS_INDEXES = `
+  CREATE INDEX IF NOT EXISTS idx_reports_status ON compliance_reports (status);
+  CREATE INDEX IF NOT EXISTS idx_reports_type ON compliance_reports (report_type);
+  CREATE INDEX IF NOT EXISTS idx_reports_period ON compliance_reports (period_start, period_end);
+  CREATE INDEX IF NOT EXISTS idx_reports_generated_by ON compliance_reports (generated_by);
+`;
+
+/**
+ * user_operations — 用户操作追溯表（v6 新增）
+ *
+ * 记录用户在 AgentLog 系统中的关键操作，用于安全审计。
+ */
+const DDL_USER_OPERATIONS = `
+  CREATE TABLE IF NOT EXISTS user_operations (
+    id              TEXT    NOT NULL PRIMARY KEY,
+    user_id         TEXT    NOT NULL,
+    user_name       TEXT,
+    operation_type  TEXT    NOT NULL,
+    target_resource TEXT,
+    result          TEXT    NOT NULL,
+    detail          TEXT    NOT NULL DEFAULT '{}',
+    ip_address      TEXT,
+    user_agent      TEXT,
+    timestamp       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    created_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  );
+`;
+
+const DDL_USER_OPERATIONS_INDEXES = `
+  CREATE INDEX IF NOT EXISTS idx_ops_user_id ON user_operations (user_id);
+  CREATE INDEX IF NOT EXISTS idx_ops_timestamp ON user_operations (timestamp);
+  CREATE INDEX IF NOT EXISTS idx_ops_operation_type ON user_operations (operation_type);
+`;
+
 // ─────────────────────────────────────────────
 // 迁移系统（简易版）
 // ─────────────────────────────────────────────
@@ -212,6 +314,22 @@ const MIGRATIONS: Array<{ version: number; up: MigrationFn }> = [
       db.exec(`ALTER TABLE agent_sessions ADD COLUMN reasoning_summary TEXT;`);
       // 将现有 formatted_transcript 内容作为格式化对话记录，reasoning_summary 暂为 NULL
       // reasoning_summary 后续可由业务逻辑填充纯推理摘要
+    },
+  },
+  {
+    version: 6,
+    up: (db) => {
+      // 企业审计日志表：支持完整的 AI 操作审计和代码来源追溯
+      db.exec(DDL_ENTERPRISE_AUDIT_LOG);
+      db.exec(DDL_ENTERPRISE_AUDIT_LOG_INDEXES);
+
+      // 合规报告表：支持周报、月报、事件报告等
+      db.exec(DDL_COMPLIANCE_REPORTS);
+      db.exec(DDL_COMPLIANCE_REPORTS_INDEXES);
+
+      // 用户操作追溯表：记录用户在系统中的关键操作
+      db.exec(DDL_USER_OPERATIONS);
+      db.exec(DDL_USER_OPERATIONS_INDEXES);
     },
   },
 ];
@@ -353,4 +471,63 @@ export type CommitRow = {
   author_email: string;
   changed_files: string; // JSON
   workspace_path: string;
+};
+
+export type AuditLogRow = {
+  id: string;
+  session_id: string;
+  timestamp: string;
+  user_id: string;
+  user_name: string | null;
+  user_department: string | null;
+  agent_source: string;
+  model_provider: string;
+  model_name: string;
+  action_type: string;
+  content_hash: string;
+  ip_address: string | null;
+  workspace_path: string | null;
+  git_repo_root: string | null;
+  commit_hash: string | null;
+  affected_files: string; // JSON
+  prompt_tokens: number | null;
+  completion_tokens: number | null;
+  reasoning_length: number | null;
+  metadata: string; // JSON
+  created_at: string;
+};
+
+export type ComplianceReportRow = {
+  id: string;
+  report_type: string;
+  period_start: string;
+  period_end: string;
+  generated_by: string;
+  status: string;
+  summary: string; // JSON
+  total_sessions: number;
+  total_users: number;
+  models_used: string; // JSON
+  files_modified: number;
+  commits_count: number;
+  compliance_flags: string; // JSON
+  content: string; // JSON
+  exported_file: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  created_at: string;
+};
+
+export type UserOperationRow = {
+  id: string;
+  user_id: string;
+  user_name: string | null;
+  operation_type: string;
+  target_resource: string | null;
+  result: string;
+  detail: string; // JSON
+  ip_address: string | null;
+  user_agent: string | null;
+  timestamp: string;
+  created_at: string;
 };

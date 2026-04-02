@@ -1,8 +1,8 @@
 {
   "name": "agentlog-vscode",
   "displayName": "AgentLog — AI 编程飞行记录仪",
-  "description": "自动捕获 AI Agent 交互日志（Prompt / Reasoning / Response），与 Git Commit 绑定，一键导出周报或 PR 说明",
-  "version": "0.1.6",
+  "description": "AI 编程助手必备！自动捕获 DeepSeek/Cursor/Cline 等 AI Agent 交互日志（Prompt/Reasoning/Response），与 Git Commit 智能绑定，支持一键导出周报、PR 说明、提交上下文。兼容 DeepSeek、Qwen、Kimi 等国产大模型，让 AI 编程过程全程可追溯。",
+  "version": "1.0.1",
   "private": false,
   "publisher": "agentloglabs",
   "license": "Apache-2.0",
@@ -14,7 +14,8 @@
   },
   "readme": "README.md",
   "engines": {
-    "vscode": "^1.96.0"
+    "vscode": "^1.96.0",
+    "node": ">=18.0.0 <24.0.0"
   },
   "categories": [
     "Other",
@@ -57,7 +58,6 @@
     "onCommand:agentlog.verifyMcpConnection"
   ],
   "main": "./dist/extension.js",
-
   "contributes": {
     "commands": [
       {
@@ -339,7 +339,6 @@
           "description": "AgentLog 本地后台服务地址。修改后需重启插件生效。",
           "order": 1
         },
-
         "agentlog.mcp.configuredClients": {
           "type": "array",
           "default": [],
@@ -393,6 +392,7 @@
     "statusBar": []
   },
   "scripts": {
+    "postinstall": "node scripts/check-node-version.js",
     "compile": "node build.mjs",
     "watch": "node build.mjs --watch",
     "copy-webview": "node -e \"const fs=require('fs');const p=require('path');const src='src/webview';const dst='dist/webview';if(!fs.existsSync(dst))fs.mkdirSync(dst,{recursive:true});fs.readdirSync(src).forEach(f=>fs.copyFileSync(p.join(src,f),p.join(dst,f)));\"",
@@ -405,13 +405,19 @@
     "test:fetch": "node --import tsx --test test/fetchInterception.test.ts"
   },
   "dependencies": {
-    "@agentlog/shared": "workspace:*"
+    "@agentlog/shared": "workspace:*",
+    "playwright": "^1.59.1"
   },
   "devDependencies": {
+    "@types/chai": "^5.2.3",
+    "@types/mocha": "^10.0.10",
     "@types/node": "^20.11.30",
     "@types/vscode": "^1.85.0",
+    "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^2.24.0",
+    "chai": "^6.2.2",
     "esbuild": "^0.27.4",
+    "mocha": "^11.7.5",
     "tsx": "^4.7.2",
     "typescript": "^5.4.5"
   }

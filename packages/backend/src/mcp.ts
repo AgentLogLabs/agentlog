@@ -46,9 +46,20 @@ const BACKEND_BASE = process.env.AGENTLOG_BACKEND_URL ?? `http://localhost:${BAC
 /**
  * 根据 MCP clientInfo.name 推断 source（调用工具的 Agent 名称）。
  * clientInfo 在 MCP initialize 握手阶段由客户端主动上报，工具调用时实时读取。
+ * 
+ * OpenClaw agents are identified via:
+ * 1. Environment variable AGENTLOG_AGENT_ID (set by OpenClaw runtime)
+ * 2. Environment variable AGENT (agent name)
+ * 3. Client name pattern matching
  */
 function inferSource(clientName: string): string {
   const name = clientName.toLowerCase();
+
+  // Check environment variables first (OpenClaw agents)
+  const agentId = process.env.AGENTLOG_AGENT_ID || process.env.AGENT || "";
+  if (agentId) {
+    return `openclaw:${agentId}`;
+  }
 
   if (name.includes("opencode")) return "opencode";
   if (name.includes("cline") || name.includes("roo")) return "cline";
@@ -56,6 +67,8 @@ function inferSource(clientName: string): string {
   if (name.includes("claude")) return "claude-code";
   if (name.includes("copilot") || name.includes("vscode")) return "copilot";
   if (name.includes("continue")) return "continue";
+  if (name.includes("trae")) return "trae";
+  if (name.includes("openclaw") || name.includes("agent")) return "openclaw";
 
   return "mcp-tool-call";
 }
@@ -407,9 +420,10 @@ async function main(): Promise<void> {
         {
           name: "log_intent",
           description:
+            "⚠️ 强制调用顺序：1) log_turn(首次) → 2) log_turn(后续) → 3) log_intent(最后)" +
+            "禁止在 log_turn 之前调用此工具，否则存证数据将不完整。" +
             "在完成一项任务后调用，记录任务目标和受影响文件。" +
-             "推理过程摘要（reasoning_summary）和格式化对话记录（formatted_transcript）由系统从 transcript 自动生成，无需手动填写。" +
-            "推荐与 log_turn 配合：先用 log_turn 逐轮记录，最后调用此工具汇总。",
+            "推理过程摘要（reasoning_summary）和格式化对话记录（formatted_transcript）由系统从 transcript 自动生成，无需手动填写。",
           inputSchema: {
             type: "object" as const,
             properties: {
@@ -832,9 +846,30 @@ async function main(): Promise<void> {
 
           await patchIntent(existingSessionId, intentBody);
 
-          if (transcript && transcript.length > 0) {
+          // Auto-fill transcript from database if not provided
+          let finalTranscript = transcript ?? [];
+          if ((!finalTranscript || finalTranscript.length === 0) && existingSessionId) {
+            try {
+              const sessionResp = await fetchSessionById(existingSessionId);
+              const sessionData = sessionResp.data as { transcript?: Array<Record<string, unknown>> } | undefined;
+              if (sessionData?.transcript && sessionData.transcript.length > 0) {
+                finalTranscript = sessionData.transcript.map((t) => ({
+                  role: t.role as "user" | "assistant" | "tool",
+                  content: t.content as string,
+                  ...(t.toolName ? { toolName: t.toolName as string } : {}),
+                  ...(t.toolInput ? { toolInput: JSON.stringify(t.toolInput) } : {}),
+                  ...(t.timestamp ? { timestamp: t.timestamp as string } : {}),
+                }));
+                process.stderr.write(`[agentlog-mcp] log_intent: 自动从数据库填充 transcript (${finalTranscript.length} turns)\n`);
+              }
+            } catch {
+              process.stderr.write(`[agentlog-mcp] log_intent: 自动填充 transcript 失败，继续\n`);
+            }
+          }
+
+          if (finalTranscript && finalTranscript.length > 0) {
             await patchTranscript(existingSessionId, {
-              turns: transcript,
+              turns: finalTranscript,
               ...(tokenUsage ? { tokenUsage } : {}),
             });
           } else if (tokenUsage) {
@@ -842,7 +877,22 @@ async function main(): Promise<void> {
           }
           resultId = existingSessionId;
         } else {
-          // 新建会话（formatted_transcript 和 reasoning_summary 由 createSession 从 transcript 自动生成）
+          // ── 方案 A+B：兜底逻辑 ─────────────────────────────────
+          // 没有 session_id 时，用 task 作为 prompt
+          const finalPrompt = task || "Untitled Task";
+
+          // 从 transcript 生成 summary（用于 response 字段）
+          let summary = "";
+          if (transcript && transcript.length > 0) {
+            summary = transcript
+              .filter(t => t.role === "assistant")
+              .map(t => {
+                const content = t.content || "";
+                return content.length > 200 ? content.slice(0, 200) + "..." : content;
+              })
+              .join("; ");
+          }
+
           // 耗时：优先使用外部传入值，其次从 transcript 首尾时间戳推算
           let newSessionDurationMs = explicitDurationMs && explicitDurationMs > 0
             ? Math.round(explicitDurationMs)
@@ -862,8 +912,8 @@ async function main(): Promise<void> {
             model,
             source,
             workspacePath,
-            prompt: task,
-            response: task,
+            prompt: finalPrompt,                    // 直接用 task，不占位
+            response: summary || finalPrompt,        // 用 summary 作为 response
             affectedFiles,
             durationMs: newSessionDurationMs,
             ...(transcript && transcript.length > 0 ? { transcript } : {}),

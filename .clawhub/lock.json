@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "skills": {
+    "social-media-publish": {
+      "version": "1.0.0",
+      "installedAt": 1775031928037
+    },
+    "blog-content-publish": {
+      "version": "1.0.8",
+      "installedAt": 1775031955946
+    }
+  }
+}

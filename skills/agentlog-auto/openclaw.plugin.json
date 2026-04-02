@@ -1,0 +1,48 @@
+{
+  "$schema": "https://openclaw.ai/schemas/plugin.json",
+  "id": "agentlog-auto",
+  "name": "AgentLog Auto Logging",
+  "version": "1.0.0",
+  "description": "Automatic logging of agent activities to AgentLog MCP server for compliance auditing",
+  "skills": [
+    {
+      "id": "agentlog-auto",
+      "path": "./src/index.ts",
+      "enabled": true
+    }
+  ],
+  "hooks": [
+    "session:start",
+    "tool:before_call", 
+    "tool:after_call",
+    "agent:end",
+    "session:end"
+  ],
+  "config": {
+    "mcpUrl": {
+      "type": "string",
+      "default": "http://localhost:7892",
+      "description": "AgentLog MCP Server URL"
+    },
+    "autoBindCommit": {
+      "type": "boolean",
+      "default": true,
+      "description": "Automatically bind sessions to Git commits"
+    },
+    "reasoningCapture": {
+      "type": "boolean", 
+      "default": true,
+      "description": "Capture reasoning process"
+    },
+    "toolCallCapture": {
+      "type": "boolean",
+      "default": true,
+      "description": "Capture tool calls"
+    }
+  },
+  "requires": {
+    "openclaw": ">=1.0.0"
+  },
+  "author": "AgentLog Team",
+  "license": "Apache-2.0"
+}
