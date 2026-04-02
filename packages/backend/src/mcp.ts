@@ -847,7 +847,7 @@ async function main(): Promise<void> {
           await patchIntent(existingSessionId, intentBody);
 
           // Auto-fill transcript from database if not provided
-          let finalTranscript = transcript;
+          let finalTranscript = transcript ?? [];
           if ((!finalTranscript || finalTranscript.length === 0) && existingSessionId) {
             try {
               const sessionResp = await fetchSessionById(existingSessionId);
@@ -856,8 +856,8 @@ async function main(): Promise<void> {
                 finalTranscript = sessionData.transcript.map((t) => ({
                   role: t.role as "user" | "assistant" | "tool",
                   content: t.content as string,
-                  ...(t.toolName ? { toolName: t.toolName } : {}),
-                  ...(t.toolInput ? { toolInput: t.toolInput } : {}),
+                  ...(t.toolName ? { toolName: t.toolName as string } : {}),
+                  ...(t.toolInput ? { toolInput: JSON.stringify(t.toolInput) } : {}),
                   ...(t.timestamp ? { timestamp: t.timestamp as string } : {}),
                 }));
                 process.stderr.write(`[agentlog-mcp] log_intent: 自动从数据库填充 transcript (${finalTranscript.length} turns)\n`);
