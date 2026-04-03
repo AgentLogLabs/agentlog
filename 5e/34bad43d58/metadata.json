@@ -59,6 +59,12 @@
       "transcript": "/5e/34bad43d58/7/full.jsonl",
       "content_hash": "/5e/34bad43d58/7/content_hash.txt",
       "prompt": "/5e/34bad43d58/7/prompt.txt"
+    },
+    {
+      "metadata": "/5e/34bad43d58/8/metadata.json",
+      "transcript": "/5e/34bad43d58/8/full.jsonl",
+      "content_hash": "/5e/34bad43d58/8/content_hash.txt",
+      "prompt": ""
     }
   ],
   "token_usage": {
