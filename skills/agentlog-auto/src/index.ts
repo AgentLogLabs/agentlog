@@ -259,10 +259,79 @@ export async function afterToolCall(params: {
 }
 
 /**
+ * Phase 2: Extract reasoning from message content
+ * Supports models with thinking blocks (DeepSeek-R1, Claude extended thinking, etc.)
+ */
+function extractReasoningFromMessages(
+  messages: Array<{ role: string; content: string | Array<unknown> }>,
+): void {
+  if (!currentSession) return;
+
+  for (const msg of messages) {
+    if (msg.role !== 'assistant') continue;
+
+    // Handle string content
+    if (typeof msg.content === 'string') {
+      const reasoning = extractReasoningFromText(msg.content);
+      if (reasoning) {
+        currentSession.reasoning.push(reasoning);
+      }
+      continue;
+    }
+
+    // Handle structured content (thinking blocks, etc.)
+    if (Array.isArray(msg.content)) {
+      for (const block of msg.content) {
+        if (typeof block !== 'object' || block === null) continue;
+        const b = block as Record<string, unknown>;
+        // Thinking block type (Anthropic, OpenAI, etc.)
+        if (b.type === 'thinking' || b.type === 'thought' || b.type === 'reasoning') {
+          const thinking = typeof b.thinking === 'string' ? b.thinking
+            : typeof b.content === 'string' ? b.content
+            : typeof b.text === 'string' ? b.text
+            : JSON.stringify(b);
+          if (thinking) {
+            currentSession.reasoning.push(thinking.slice(0, 4000));
+          }
+        }
+        // Text block that might contain <thinking> tags
+        if (b.type === 'text' && typeof b.text === 'string') {
+          const reasoning = extractReasoningFromText(b.text);
+          if (reasoning) {
+            currentSession.reasoning.push(reasoning);
+          }
+        }
+      }
+    }
+  }
+
+  if (currentSession.reasoning.length > 0) {
+    console.log(`[agentlog-auto] Captured ${currentSession.reasoning.length} reasoning blocks`);
+  }
+}
+
+/**
+ * Extract <thinking>...</thinking> tags from text content
+ */
+function extractReasoningFromText(text: string): string | null {
+  // Match XML-style thinking tags
+  const thinkingMatch = text.match(/<thinking>([\s\S]*?)<\/thinking>/i);
+  if (thinkingMatch && thinkingMatch[1].trim()) {
+    return thinkingMatch[1].trim().slice(0, 4000);
+  }
+  // Match [REASONING]...[/REASONING] tags
+  const reasoningMatch = text.match(/\[REASONING\]([\s\S]*?)\[\/REASONING\]/i);
+  if (reasoningMatch && reasoningMatch[1].trim()) {
+    return reasoningMatch[1].trim().slice(0, 4000);
+  }
+  return null;
+}
+
+/**
  * Agent end hook - finalize and log intent
  */
 export async function onAgentEnd(params: {
-  messages: Array<{ role: string; content: string }>;
+  messages: Array<{ role: string; content: string | Array<unknown> }>;
   usage?: {
     promptTokens?: number;
     completionTokens?: number;
@@ -270,12 +339,20 @@ export async function onAgentEnd(params: {
 }): Promise<void> {
   if (!currentSession) return;
 
+  // Phase 2: Extract reasoning from messages
+  if (config.reasoningCapture) {
+    extractReasoningFromMessages(params.messages);
+  }
+
   // Try to bind the session to recent commit
   await tryBindCommit();
 
   // Generate task summary from messages
   const lastMessage = params.messages[params.messages.length - 1];
-  const task = lastMessage?.content?.slice(0, 200) || 'Agent task completed';
+  const content = typeof lastMessage?.content === 'string'
+    ? lastMessage.content
+    : JSON.stringify(lastMessage?.content ?? '');
+  const task = content.slice(0, 200) || 'Agent task completed';
 
   await logIntent(task, currentSession.model);
 }

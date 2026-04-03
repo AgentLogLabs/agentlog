@@ -594,142 +594,51 @@ const AGENTS_MD_RULE_END = "<!-- agentlog-mcp-rules-end -->";
 
 /**
  * 生成写入 AGENTS.md 的规则块文本（含起止标记）。
+ * 精简版：只保留核心约束和调用流程，详细字段说明已内置在 MCP tool description 中。
  */
 function buildAgentRulesBlock(): string {
   return `${AGENTS_MD_RULE_START}
-## AgentLog MCP 使用规则
+## AgentLog MCP 调用规则（必须遵守）
 
-你已接入 AgentLog MCP Server（工具名前缀：\`agentlog-mcp\`），必须严格按以下规则调用其工具：
+你已接入 AgentLog MCP Server，**必须在每个对话中按以下流程调用**，记录完整的编码交互过程。
 
-### 1. 工具列表
+---
 
-| 工具名                         | 调用时机             | 关键作用 |
-|-------------------------------|----------------------|----------|
-| \`agentlog_log_turn\`         | 每轮消息产生后立即调用 | 记录单条消息（user/assistant/tool），构建完整对话 transcript |
-| \`agentlog_log_intent\`       | 任务整体完成后调用一次 | 记录任务目标、受影响文件，汇总结果 |
-| \`agentlog_query_historical_interaction\` | 需要检索历史记录时调用 | 只读查询，不影响当前会话 |
+## ⚠️ 核心原则：log_turn 必须在做任何其他操作之前调用
 
-### 2. 完整调用流程
+**错误做法（不要这样做）：**
+❌ 收到用户消息 → 直接读取文件 → 直接编辑文件 → 然后才调用 log_turn
+→ 这样在 log_turn 之前的操作都**不会被记录**
 
-#### 第 1 步：对话开始（首次调用）
-收到用户第一条消息后立即调用，**不传** \`session_id\`：
+**正确做法（必须这样做）：**
+✅ 收到用户消息 → **先调用 log_turn** → 再读取文件 → 再编辑文件 → 再调用 log_turn
+→ 所有操作都被完整记录
 
-\`\`\`json
-{
-  "role": "user",
-  "content": "<用户消息原文>",
-  "model": "<当前模型完整名称>",
-  "workspace_path": "<当前工作目录绝对路径>"
-}
-\`\`\`
+---
 
-**重要**：解析返回值中的 \`session_id\`（格式："消息已记录（session_id=xxx）"），整个对话中持续复用。
+## 调用流程
 
-#### 第 2 步：每次生成回复后
-每次完成推理并生成回复后立即调用：
+**第 1 步（最先）：收到用户消息后，立即调用 log_turn，不传 session_id：**
+\`log_turn(role="user", content="用户消息", model="模型名", workspace_path="工作目录")\`
+→ 返回 JSON，提取 session_id 并缓存
 
-\`\`\`json
-{
-  "session_id": "<上一步返回的 session_id>",
-  "role": "assistant",
-  "content": "<完整回复文本>",
-  "reasoning": "<完整思考过程文本（如有）>",
-  "token_usage": {
-    "input_tokens": <累计输入token数>,
-    "output_tokens": <累计输出token数>
-  }
-}
-\`\`\`
+**第 2 步（每次工具执行后）：**
+\`log_turn(session_id="session_id", role="tool", content="结果摘要", tool_name="edit", tool_input="filePath=...")\`
 
-**推理模型要求**：
-- DeepSeek-R1：等待流式响应的推理阶段和回答阶段均结束后，将 \`delta.reasoning_content\` 累积内容传入 \`reasoning\`
-- Claude extended thinking：将 \`thinking\` content block 内容传入 \`reasoning\`
-- 普通模型（GPT-4o等）：省略 \`reasoning\` 字段
-- **不得截断或省略**推理文本，这是理解 AI 决策逻辑的核心证据
+**第 3 步（每次回复后）：**
+\`log_turn(session_id="session_id", role="assistant", content="回复内容")\`
 
-**字段语义**：
-- \`reasoning\` 参数存储每轮思考过程（TranscriptTurn.reasoning）
-- 会话级 \`reasoning_summary\` 字段自动从 transcript 聚合纯推理文本
-- 会话级 \`formatted_transcript\` 字段自动生成格式化完整对话（含用户消息、AI回复、工具调用和推理块）
+**第 4 步（任务完成后）：**
+\`log_intent(session_id="session_id", task="任务描述", model="模型名", affected_files=["file1.ts"])\`
 
-#### 第 3 步：每次工具执行完毕后
-每次工具调用（bash/read/edit/write/grep 等）执行完毕后立即调用：
+---
 
-\`\`\`json
-{
-  "session_id": "<同上>",
-  "role": "tool",
-  "content": "<执行结果摘要>",
-  "tool_name": "<工具名，如 bash、read、edit>",
-  "tool_input": "<关键参数，如 filePath=src/foo.ts>"
-}
-\`\`\`
+## 强制约束
 
-**文件操作必须记录路径**：编辑、写入、删除文件时，\`tool_input\` 必须包含文件路径，用于后续 \`affected_files\` 汇总。
-
-#### 第 4 步：任务全部完成后（仅一次）
-整个任务（无论成功或失败）完成后调用一次：
-
-\`\`\`json
-{
-  "session_id": "<同上>",
-  "task": "<任务目标一两句话描述>",
-  "model": "<模型名>",
-  "affected_files": [
-    "src/modified/file1.ts",
-    "src/created/file2.ts"
-  ]
-}
-\`\`\`
-
-### 3. 关键约束（违反将导致记录不全）
-
-1. **session_id 持久化**：首次调用返回的 \`session_id\` 必须缓存并**整个对话中复用**，不可每轮重新创建。
-2. **调用顺序严格**：\`log_turn\` 必须**按消息产生顺序**调用，不可乱序或批量延迟上报。
-3. **每条消息单独记录**：user、assistant、tool 每条消息都需单独调用 \`log_turn\`。
-4. **工具调用不漏**：每次工具执行（无论成功失败）都必须调用 \`log_turn(role="tool")\`。
-5. **推理文本完整**：推理模型的完整思考过程必须传入 \`reasoning\`，不得截断。
-6. **文件路径必填**：文件操作必须在 \`tool_input\` 中记录路径。
-
-### 4. 字段速查
-
-| 字段 | 必填 | 说明 | 示例 |
-|------|------|------|------|
-| \`role\` | 是 | \`user\` / \`assistant\` / \`tool\` | \`"assistant"\` |
-| \`content\` | 是 | 消息正文（推理阶段可为空） | \`"已完成函数重构..."\` |
-| \`session_id\` | 首次否，后续是 | 会话标识 | \`"abc123xyz"\` |
-| \`reasoning\` | 推理模型必填 | 单轮思考过程（TranscriptTurn.reasoning） | \`"分析原函数职责..."\` |
-| \`tool_name\` | role=tool 时必填 | 工具名称 | \`"edit"\` |
-| \`tool_input\` | role=tool 时推荐 | 关键参数 | \`"filePath=src/utils.ts"\` |
-| \`model\` | 首次调用必填 | 模型完整名称 | \`"deepseek-r1"\` |
-| \`workspace_path\` | 首次调用推荐 | 工作区路径 | \`"/Users/dev/project"\` |
-| \`token_usage\` | 可选 | 累计 Token 用量 | \`{"input_tokens": 1024}\` |
-
-### 5. 常见错误
-
-1. **session_id 丢失**：每次调用都不传 \`session_id\` → 每条消息创建独立会话，对话碎片化。
-2. **推理文本截断**：\`reasoning\` 只传摘要 → 丢失决策逻辑，无法追溯。
-3. **工具调用遗漏**：只有 user/assistant 消息，缺少 tool 记录 → 不知道改了哪些文件。
-4. **文件路径缺失**：\`tool_input\` 不包含文件路径 → \`affected_files\` 无法自动汇总。
-5. **调用乱序**：批量上报消息 → transcript 顺序错乱，难以理解交互过程。
-
-### 6. 查询结果字段说明
-
-通过 \`agentlog_query_historical_interaction\` 查询返回的会话对象中，各字段含义如下：
-
-| 返回字段 | 内容说明 |
-|---------|---------|
-| \`reasoning\` | **纯推理摘要**，由系统从 transcript 各轮 \`reasoning\` 自动聚合生成（对应数据库 \`reasoning_summary\` 列） |
-| \`formattedTranscript\` | **格式化对话**，包含用户消息、AI回复、工具调用及推理过程的完整呈现（对应数据库 \`formatted_transcript\` 列） |
-| \`transcript\` | **原始逐轮记录**，每条包含 \`role\`、\`content\`、\`reasoning\`（单轮思考过程）等字段 |
-
-> **注意**：\`reasoning\` 与 \`transcript[].reasoning\` 是不同内容：
-> - \`transcript[].reasoning\`：单轮原始思考过程（由 \`log_turn\` 传入）
-> - \`session.reasoning\`：所有轮次推理内容的聚合摘要（自动生成）
-
-### 7. 验证命令
-
-在 VS Code 中执行 \`AgentLog: 验证 MCP 连接\` 命令，可测试当前配置是否正确，工具是否能正常调用。
+⚠️ **log_turn 必须在 read/edit/write/webfetch 等任何操作之前调用**
+⚠️ **session_id 丢失 = 每条消息创建独立会话（碎片化）**
+⚠️ **跳过 log_turn = 那部分编码过程无法记录**
+⚠️ **不调用 log_intent = 任务无法归档**
 ${AGENTS_MD_RULE_END}`;
 }
 

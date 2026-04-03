@@ -246,6 +246,47 @@ async function fetchSessionById(sessionId: string): Promise<GetSessionResponse> 
 }
 
 // ─────────────────────────────────────────────
+// Session 调用状态追踪器（进程级）
+// ─────────────────────────────────────────────
+
+interface SessionState {
+  /** 创建时间 */
+  createdAt: number;
+  /** log_turn 调用次数 */
+  turnCount: number;
+  /** 是否已调用 log_intent */
+  intentCalled: boolean;
+  /** 上次活动时间 */
+  lastActivityAt: number;
+  /** 已记录的角色类型集合 */
+  recordedRoles: Set<"user" | "assistant" | "tool">;
+}
+
+/**
+ * 追踪当前 MCP 进程中所有活跃 session 的调用状态。
+ * 用于：
+ * 1. 检测 Agent 未传 session_id 导致重复创建 session
+ * 2. 检测 log_intent 在 log_turn 之前被调用
+ * 3. 提醒 Agent 正确的调用顺序
+ */
+const sessionTracker = new Map<string, SessionState>();
+
+/** 最近一次创建的 session_id（用于检测 Agent 是否忘记传 session_id） */
+let lastCreatedSessionId: string | null = null;
+let lastCreatedSessionAt: number = 0;
+
+/** 清理超过 2 小时不活跃的 session 记录，防止内存泄漏 */
+function cleanupStaleSessionStates(): void {
+  const twoHoursMs = 2 * 60 * 60 * 1000;
+  const now = Date.now();
+  for (const [id, state] of sessionTracker) {
+    if (now - state.lastActivityAt > twoHoursMs) {
+      sessionTracker.delete(id);
+    }
+  }
+}
+
+// ─────────────────────────────────────────────
 // MCP Server 主流程
 // ─────────────────────────────────────────────
 
@@ -253,7 +294,7 @@ async function main(): Promise<void> {
   const server = new Server(
     {
       name: "agentlog-mcp",
-      version: "0.4.0",
+      version: "0.5.0",
     },
     {
       capabilities: {
@@ -262,7 +303,8 @@ async function main(): Promise<void> {
     },
   );
 
-
+  // 定期清理不活跃的 session 状态
+  setInterval(cleanupStaleSessionStates, 30 * 60 * 1000);
 
   // ── 工具列表 ────────────────────────────────
 
@@ -273,16 +315,31 @@ async function main(): Promise<void> {
         {
           name: "log_turn",
           description:
-            "逐轮记录 AI 交互消息（user / assistant / tool）。" +
-            "首次调用时自动创建会话并返回 session_id，后续每轮调用传入相同 session_id 持续追加。" +
-            "请在每条消息产生后立即调用，以完整保留对话历史。",
+            "⚠️ 【强制协议 - 禁止跳过】⚠️\n" +
+            "每轮对话必须按以下顺序调用本工具，记录完整的 AI 编码过程！\n\n" +
+            "调用流程：\n" +
+            "  Step 1. log_turn(role=\"user\", ...)         ← 对话开始时调用（禁止省略）\n" +
+            "  Step 2. log_turn(role=\"tool\", ...)         ← 每次工具执行后调用\n" +
+            "  Step 3. log_turn(role=\"assistant\", ...)     ← 每次回复后调用\n" +
+            "  循环 Step 2-3 直到任务完成\n" +
+            "  Step 4. log_intent(...)                     ← 任务完成时调用一次\n\n" +
+            "⚠️ 禁止行为：\n" +
+            "  ✗ 不调用 log_turn 就直接执行 read/edit/bash（将导致编码过程无法记录）\n" +
+            "  ✗ 省略 session_id（会导致每条消息创建独立会话，对话碎片化）\n" +
+            "  ✗ 在 log_turn 之前调用 log_intent（将导致存证数据不完整）\n" +
+            "  ✗ 批量延迟上报（必须实时逐条调用）\n\n" +
+            "【session_id 获取方式】\n" +
+            "首次调用时不传 session_id，从返回 JSON 中提取 session_id 字段并缓存，\n" +
+            "后续所有调用必须传入。",
           inputSchema: {
             type: "object" as const,
             properties: {
               session_id: {
                 type: "string",
                 description:
-                  "会话 ID（由首次调用返回）。首次调用时省略此参数，后续调用必须传入。",
+                  "会话 ID（由首次 log_turn 返回的 JSON 中的 session_id 字段获取）。" +
+                  "首次调用时省略，后续每次调用必须传入。" +
+                  "不传此参数将创建新会话，导致对话记录碎片化。",
               },
               role: {
                 type: "string",
@@ -420,10 +477,18 @@ async function main(): Promise<void> {
         {
           name: "log_intent",
           description:
-            "⚠️ 强制调用顺序：1) log_turn(首次) → 2) log_turn(后续) → 3) log_intent(最后)" +
-            "禁止在 log_turn 之前调用此工具，否则存证数据将不完整。" +
-            "在完成一项任务后调用，记录任务目标和受影响文件。" +
-            "推理过程摘要（reasoning_summary）和格式化对话记录（formatted_transcript）由系统从 transcript 自动生成，无需手动填写。",
+            "⚠️ 【强制协议 - 禁止跳过】⚠️\n" +
+            "本工具必须在 log_turn 之后调用，是整个记录流程的最后一步。\n\n" +
+            "正确调用顺序：\n" +
+            "  Step 1. log_turn(role=\"user\", ...)           ← 建立会话\n" +
+            "  Step 2. log_turn(role=\"tool\"/\"assistant\")   ← 逐条记录（循环）\n" +
+            "  Step 3. log_intent(...)                      ← 任务归档（仅一次）\n\n" +
+            "⚠️ 如果你省略了中间的 log_turn(tool/assistant) 调用，\n" +
+            "   仅仅在最后调用 log_intent，将导致存证数据不完整，\n" +
+            "   无法追溯 AI 的实际编码过程！\n\n" +
+            "【session_id 获取方式】\n" +
+            "从首次 log_turn 返回的 JSON 中获取 session_id，后续传入。\n\n" +
+            "reasoning_summary 和 formatted_transcript 由系统自动生成，无需手动填写。",
           inputSchema: {
             type: "object" as const,
             properties: {
@@ -449,8 +514,8 @@ async function main(): Promise<void> {
               session_id: {
                 type: "string",
                 description:
-                  "已有会话的 ID（由 log_turn 首次调用返回）。" +
-                  "传入时回写到该会话；不传时创建新会话。",
+                  "已有会话的 ID（由首次 log_turn 返回的 JSON 中 session_id 字段获取）。" +
+                  "⚠️ 强烈建议传入：不传将创建孤立会话，丢失之前 log_turn 记录的对话上下文。",
               },
               transcript: {
                 type: "array",
@@ -723,6 +788,21 @@ async function main(): Promise<void> {
           }
         }
 
+        // ── 重复创建检测 ──
+        // 如果 Agent 没有传 session_id，但最近刚创建过 session，说明 Agent 可能丢失了 session_id
+        let duplicateWarning: string | undefined;
+        if (!sessionId && lastCreatedSessionId) {
+          const timeSinceLastCreate = Date.now() - lastCreatedSessionAt;
+          // 5 分钟内重复创建 → 大概率是同一对话中 Agent 忘记传 session_id
+          if (timeSinceLastCreate < 5 * 60 * 1000) {
+            duplicateWarning =
+              `⚠️ 警告：${Math.round(timeSinceLastCreate / 1000)}秒前刚创建过会话 ${lastCreatedSessionId}，` +
+              `现在又在创建新会话。这通常意味着你丢失了 session_id。` +
+              `如果这是同一个对话，请在后续调用中传入 session_id="${lastCreatedSessionId}"。`;
+            process.stderr.write(`[agentlog-mcp] ⚠️ 重复创建检测：上次=${lastCreatedSessionId} (${timeSinceLastCreate}ms前)\n`);
+          }
+        }
+
         if (sessionId) {
           // 追加到已有会话
           await patchTranscript(sessionId, {
@@ -730,6 +810,23 @@ async function main(): Promise<void> {
             ...(finalTokenUsage ? { tokenUsage: finalTokenUsage } : {}),
           });
           resultSessionId = sessionId;
+
+          // 更新 session 状态追踪
+          const state = sessionTracker.get(sessionId);
+          if (state) {
+            state.turnCount++;
+            state.lastActivityAt = Date.now();
+            state.recordedRoles.add(role);
+          } else {
+            // 可能是从之前的进程恢复的 session
+            sessionTracker.set(sessionId, {
+              createdAt: Date.now(),
+              turnCount: 1,
+              intentCalled: false,
+              lastActivityAt: Date.now(),
+              recordedRoles: new Set([role]),
+            });
+          }
         } else {
           // 创建新会话（首条消息）
           // 注意：DeepSeek-R1 首条 assistant 消息 content 可能为空（仅有推理内容），
@@ -747,15 +844,73 @@ async function main(): Promise<void> {
             transcript: [turn],
             ...(finalTokenUsage ? { tokenUsage: finalTokenUsage } : {}),
           });
+
+          // 记录新 session 到追踪器
+          sessionTracker.set(resultSessionId, {
+            createdAt: Date.now(),
+            turnCount: 1,
+            intentCalled: false,
+            lastActivityAt: Date.now(),
+            recordedRoles: new Set([role]),
+          });
+          lastCreatedSessionId = resultSessionId;
+          lastCreatedSessionAt = Date.now();
         }
 
         process.stderr.write(`[agentlog-mcp] log_turn 写入成功 session_id=${resultSessionId}\n`);
+
+        // 返回结构化 JSON，便于 Agent 可靠解析 session_id
+        const isNewSession = !sessionId;
+        const responsePayload: Record<string, unknown> = {
+          session_id: resultSessionId,
+          status: "ok",
+          is_new_session: isNewSession,
+          message: isNewSession
+            ? `新会话已创建。请在后续每次调用 log_turn 和最终调用 log_intent 时都传入 session_id="${resultSessionId}"。`
+            : `消息已追加到会话 ${resultSessionId}。`,
+        };
+
+        if (isNewSession) {
+          responsePayload.next_steps = [
+            `每次工具调用完成后：log_turn(session_id="${resultSessionId}", role="tool", ...)`,
+            `每次生成回复后：log_turn(session_id="${resultSessionId}", role="assistant", ...)`,
+            `任务完成后：log_intent(session_id="${resultSessionId}", task="...", ...)`,
+          ];
+        }
+
+        if (duplicateWarning) {
+          responsePayload.warning = duplicateWarning;
+        }
+
+        // 附加 call_reminder，帮助 Agent 确认调用状态
+        const state = sessionTracker.get(resultSessionId);
+        if (state) {
+          const callReminder: Record<string, unknown> = {
+            total_turns_recorded: state.turnCount,
+            recorded_roles: Array.from(state.recordedRoles),
+          };
+
+          // 检测遗漏的角色
+          const allRoles = ["user", "assistant", "tool"] as const;
+          const missingRoles = allRoles.filter(r => !state.recordedRoles.has(r));
+          if (missingRoles.length > 0) {
+            callReminder.missing_roles = missingRoles;
+            callReminder.hint = `当前已记录 ${callReminder.recorded_roles}，缺少 ${missingRoles}。请补充记录。`;
+          }
+
+          // 如果还没有 user 就已经是 assistant/tool，说明跳过了第一步
+          if (!state.recordedRoles.has("user") && (state.recordedRoles.has("assistant") || state.recordedRoles.has("tool"))) {
+            callReminder.warning = "⚠️ 你还没有调用 log_turn(role='user') 建立会话。正确流程必须从 user 开始。";
+          }
+
+          responsePayload.call_reminder = callReminder;
+        }
 
         return {
           content: [
             {
               type: "text" as const,
-              text: `消息已记录（session_id=${resultSessionId}）。后续调用请传入此 session_id。`,
+              text: JSON.stringify(responsePayload, null, 2),
             },
           ],
         };
@@ -814,6 +969,43 @@ async function main(): Promise<void> {
         process.stderr.write(`[agentlog-mcp]   transcript_turns=${transcript?.length ?? 0}\n`);
         process.stderr.write(`[agentlog-mcp]   provider=${provider}\n`);
         process.stderr.write(`[agentlog-mcp]   source=${source}\n`);
+
+        // ── 调用顺序验证 ──
+        const intentWarnings: string[] = [];
+
+        if (existingSessionId) {
+          const state = sessionTracker.get(existingSessionId);
+          if (state) {
+            if (state.intentCalled) {
+              intentWarnings.push(
+                `⚠️ 此会话已经调用过 log_intent，重复调用将覆盖之前的记录。`
+              );
+            }
+            // 标记 intent 已调用
+            state.intentCalled = true;
+            state.lastActivityAt = Date.now();
+          }
+        } else {
+          // 没有 session_id 调用 log_intent → 可能遗漏了 log_turn 流程
+          if (lastCreatedSessionId) {
+            intentWarnings.push(
+              `⚠️ 调用 log_intent 时未传入 session_id。` +
+              `最近创建的会话是 ${lastCreatedSessionId}，` +
+              `如果这是同一个任务，应传入 session_id="${lastCreatedSessionId}"。` +
+              `未来请按正确顺序调用：log_turn(首次) → log_turn(后续) → log_intent(最后)。`
+            );
+          }
+          if (!transcript || transcript.length === 0) {
+            intentWarnings.push(
+              `⚠️ 既没有 session_id 也没有 transcript，将创建一个仅有任务描述的空会话。` +
+              `建议的完整流程：先用 log_turn 逐条记录对话，最后用 log_intent 归档。`
+            );
+          }
+        }
+
+        if (intentWarnings.length > 0) {
+          process.stderr.write(`[agentlog-mcp] log_intent 警告：${intentWarnings.join(" | ")}\n`);
+        }
 
         let resultId: string;
 
@@ -923,11 +1115,20 @@ async function main(): Promise<void> {
 
         process.stderr.write(`[agentlog-mcp] 写入成功 id=${resultId}\n`);
 
+        const intentResponsePayload: Record<string, unknown> = {
+          session_id: resultId,
+          status: "ok",
+          message: `任务记录完成（session_id=${resultId}）。会话已归档。`,
+        };
+        if (intentWarnings.length > 0) {
+          intentResponsePayload.warnings = intentWarnings;
+        }
+
         return {
           content: [
             {
               type: "text" as const,
-              text: `意图记录成功（id=${resultId}），请继续工作。`,
+              text: JSON.stringify(intentResponsePayload, null, 2),
             },
           ],
         };
