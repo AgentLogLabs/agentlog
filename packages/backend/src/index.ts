@@ -16,6 +16,7 @@ import sessionsRoutes from "./routes/sessions";
 import commitsRouter from "./routes/commits";
 import { exportRoutes } from "./routes/export";
 import hooksRoutes from "./routes/hooks";
+import spansRoutes from "./routes/spans";
 import { getDatabase, closeDatabase } from "./db/database";
 
 // ─────────────────────────────────────────────
@@ -139,6 +140,8 @@ async function start(): Promise<void> {
         commits: "/api/commits",
         export: "/api/export",
         hooks: "/api/hooks/:agent/:event",
+        spans: "/api/spans",
+        mcpSse: "/mcp/sse",
         health: "/health",
         status: "/api/status",
       },
@@ -173,6 +176,38 @@ async function start(): Promise<void> {
 
   /** 导出（周报 / PR 描述 / JSONL / CSV） */
   await exportRoutes(app);
+
+  /** 高频 Span 数据接收（探针专用） */
+  await app.register(spansRoutes, { prefix: "/api" });
+
+  /** MCP SSE 端点（供外部 IDE 接入） */
+  app.get("/mcp/sse", async (req, reply) => {
+    reply.raw.setHeader("Content-Type", "text/event-stream");
+    reply.raw.setHeader("Cache-Control", "no-cache");
+    reply.raw.setHeader("Connection", "keep-alive");
+    reply.raw.setHeader("Access-Control-Allow-Origin", "*");
+
+    const clientId = (req.query as { clientId?: string }).clientId ?? "anonymous";
+    const sseClient = {
+      id: clientId,
+      timestamp: new Date().toISOString(),
+    };
+
+    req.log.info(`[MCP SSE] 客户端已连接: ${JSON.stringify(sseClient)}`);
+
+    reply.raw.write(`data: ${JSON.stringify({ type: "connected", client: sseClient })}\n\n`);
+
+    const heartbeatInterval = setInterval(() => {
+      if (reply.raw.writable) {
+        reply.raw.write(`data: ${JSON.stringify({ type: "heartbeat", timestamp: new Date().toISOString() })}\n\n`);
+      }
+    }, 30000);
+
+    req.raw.on("close", () => {
+      clearInterval(heartbeatInterval);
+      req.log.info(`[MCP SSE] 客户端已断开: ${clientId}`);
+    });
+  });
 
   // 6. 全局错误处理
 

@@ -23,6 +23,7 @@ process.env.AGENTLOG_DB_PATH = ":memory:";
 import sessionsRoutes from "../src/routes/sessions.js";
 import commitsRouter from "../src/routes/commits.js";
 import { exportRoutes } from "../src/routes/export.js";
+import spansRoutes from "../src/routes/spans.js";
 import { getDatabase, closeDatabase } from "../src/db/database.js";
 
 // ─────────────────────────────────────────────
@@ -60,6 +61,32 @@ async function buildApp(): Promise<FastifyInstance> {
   await app.register(sessionsRoutes);
   await app.register(commitsRouter, { prefix: "/api/commits" });
   await exportRoutes(app);
+  await app.register(spansRoutes, { prefix: "/api" });
+
+  app.get("/mcp/sse", async (req, reply) => {
+    reply.raw.setHeader("Content-Type", "text/event-stream");
+    reply.raw.setHeader("Cache-Control", "no-cache");
+    reply.raw.setHeader("Connection", "keep-alive");
+    reply.raw.setHeader("Access-Control-Allow-Origin", "*");
+
+    const clientId = (req.query as { clientId?: string }).clientId ?? "anonymous";
+    const sseClient = {
+      id: clientId,
+      timestamp: new Date().toISOString(),
+    };
+
+    reply.raw.write(`data: ${JSON.stringify({ type: "connected", client: sseClient })}\n\n`);
+
+    const heartbeatInterval = setInterval(() => {
+      if (reply.raw.writable) {
+        reply.raw.write(`data: ${JSON.stringify({ type: "heartbeat", timestamp: new Date().toISOString() })}\n\n`);
+      }
+    }, 30000);
+
+    req.raw.on("close", () => {
+      clearInterval(heartbeatInterval);
+    });
+  });
 
   app.setErrorHandler((error, _req, reply) => {
     if (error.validation) {
@@ -1088,5 +1115,179 @@ describe("query_historical_interaction — Backend 数据层验证", () => {
     );
     assert.equal(status, 404);
     assert.equal(body.success, false);
+  });
+});
+
+// ─────────────────────────────────────────────
+// 测试 Suite 9：Spans API（探针高频写入）
+// ─────────────────────────────────────────────
+
+describe("POST /api/spans", () => {
+  let app: FastifyInstance;
+  const base = (): string => {
+    const addr = app.server.address();
+    if (!addr || typeof addr === "string") throw new Error("无法获取服务地址");
+    return `http://127.0.0.1:${addr.port}`;
+  };
+
+  before(async () => {
+    app = await buildApp();
+  });
+
+  after(async () => {
+    await app.close();
+    closeDatabase();
+  });
+
+  it("POST /api/spans 创建 span → 201", async () => {
+    const traceReq = await require("../src/services/traceService.js").createTrace({
+      taskGoal: "测试 trace",
+    });
+    const traceId = traceReq.id;
+
+    const { status, body } = await req<{ success: boolean; data: Record<string, unknown> }>(app, "POST", "/api/spans", {
+      traceId,
+      actorType: "agent",
+      actorName: "test-agent",
+      payload: { action: "test" },
+    });
+
+    assert.equal(status, 201);
+    assert.equal(body.success, true);
+    assert.ok(body.data.id, "应返回 span id");
+    assert.equal(body.data.traceId, traceId);
+    assert.equal(body.data.actorType, "agent");
+    assert.equal(body.data.actorName, "test-agent");
+    assert.deepEqual(body.data.payload, { action: "test" });
+  });
+
+  it("POST /api/spans 带 parentSpanId → 201", async () => {
+    const traceReq = await require("../src/services/traceService.js").createTrace({
+      taskGoal: "测试 trace",
+    });
+    const traceId = traceReq.id;
+
+    const parentReq = await req<{ success: boolean; data: Record<string, unknown> }>(app, "POST", "/api/spans", {
+      traceId,
+      actorType: "human",
+      actorName: "user",
+    });
+    const parentId = parentReq.body.data.id as string;
+
+    const { status, body } = await req<{ success: boolean; data: Record<string, unknown> }>(app, "POST", "/api/spans", {
+      traceId,
+      parentSpanId: parentId,
+      actorType: "agent",
+      actorName: "agent",
+    });
+
+    assert.equal(status, 201);
+    assert.equal(body.data.parentSpanId, parentId);
+  });
+
+  it("POST /api/spans 缺少必填字段 → 400", async () => {
+    const { status } = await req(app, "POST", "/api/spans", {
+      traceId: "some-trace",
+    });
+
+    assert.equal(status, 400);
+  });
+
+  it("POST /api/spans 无效 actorType → 400", async () => {
+    const traceReq = await require("../src/services/traceService.js").createTrace({
+      taskGoal: "测试 trace",
+    });
+
+    const { status } = await req(app, "POST", "/api/spans", {
+      traceId: traceReq.id,
+      actorType: "invalid",
+      actorName: "test",
+    });
+
+    assert.equal(status, 400);
+  });
+
+  it("POST /api/spans 高并发写入 → 全部成功", async () => {
+    const traceReq = await require("../src/services/traceService.js").createTrace({
+      taskGoal: "并发测试 trace",
+    });
+    const traceId = traceReq.id;
+
+    const promises = Array.from({ length: 20 }, (_, i) =>
+      req(app, "POST", "/api/spans", {
+        traceId,
+        actorType: "agent",
+        actorName: `agent-${i}`,
+        payload: { index: i },
+      })
+    );
+
+    const results = await Promise.all(promises);
+    const successes = results.filter((r) => r.status === 201);
+    assert.equal(successes.length, 20, "所有并发请求应成功");
+  });
+});
+
+// ─────────────────────────────────────────────
+// 测试 Suite 10：MCP SSE 端点
+// ─────────────────────────────────────────────
+
+describe("GET /mcp/sse", () => {
+  let app: FastifyInstance;
+
+  before(async () => {
+    app = await buildApp();
+  });
+
+  after(async () => {
+    await app.close();
+    closeDatabase();
+  });
+
+  it("GET /mcp/sse 返回 SSE 流 → 200", async () => {
+    const addr = app.server.address();
+    if (!addr || typeof addr === "string") throw new Error("无法获取服务地址");
+    const url = `http://127.0.0.1:${addr.port}/mcp/sse`;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+
+    try {
+      const res = await fetch(url, {
+        headers: { Accept: "text/event-stream" },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+
+      assert.equal(res.status, 200);
+      assert.equal(res.headers.get("content-type"), "text/event-stream");
+      assert.equal(res.headers.get("cache-control"), "no-cache");
+    } catch (err) {
+      clearTimeout(timeout);
+      throw err;
+    }
+  });
+
+  it("GET /mcp/sse?clientId=xxx 携带 clientId", async () => {
+    const addr = app.server.address();
+    if (!addr || typeof addr === "string") throw new Error("无法获取服务地址");
+    const url = `http://127.0.0.1:${addr.port}/mcp/sse?clientId=test-client-123`;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+
+    try {
+      const res = await fetch(url, {
+        headers: { Accept: "text/event-stream" },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+      assert.equal(res.status, 200);
+    } catch (err) {
+      clearTimeout(timeout);
+      throw err;
+    }
   });
 });
