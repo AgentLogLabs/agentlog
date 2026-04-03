@@ -602,28 +602,43 @@ function buildAgentRulesBlock(): string {
 
 你已接入 AgentLog MCP Server，**必须在每个对话中按以下流程调用**，记录完整的编码交互过程。
 
-### 调用流程（4 步）
+---
 
-**第 1 步 - 对话开始**：收到用户消息后**立即**调用 \`log_turn\`，不传 \`session_id\`：
+## ⚠️ 核心原则：log_turn 必须在做任何其他操作之前调用
+
+**错误做法（不要这样做）：**
+❌ 收到用户消息 → 直接读取文件 → 直接编辑文件 → 然后才调用 log_turn
+→ 这样在 log_turn 之前的操作都**不会被记录**
+
+**正确做法（必须这样做）：**
+✅ 收到用户消息 → **先调用 log_turn** → 再读取文件 → 再编辑文件 → 再调用 log_turn
+→ 所有操作都被完整记录
+
+---
+
+## 调用流程
+
+**第 1 步（最先）：收到用户消息后，立即调用 log_turn，不传 session_id：**
 \`log_turn(role="user", content="用户消息", model="模型名", workspace_path="工作目录")\`
-→ 返回 JSON，从中提取 \`session_id\` 字段并缓存
+→ 返回 JSON，提取 session_id 并缓存
 
-**第 2 步 - 每次回复后**：调用 \`log_turn\`，传入缓存的 \`session_id\`：
-\`log_turn(session_id="...", role="assistant", content="回复内容")\`
-推理模型还需传 \`reasoning\` 参数（完整思考过程，不得截断）
+**第 2 步（每次工具执行后）：**
+\`log_turn(session_id="session_id", role="tool", content="结果摘要", tool_name="edit", tool_input="filePath=...")\`
 
-**第 3 步 - 每次工具执行后**：调用 \`log_turn\`，传入缓存的 \`session_id\`：
-\`log_turn(session_id="...", role="tool", content="结果摘要", tool_name="edit", tool_input="filePath=src/foo.ts")\`
+**第 3 步（每次回复后）：**
+\`log_turn(session_id="session_id", role="assistant", content="回复内容")\`
 
-**第 4 步 - 任务完成后**：调用 \`log_intent\` 归档，传入缓存的 \`session_id\`：
-\`log_intent(session_id="...", task="任务描述", model="模型名", affected_files=["file1.ts"])\`
+**第 4 步（任务完成后）：**
+\`log_intent(session_id="session_id", task="任务描述", model="模型名", affected_files=["file1.ts"])\`
 
-### 关键约束（违反将导致记录碎片化或丢失）
+---
 
-1. **session_id 必须缓存复用**：首次 \`log_turn\` 返回的 \`session_id\` 必须在整个对话中传入每次调用，不传会创建新会话导致碎片化
-2. **每条消息都要记录**：user、assistant、tool 每条都需单独调用 \`log_turn\`，不可遗漏
-3. **文件操作必须记录路径**：\`tool_input\` 中包含文件路径（如 \`filePath=src/utils.ts\`）
-4. **最后必须调用 log_intent**：任务结束后调用一次 \`log_intent\` 归档
+## 强制约束
+
+⚠️ **log_turn 必须在 read/edit/write/webfetch 等任何操作之前调用**
+⚠️ **session_id 丢失 = 每条消息创建独立会话（碎片化）**
+⚠️ **跳过 log_turn = 那部分编码过程无法记录**
+⚠️ **不调用 log_intent = 任务无法归档**
 ${AGENTS_MD_RULE_END}`;
 }
 

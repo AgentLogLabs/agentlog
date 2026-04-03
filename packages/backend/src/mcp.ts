@@ -258,6 +258,8 @@ interface SessionState {
   intentCalled: boolean;
   /** 上次活动时间 */
   lastActivityAt: number;
+  /** 已记录的角色类型集合 */
+  recordedRoles: Set<"user" | "assistant" | "tool">;
 }
 
 /**
@@ -313,14 +315,22 @@ async function main(): Promise<void> {
         {
           name: "log_turn",
           description:
-            "逐轮记录 AI 交互消息（user / assistant / tool）。\n" +
-            "【调用协议 - 必须严格遵守】\n" +
-            "1. 收到用户消息后立即调用：log_turn(role='user', content=用户原文)，不传 session_id\n" +
-            "2. 解析返回 JSON 中的 session_id 字段并缓存，后续所有调用必须传入此 session_id\n" +
-            "3. 每次生成回复后调用：log_turn(session_id=..., role='assistant', content=回复)\n" +
-            "4. 每次工具执行完毕后调用：log_turn(session_id=..., role='tool', tool_name=工具名)\n" +
-            "5. 任务完成后调用 log_intent(session_id=..., task=任务描述) 归档\n" +
-            "【常见错误】不传 session_id → 每次创建新会话导致记录碎片化",
+            "⚠️ 【强制协议 - 禁止跳过】⚠️\n" +
+            "每轮对话必须按以下顺序调用本工具，记录完整的 AI 编码过程！\n\n" +
+            "调用流程：\n" +
+            "  Step 1. log_turn(role=\"user\", ...)         ← 对话开始时调用（禁止省略）\n" +
+            "  Step 2. log_turn(role=\"tool\", ...)         ← 每次工具执行后调用\n" +
+            "  Step 3. log_turn(role=\"assistant\", ...)     ← 每次回复后调用\n" +
+            "  循环 Step 2-3 直到任务完成\n" +
+            "  Step 4. log_intent(...)                     ← 任务完成时调用一次\n\n" +
+            "⚠️ 禁止行为：\n" +
+            "  ✗ 不调用 log_turn 就直接执行 read/edit/bash（将导致编码过程无法记录）\n" +
+            "  ✗ 省略 session_id（会导致每条消息创建独立会话，对话碎片化）\n" +
+            "  ✗ 在 log_turn 之前调用 log_intent（将导致存证数据不完整）\n" +
+            "  ✗ 批量延迟上报（必须实时逐条调用）\n\n" +
+            "【session_id 获取方式】\n" +
+            "首次调用时不传 session_id，从返回 JSON 中提取 session_id 字段并缓存，\n" +
+            "后续所有调用必须传入。",
           inputSchema: {
             type: "object" as const,
             properties: {
@@ -467,11 +477,17 @@ async function main(): Promise<void> {
         {
           name: "log_intent",
           description:
-            "任务完成后调用一次，记录任务目标和受影响文件。\n" +
-            "【调用协议 - 必须严格遵守】\n" +
-            "⚠️ 此工具必须在 log_turn 之后调用，是整个记录流程的最后一步。\n" +
-            "正确顺序：log_turn(user) → log_turn(tool/assistant) → ... → log_intent(task)\n" +
-            "必须传入 session_id（从首次 log_turn 返回值获取），否则会创建孤立记录。\n" +
+            "⚠️ 【强制协议 - 禁止跳过】⚠️\n" +
+            "本工具必须在 log_turn 之后调用，是整个记录流程的最后一步。\n\n" +
+            "正确调用顺序：\n" +
+            "  Step 1. log_turn(role=\"user\", ...)           ← 建立会话\n" +
+            "  Step 2. log_turn(role=\"tool\"/\"assistant\")   ← 逐条记录（循环）\n" +
+            "  Step 3. log_intent(...)                      ← 任务归档（仅一次）\n\n" +
+            "⚠️ 如果你省略了中间的 log_turn(tool/assistant) 调用，\n" +
+            "   仅仅在最后调用 log_intent，将导致存证数据不完整，\n" +
+            "   无法追溯 AI 的实际编码过程！\n\n" +
+            "【session_id 获取方式】\n" +
+            "从首次 log_turn 返回的 JSON 中获取 session_id，后续传入。\n\n" +
             "reasoning_summary 和 formatted_transcript 由系统自动生成，无需手动填写。",
           inputSchema: {
             type: "object" as const,
@@ -800,6 +816,7 @@ async function main(): Promise<void> {
           if (state) {
             state.turnCount++;
             state.lastActivityAt = Date.now();
+            state.recordedRoles.add(role);
           } else {
             // 可能是从之前的进程恢复的 session
             sessionTracker.set(sessionId, {
@@ -807,6 +824,7 @@ async function main(): Promise<void> {
               turnCount: 1,
               intentCalled: false,
               lastActivityAt: Date.now(),
+              recordedRoles: new Set([role]),
             });
           }
         } else {
@@ -833,6 +851,7 @@ async function main(): Promise<void> {
             turnCount: 1,
             intentCalled: false,
             lastActivityAt: Date.now(),
+            recordedRoles: new Set([role]),
           });
           lastCreatedSessionId = resultSessionId;
           lastCreatedSessionAt = Date.now();
@@ -861,6 +880,30 @@ async function main(): Promise<void> {
 
         if (duplicateWarning) {
           responsePayload.warning = duplicateWarning;
+        }
+
+        // 附加 call_reminder，帮助 Agent 确认调用状态
+        const state = sessionTracker.get(resultSessionId);
+        if (state) {
+          const callReminder: Record<string, unknown> = {
+            total_turns_recorded: state.turnCount,
+            recorded_roles: Array.from(state.recordedRoles),
+          };
+
+          // 检测遗漏的角色
+          const allRoles = ["user", "assistant", "tool"] as const;
+          const missingRoles = allRoles.filter(r => !state.recordedRoles.has(r));
+          if (missingRoles.length > 0) {
+            callReminder.missing_roles = missingRoles;
+            callReminder.hint = `当前已记录 ${callReminder.recorded_roles}，缺少 ${missingRoles}。请补充记录。`;
+          }
+
+          // 如果还没有 user 就已经是 assistant/tool，说明跳过了第一步
+          if (!state.recordedRoles.has("user") && (state.recordedRoles.has("assistant") || state.recordedRoles.has("tool"))) {
+            callReminder.warning = "⚠️ 你还没有调用 log_turn(role='user') 建立会话。正确流程必须从 user 开始。";
+          }
+
+          responsePayload.call_reminder = callReminder;
         }
 
         return {
