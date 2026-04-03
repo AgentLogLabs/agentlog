@@ -3,7 +3,7 @@
   "checkpoint_id": "5e34bad43d58",
   "strategy": "manual-commit",
   "branch": "dev",
-  "checkpoints_count": 0,
+  "checkpoints_count": 1,
   "files_touched": [
     "README.md",
     "docs/AUTO_HOOK_SPEC.md",
@@ -53,6 +53,19 @@
       "transcript": "/5e/34bad43d58/6/full.jsonl",
       "content_hash": "/5e/34bad43d58/6/content_hash.txt",
       "prompt": ""
+    },
+    {
+      "metadata": "/5e/34bad43d58/7/metadata.json",
+      "transcript": "/5e/34bad43d58/7/full.jsonl",
+      "content_hash": "/5e/34bad43d58/7/content_hash.txt",
+      "prompt": "/5e/34bad43d58/7/prompt.txt"
     }
-  ]
+  ],
+  "token_usage": {
+    "input_tokens": 8520,
+    "cache_creation_tokens": 23308,
+    "cache_read_tokens": 53126,
+    "output_tokens": 473,
+    "api_call_count": 4
+  }
 }

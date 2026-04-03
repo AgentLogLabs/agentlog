@@ -1,0 +1,466 @@
+{
+  "info": {
+    "id": "ses_2ac0958beffefySlV6MX4uLdNi",
+    "slug": "playful-pixel",
+    "projectID": "bf4c3e099400a06715a042f25f06edf8caeff610",
+    "directory": "/Users/hobo/Projects/AgentLog",
+    "title": "VSCode插件本地vsix安装测试",
+    "version": "1.3.7",
+    "summary": {
+      "additions": 0,
+      "deletions": 0,
+      "files": 0
+    },
+    "time": {
+      "created": 1775230166850,
+      "updated": 1775230185262
+    }
+  },
+  "messages": [
+    {
+      "info": {
+        "role": "user",
+        "time": {
+          "created": 1775230166869
+        },
+        "summary": {
+          "diffs": []
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "minimax-cn-coding-plan",
+          "modelID": "MiniMax-M2.7"
+        },
+        "id": "msg_d53f6a74e0014NEfuDC3PnWAzG",
+        "sessionID": "ses_2ac0958beffefySlV6MX4uLdNi"
+      },
+      "parts": [
+        {
+          "type": "text",
+          "text": "构建vscode插件，我要本地安装vsix测试",
+          "id": "prt_d53f6a74f001tYJogaVvPFBMhc",
+          "sessionID": "ses_2ac0958beffefySlV6MX4uLdNi",
+          "messageID": "msg_d53f6a74e0014NEfuDC3PnWAzG"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1775230166878,
+          "completed": 1775230172629
+        },
+        "parentID": "msg_d53f6a74e0014NEfuDC3PnWAzG",
+        "modelID": "MiniMax-M2.7",
+        "providerID": "minimax-cn-coding-plan",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 15543,
+          "input": 72,
+          "output": 110,
+          "reasoning": 0,
+          "cache": {
+            "write": 15361,
+            "read": 0
+          }
+        },
+        "finish": "tool-calls",
+        "id": "msg_d53f6a75e0015lNOGFkds42Z6r",
+        "sessionID": "ses_2ac0958beffefySlV6MX4uLdNi"
+      },
+      "parts": [
+        {
+          "snapshot": "9df59554dfd7ccea222fc402b5e9ae677668ed16",
+          "type": "step-start",
+          "id": "prt_d53f6b71b001YBFfThK08CR2pM",
+          "sessionID": "ses_2ac0958beffefySlV6MX4uLdNi",
+          "messageID": "msg_d53f6a75e0015lNOGFkds42Z6r"
+        },
+        {
+          "type": "reasoning",
+          "text": "用户想要构建 VSCode 插件并本地安装 VSIX 进行测试。我需要先了解项目结构，看看是否已经有 VSCode 扩展相关的代码，然后帮助用户构建和安装。\n\n让我先探索一下项目结构。",
+          "time": {
+            "start": 1775230170908,
+            "end": 1775230171932
+          },
+          "metadata": {
+            "anthropic": {
+              "signature": "e9b3cbbb06a81663b1c58514fda67356266fd7f9697725a4d59015ff2a101574"
+            }
+          },
+          "id": "prt_d53f6b71c0010yOJXfOaXrdp20",
+          "sessionID": "ses_2ac0958beffefySlV6MX4uLdNi",
+          "messageID": "msg_d53f6a75e0015lNOGFkds42Z6r"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "call_function_zkasthmpsf96_1",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "packages/vscode-extension/**/*"
+            },
+            "output": "/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/secure-json-parse/test/index.test.js\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/secure-json-parse/types/index.d.ts\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/secure-json-parse/types/index.test-d.ts\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/secure-json-parse/benchmarks/throw.js\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/secure-json-parse/benchmarks/ignore.js\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/secure-json-parse/benchmarks/no__proto__.js\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/secure-json-parse/benchmarks/package.json\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/secure-json-parse/benchmarks/valid.js\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/secure-json-parse/benchmarks/remove.js\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/secure-json-parse/package.json\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/secure-json-parse/README.md\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/secure-json-parse/index.js\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/secure-json-parse/.github/dependabot.yml\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/secure-json-parse/.github/stale.yml\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/secure-json-parse/.github/workflows/ci.yml\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/secure-json-parse/LICENSE.md\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/secure-json-parse/.airtap.yml\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/readable-stream/transform.js\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/readable-stream/duplex.js\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/readable-stream/.travis.yml\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/pino-std-serializers/tsconfig.json\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/pino-std-serializers/index.d.ts\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/pino-std-serializers/eslint.config.js\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/pino-abstract-transport/index.d.ts\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/colorette/index.d.ts\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/colorette/index.cjs\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/colorette/package.json\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/colorette/index.js\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/colorette/README.md\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/colorette/LICENSE.md\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/better-sqlite3/src/better_sqlite3.hpp\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/better-sqlite3/src/better_sqlite3.cpp\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/better-sqlite3/build/binding.Makefile\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/better-sqlite3/build/deps/sqlite3.Makefile\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/better-sqlite3/build/deps/locate_sqlite3.target.mk\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/better-sqlite3/build/deps/sqlite3.target.mk\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/node_modules/better-sqlite3/build/config.gypi\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/mcp.js.map\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/mcp.js\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/index.js.map\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/backend/index.js\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/webview/detail.js\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/webview/detail.css\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/webview/dashboard.js\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/webview/dashboard.css\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/extension.js\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/dist/extension.js.map\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/src/extension.ts\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/package.json\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/test/runTest.ts\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/scripts/check-node-version.js\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/node_modules/.bin/esbuild\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/node_modules/.bin/vsce\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/node_modules/.bin/_mocha\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/node_modules/.bin/playwright\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/node_modules/.bin/tsc\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/node_modules/.bin/tsx\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/node_modules/.bin/tsserver\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/node_modules/.bin/mocha\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/.vscode-test/extensions/extensions.json\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/.vscode-test/vscode-darwin-arm64-1.114.0/is-complete\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/RELEASE_NOTES.md\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/CHANGELOG.md\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/.DS_Store\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/.vscode-test/vscode-darwin-arm64-1.114.0/Visual Studio Code.app/Contents/Info.plist\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/agentlog-vscode-darwin-arm64-0.1.4.vsix\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/agentlog-vscode-darwin-x64-0.1.4.vsix\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/agentlog-vscode-0.1.4.vsix\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/agentlog-vscode-0.1.3.vsix\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/agentlog-vscode-0.1.0.vsix\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/PUBLISH_GUIDE.md\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/README.md\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/assets/logo.png\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/LICENSE\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/assets/16.png\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/assets/128.png\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/assets/128-icon.png\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/assets/512.png\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/assets/1024.png\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/assets/logo.jpg\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/assets/icon.svg\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/assets/sidebar-icon.svg\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/assets/sidebar-icon1.svg\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/assets/sidebar-icon2.png\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/assets/sidebar-icon0.svg\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/src/providers/sessionWebviewProvider.ts\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/src/webview/dashboard.js\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/src/providers/sessionTreeProvider.ts\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/.vscodeignore\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/assets/.DS_Store\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/src/webview/detail.js\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/src/client/backendClient.ts\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/.vscode-test/vscode-darwin-arm64-1.114.0/Visual Studio Code.app/Contents/PkgInfo\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/src/webview/detail.css\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/build.mjs\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/src/webview/dashboard.css\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/test/fetchInterception.test.ts\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/src/hooks/copilotChatParticipant.ts\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/src/hooks/hookInstaller.ts\n/Users/hobo/Projects/AgentLog/packages/vscode-extension/tsconfig.json\n\n(Results are truncated: showing first 100 results. Consider using a more specific path or pattern.)",
+            "metadata": {
+              "count": 100,
+              "truncated": true
+            },
+            "title": "",
+            "time": {
+              "start": 1775230172525,
+              "end": 1775230172571
+            }
+          },
+          "id": "prt_d53f6bb1e001QrulaudbLC0xPP",
+          "sessionID": "ses_2ac0958beffefySlV6MX4uLdNi",
+          "messageID": "msg_d53f6a75e0015lNOGFkds42Z6r"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "call_function_zkasthmpsf96_2",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/Users/hobo/Projects/AgentLog/packages/vscode-extension/package.json"
+            },
+            "output": "<path>/Users/hobo/Projects/AgentLog/packages/vscode-extension/package.json</path>\n<type>file</type>\n<content>1: {\n2:   \"name\": \"agentlog-vscode\",\n3:   \"displayName\": \"AgentLog — AI 编程飞行记录仪\",\n4:   \"description\": \"AI 编程助手必备！自动捕获 DeepSeek/Cursor/Cline 等 AI Agent 交互日志（Prompt/Reasoning/Response），与 Git Commit 智能绑定，支持一键导出周报、PR 说明、提交上下文。兼容 DeepSeek、Qwen、Kimi 等国产大模型，让 AI 编程过程全程可追溯。\",\n5:   \"version\": \"1.0.1\",\n6:   \"private\": false,\n7:   \"publisher\": \"agentloglabs\",\n8:   \"license\": \"Apache-2.0\",\n9:   \"icon\": \"assets/128.png\",\n10:   \"homepage\": \"https://github.com/AgentLogLabs/agentlog\",\n11:   \"repository\": {\n12:     \"type\": \"git\",\n13:     \"url\": \"https://github.com/AgentLogLabs/agentlog.git\"\n14:   },\n15:   \"readme\": \"README.md\",\n16:   \"engines\": {\n17:     \"vscode\": \"^1.96.0\",\n18:     \"node\": \">=18.0.0 <24.0.0\"\n19:   },\n20:   \"categories\": [\n21:     \"Other\",\n22:     \"SCM Providers\"\n23:   ],\n24:   \"keywords\": [\n25:     \"AI\",\n26:     \"agent\",\n27:     \"log\",\n28:     \"deepseek\",\n29:     \"qwen\",\n30:     \"kimi\",\n31:     \"cline\",\n32:     \"cursor\",\n33:     \"git\",\n34:     \"prompt\"\n35:   ],\n36:   \"activationEvents\": [\n37:     \"onStartupFinished\",\n38:     \"onChatParticipant:agentlog.chat\",\n39:     \"onCommand:agentlog.startBackend\",\n40:     \"onCommand:agentlog.stopBackend\",\n41:     \"onCommand:agentlog.showBackendStatus\",\n42:     \"onCommand:agentlog.openDashboard\",\n43:     \"onCommand:agentlog.exportWeeklyReport\",\n44:     \"onCommand:agentlog.exportPrDescription\",\n45:     \"onCommand:agentlog.generateCommitContext\",\n46:     \"onCommand:agentlog.generateCommitExplain\",\n47:     \"onCommand:agentlog.bindCommit\",\n48:     \"onCommand:agentlog.unbindCommit\",\n49:     \"onCommand:agentlog.installGitHook\",\n50:     \"onCommand:agentlog.removeGitHook\",\n51:     \"onCommand:agentlog.viewSessionDetail\",\n52:     \"onCommand:agentlog.deleteSession\",\n53:     \"onCommand:agentlog.refreshSessionList\",\n54:     \"onCommand:agentlog.installHooks\",\n55:     \"onCommand:agentlog.uninstallHooks\",\n56:     \"onCommand:agentlog.resumeContext\",\n57:     \"onCommand:agentlog.configureMcpClient\",\n58:     \"onCommand:agentlog.verifyMcpConnection\"\n59:   ],\n60:   \"main\": \"./dist/extension.js\",\n61:   \"contributes\": {\n62:     \"commands\": [\n63:       {\n64:         \"command\": \"agentlog.openDashboard\",\n65:         \"title\": \"AgentLog: 打开交互日志面板\",\n66:         \"icon\": \"$(history)\"\n67:       },\n68:       {\n69:         \"command\": \"agentlog.exportWeeklyReport\",\n70:         \"title\": \"AgentLog: 导出本周 AI 开发周报\",\n71:         \"icon\": \"$(file-text)\"\n72:       },\n73:       {\n74:         \"command\": \"agentlog.exportPrDescription\",\n75:         \"title\": \"AgentLog: 导出 PR / Code Review 说明\",\n76:         \"icon\": \"$(git-pull-request)\"\n77:       },\n78:       {\n79:         \"command\": \"agentlog.generateCommitContext\",\n80:         \"title\": \"AgentLog: 生成 Commit 上下文文档\",\n81:         \"icon\": \"$(book)\"\n82:       },\n83:       {\n84:         \"command\": \"agentlog.generateCommitExplain\",\n85:         \"title\": \"AgentLog: 生成 Commit AI 交互解释\",\n86:         \"icon\": \"$(comment-discussion)\"\n87:       },\n88:       {\n89:         \"command\": \"agentlog.bindCommit\",\n90:         \"title\": \"AgentLog: 手动绑定 Commit\",\n91:         \"icon\": \"$(git-commit)\"\n92:       },\n93:       {\n94:         \"command\": \"agentlog.unbindCommit\",\n95:         \"title\": \"AgentLog: 解除 Commit 绑定\",\n96:         \"icon\": \"$(git-commit)\"\n97:       },\n98:       {\n99:         \"command\": \"agentlog.installGitHook\",\n100:         \"title\": \"AgentLog: 安装 Git post-commit 钩子（自动绑定）\",\n101:         \"icon\": \"$(plug)\"\n102:       },\n103:       {\n104:         \"command\": \"agentlog.removeGitHook\",\n105:         \"title\": \"AgentLog: 移除 Git post-commit 钩子\",\n106:         \"icon\": \"$(trash)\"\n107:       },\n108:       {\n109:         \"command\": \"agentlog.viewSessionDetail\",\n110:         \"title\": \"AgentLog: 查看会话详情\",\n111:         \"icon\": \"$(eye)\"\n112:       },\n113:       {\n114:         \"command\": \"agentlog.deleteSession\",\n115:         \"title\": \"AgentLog: 删除会话记录\",\n116:         \"icon\": \"$(trash)\"\n117:       },\n118:       {\n119:         \"command\": \"agentlog.refreshSessionList\",\n120:         \"title\": \"AgentLog: 刷新会话列表\",\n121:         \"icon\": \"$(refresh)\"\n122:       },\n123:       {\n124:         \"command\": \"agentlog.startBackend\",\n125:         \"title\": \"AgentLog: 启动本地后台服务\",\n126:         \"icon\": \"$(server-process)\"\n127:       },\n128:       {\n129:         \"command\": \"agentlog.stopBackend\",\n130:         \"title\": \"AgentLog: 停止本地后台服务\",\n131:         \"icon\": \"$(debug-stop)\"\n132:       },\n133:       {\n134:         \"command\": \"agentlog.showBackendStatus\",\n135:         \"title\": \"AgentLog: 查看后台服务状态\",\n136:         \"icon\": \"$(pulse)\"\n137:       },\n138:       {\n139:         \"command\": \"agentlog.installHooks\",\n140:         \"title\": \"AgentLog: 安装 Claude Code Hook（自动上报 AI 会话）\",\n141:         \"icon\": \"$(plug)\"\n142:       },\n143:       {\n144:         \"command\": \"agentlog.uninstallHooks\",\n145:         \"title\": \"AgentLog: 移除 Claude Code Hook\",\n146:         \"icon\": \"$(trash)\"\n147:       },\n148:       {\n149:         \"command\": \"agentlog.resumeContext\",\n150:         \"title\": \"AgentLog: 复活上下文 (Resume Context)\",\n151:         \"icon\": \"$(debug-restart)\"\n152:       },\n153:       {\n154:         \"command\": \"agentlog.configureMcpClient\",\n155:         \"title\": \"AgentLog: 配置 AI Agent MCP 接入\",\n156:         \"icon\": \"$(plug)\"\n157:       },\n158:       {\n159:         \"command\": \"agentlog.verifyMcpConnection\",\n160:         \"title\": \"AgentLog: 验证 MCP 连接\",\n161:         \"icon\": \"$(check)\"\n162:       },\n163:       {\n164:         \"command\": \"agentlog.openGitHub\",\n165:         \"title\": \"AgentLog: 帮助与反馈\",\n166:         \"icon\": \"$(feedback)\"\n167:       }\n168:     ],\n169:     \"chatParticipants\": [\n170:       {\n171:         \"id\": \"agentlog.chat\",\n172:         \"fullName\": \"AgentLog AI 记录仪\",\n173:         \"name\": \"agentlog\",\n174:         \"description\": \"通过 AgentLog 记录 AI 对话（使用当前选中的 Copilot 模型）\",\n175:         \"isSticky\": true\n176:       }\n177:     ],\n178:     \"viewsContainers\": {\n179:       \"activitybar\": [\n180:         {\n181:           \"id\": \"agentlog-sidebar\",\n182:           \"title\": \"AgentLog\",\n183:           \"icon\": \"assets/128-icon.png\"\n184:         }\n185:       ]\n186:     },\n187:     \"views\": {\n188:       \"agentlog-sidebar\": [\n189:         {\n190:           \"id\": \"agentlog.sessionList\",\n191:           \"name\": \"AI 交互记录\",\n192:           \"type\": \"tree\",\n193:           \"icon\": \"$(history)\",\n194:           \"contextualTitle\": \"AgentLog — AI 交互记录\"\n195:         },\n196:         {\n197:           \"id\": \"agentlog.commitBindings\",\n198:           \"name\": \"Commit 绑定\",\n199:           \"type\": \"tree\",\n200:           \"icon\": \"$(git-commit)\",\n201:           \"contextualTitle\": \"AgentLog — Commit 绑定\"\n202:         }\n203:       ]\n204:     },\n205:     \"viewsWelcome\": [\n206:       {\n207:         \"view\": \"agentlog.sessionList\",\n208:         \"contents\": \"尚无 AI 交互记录。\\n\\n确认后台服务已启动，并开始使用 Cline、Cursor 等 AI 工具进行开发。\\n\\n[启动后台服务](command:agentlog.startBackend)\\n[查看服务状态](command:agentlog.showBackendStatus)\\n[配置 AI Agent MCP 接入](command:agentlog.configureMcpClient)\"\n209:       },\n210:       {\n211:         \"view\": \"agentlog.commitBindings\",\n212:         \"contents\": \"尚无 Commit 绑定记录。\\n\\n安装 Git 钩子后，每次 git commit 时将自动关联最近的 AI 交互会话。\\n\\n[安装 Git 钩子](command:agentlog.installGitHook)\"\n213:       }\n214:     ],\n215:     \"menus\": {\n216:       \"view/title\": [\n217:         {\n218:           \"command\": \"agentlog.openGitHub\",\n219:           \"when\": \"view == agentlog.sessionList\",\n220:           \"group\": \"navigation@10\"\n221:         },\n222:         {\n223:           \"command\": \"agentlog.configureMcpClient\",\n224:           \"when\": \"view == agentlog.sessionList\",\n225:           \"group\": \"navigation\"\n226:         },\n227:         {\n228:           \"command\": \"agentlog.refreshSessionList\",\n229:           \"when\": \"view == agentlog.sessionList\",\n230:           \"group\": \"navigation\"\n231:         },\n232:         {\n233:           \"command\": \"agentlog.openDashboard\",\n234:           \"when\": \"view == agentlog.sessionList\",\n235:           \"group\": \"navigation\"\n236:         },\n237:         {\n238:           \"command\": \"agentlog.exportWeeklyReport\",\n239:           \"when\": \"view == agentlog.sessionList\",\n240:           \"group\": \"export\"\n241:         },\n242:         {\n243:           \"command\": \"agentlog.exportPrDescription\",\n244:           \"when\": \"view == agentlog.sessionList\",\n245:           \"group\": \"export\"\n246:         },\n247:         {\n248:           \"command\": \"agentlog.generateCommitContext\",\n249:           \"when\": \"view == agentlog.commitBindings\",\n250:           \"group\": \"export\"\n251:         },\n252:         {\n253:           \"command\": \"agentlog.generateCommitExplain\",\n254:           \"when\": \"view == agentlog.commitBindings\",\n255:           \"group\": \"export\"\n256:         }\n257:       ],\n258:       \"view/item/context\": [\n259:         {\n260:           \"command\": \"agentlog.viewSessionDetail\",\n261:           \"when\": \"view == agentlog.sessionList && viewItem == session\",\n262:           \"group\": \"inline\"\n263:         },\n264:         {\n265:           \"command\": \"agentlog.bindCommit\",\n266:           \"when\": \"view == agentlog.sessionList && viewItem == session\",\n267:           \"group\": \"agentlog@1\"\n268:         },\n269:         {\n270:           \"command\": \"agentlog.resumeContext\",\n271:           \"when\": \"view == agentlog.sessionList && viewItem == session\",\n272:           \"group\": \"agentlog@2\"\n273:         },\n274:         {\n275:           \"command\": \"agentlog.deleteSession\",\n276:           \"when\": \"view == agentlog.sessionList && viewItem == session\",\n277:           \"group\": \"agentlog@3\"\n278:         },\n279:         {\n280:           \"command\": \"agentlog.viewSessionDetail\",\n281:           \"when\": \"view == agentlog.sessionList && viewItem == session-bound\",\n282:           \"group\": \"inline\"\n283:         },\n284:         {\n285:           \"command\": \"agentlog.unbindCommit\",\n286:           \"when\": \"view == agentlog.sessionList && viewItem == session-bound\",\n287:           \"group\": \"agentlog@1\"\n288:         },\n289:         {\n290:           \"command\": \"agentlog.resumeContext\",\n291:           \"when\": \"view == agentlog.sessionList && viewItem == session-bound\",\n292:           \"group\": \"agentlog@2\"\n293:         },\n294:         {\n295:           \"command\": \"agentlog.deleteSession\",\n296:           \"when\": \"view == agentlog.sessionList && viewItem == session-bound\",\n297:           \"group\": \"agentlog@3\"\n298:         },\n299:         {\n300:           \"command\": \"agentlog.resumeContext\",\n301:           \"when\": \"view == agentlog.commitBindings && viewItem == commit-session\",\n302:           \"group\": \"agentlog@2\"\n303:         },\n304:         {\n305:           \"command\": \"agentlog.generateCommitContext\",\n306:           \"when\": \"view == agentlog.commitBindings && viewItem == commit\",\n307:           \"group\": \"agentlog@3\"\n308:         },\n309:         {\n310:           \"command\": \"agentlog.generateCommitExplain\",\n311:           \"when\": \"view == agentlog.commitBindings && viewItem == commit\",\n312:           \"group\": \"agentlog@4\"\n313:         }\n314:       ],\n315:       \"commandPalette\": [\n316:         {\n317:           \"command\": \"agentlog.viewSessionDetail\",\n318:           \"when\": \"false\"\n319:         },\n320:         {\n321:           \"command\": \"agentlog.deleteSession\",\n322:           \"when\": \"false\"\n323:         }\n324:       ],\n325:       \"scm/title\": [\n326:         {\n327:           \"command\": \"agentlog.bindCommit\",\n328:           \"group\": \"agentlog\",\n329:           \"when\": \"scmProvider == git\"\n330:         }\n331:       ]\n332:     },\n333:     \"configuration\": {\n334:       \"title\": \"AgentLog\",\n335:       \"properties\": {\n336:         \"agentlog.backendUrl\": {\n337:           \"type\": \"string\",\n338:           \"default\": \"http://localhost:7892\",\n339:           \"description\": \"AgentLog 本地后台服务地址。修改后需重启插件生效。\",\n340:           \"order\": 1\n341:         },\n342:         \"agentlog.mcp.configuredClients\": {\n343:           \"type\": \"array\",\n344:           \"default\": [],\n345:           \"items\": {\n346:             \"type\": \"string\"\n347:           },\n348:           \"markdownDescription\": \"已完成 MCP 配置的 AI 客户端列表（由插件自动维护，请勿手动编辑）。\",\n349:           \"order\": 3\n350:         },\n351:         \"agentlog.autoBindOnCommit\": {\n352:           \"type\": \"boolean\",\n353:           \"default\": true,\n354:           \"description\": \"在执行 git commit 时，自动将最近的未绑定 AI 会话与该 Commit 关联。\",\n355:           \"order\": 4\n356:         },\n357:         \"agentlog.retentionDays\": {\n358:           \"type\": \"number\",\n359:           \"default\": 90,\n360:           \"minimum\": 0,\n361:           \"description\": \"会话记录保留天数。设为 0 表示永久保留。\",\n362:           \"order\": 5\n363:         },\n364:         \"agentlog.autoStartBackend\": {\n365:           \"type\": \"boolean\",\n366:           \"default\": true,\n367:           \"description\": \"VS Code 启动时，是否自动在后台启动 AgentLog 本地服务。\",\n368:           \"order\": 6\n369:         },\n370:         \"agentlog.debug\": {\n371:           \"type\": \"boolean\",\n372:           \"default\": false,\n373:           \"description\": \"启用调试日志输出（输出到「输出」面板的 AgentLog 频道）。\",\n374:           \"order\": 7\n375:         },\n376:         \"agentlog.exportLanguage\": {\n377:           \"type\": \"string\",\n378:           \"default\": \"zh\",\n379:           \"enum\": [\n380:             \"zh\",\n381:             \"en\"\n382:           ],\n383:           \"enumDescriptions\": [\n384:             \"中文\",\n385:             \"English\"\n386:           ],\n387:           \"description\": \"导出周报 / PR 描述时使用的语言。\",\n388:           \"order\": 8\n389:         }\n390:       }\n391:     },\n392:     \"statusBar\": []\n393:   },\n394:   \"scripts\": {\n395:     \"postinstall\": \"node scripts/check-node-version.js\",\n396:     \"compile\": \"node build.mjs\",\n397:     \"watch\": \"node build.mjs --watch\",\n398:     \"copy-webview\": \"node -e \\\"const fs=require('fs');const p=require('path');const src='src/webview';const dst='dist/webview';if(!fs.existsSync(dst))fs.mkdirSync(dst,{recursive:true});fs.readdirSync(src).forEach(f=>fs.copyFileSync(p.join(src,f),p.join(dst,f)));\\\"\",\n399:     \"copy-backend\": \"node -e \\\"const fs=require('fs');const p=require('path');const src='../backend/dist';const dst='dist/backend';if(!fs.existsSync(dst))fs.mkdirSync(dst,{recursive:true});function copyDir(src,dst){const entries=fs.readdirSync(src,{withFileTypes:true});entries.forEach(entry=>{const srcPath=p.join(src,entry.name);const dstPath=p.join(dst,entry.name);if(entry.isDirectory()){if(!fs.existsSync(dstPath))fs.mkdirSync(dstPath,{recursive:true});copyDir(srcPath,dstPath);}else{fs.copyFileSync(srcPath,dstPath);}});}copyDir(src,dst);\\\"\",\n400:     \"build\": \"node build.mjs\",\n401:     \"vscode:prepublish\": \"node build.mjs\",\n402:     \"package\": \"vsce package --no-dependencies\",\n403:     \"lint\": \"tsc --noEmit\",\n404:     \"clean\": \"rm -rf dist\",\n405:     \"test:fetch\": \"node --import tsx --test test/fetchInterception.test.ts\"\n406:   },\n407:   \"dependencies\": {\n408:     \"@agentlog/shared\": \"workspace:*\",\n409:     \"playwright\": \"^1.59.1\"\n410:   },\n411:   \"devDependencies\": {\n412:     \"@types/chai\": \"^5.2.3\",\n413:     \"@types/mocha\": \"^10.0.10\",\n414:     \"@types/node\": \"^20.11.30\",\n415:     \"@types/vscode\": \"^1.85.0\",\n416:     \"@vscode/test-electron\": \"^2.5.2\",\n417:     \"@vscode/vsce\": \"^2.24.0\",\n418:     \"chai\": \"^6.2.2\",\n419:     \"esbuild\": \"^0.27.4\",\n420:     \"mocha\": \"^11.7.5\",\n421:     \"tsx\": \"^4.7.2\",\n422:     \"typescript\": \"^5.4.5\"\n423:   }\n424: }\n\n(End of file - total 424 lines)\n</content>",
+            "metadata": {
+              "preview": "{\n  \"name\": \"agentlog-vscode\",\n  \"displayName\": \"AgentLog — AI 编程飞行记录仪\",\n  \"description\": \"AI 编程助手必备！自动捕获 DeepSeek/Cursor/Cline 等 AI Agent 交互日志（Prompt/Reasoning/Response），与 Git Commit 智能绑定，支持一键导出周报、PR 说明、提交上下文。兼容 DeepSeek、Qwen、Kimi 等国产大模型，让 AI 编程过程全程可追溯。\",\n  \"version\": \"1.0.1\",\n  \"private\": false,\n  \"publisher\": \"agentloglabs\",\n  \"license\": \"Apache-2.0\",\n  \"icon\": \"assets/128.png\",\n  \"homepage\": \"https://github.com/AgentLogLabs/agentlog\",\n  \"repository\": {\n    \"type\": \"git\",\n    \"url\": \"https://github.com/AgentLogLabs/agentlog.git\"\n  },\n  \"readme\": \"README.md\",\n  \"engines\": {\n    \"vscode\": \"^1.96.0\",\n    \"node\": \">=18.0.0 <24.0.0\"\n  },\n  \"categories\": [",
+              "truncated": false,
+              "loaded": []
+            },
+            "title": "packages/vscode-extension/package.json",
+            "time": {
+              "start": 1775230172535,
+              "end": 1775230172542
+            }
+          },
+          "id": "prt_d53f6bd71001NWbRN5owDYPqkz",
+          "sessionID": "ses_2ac0958beffefySlV6MX4uLdNi",
+          "messageID": "msg_d53f6a75e0015lNOGFkds42Z6r"
+        },
+        {
+          "reason": "tool-calls",
+          "snapshot": "9df59554dfd7ccea222fc402b5e9ae677668ed16",
+          "type": "step-finish",
+          "tokens": {
+            "total": 15543,
+            "input": 72,
+            "output": 110,
+            "reasoning": 0,
+            "cache": {
+              "write": 15361,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_d53f6bd9d001c458498jSlTiBy",
+          "sessionID": "ses_2ac0958beffefySlV6MX4uLdNi",
+          "messageID": "msg_d53f6a75e0015lNOGFkds42Z6r"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1775230172632,
+          "completed": 1775230180384
+        },
+        "parentID": "msg_d53f6a74e0014NEfuDC3PnWAzG",
+        "modelID": "MiniMax-M2.7",
+        "providerID": "minimax-cn-coding-plan",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 22629,
+          "input": 7015,
+          "output": 138,
+          "reasoning": 0,
+          "cache": {
+            "write": 130,
+            "read": 15346
+          }
+        },
+        "finish": "tool-calls",
+        "id": "msg_d53f6bdd8001OB9nsSQSyMLYul",
+        "sessionID": "ses_2ac0958beffefySlV6MX4uLdNi"
+      },
+      "parts": [
+        {
+          "snapshot": "9df59554dfd7ccea222fc402b5e9ae677668ed16",
+          "type": "step-start",
+          "id": "prt_d53f6d0b5001IeIz8tiDsRhlFd",
+          "sessionID": "ses_2ac0958beffefySlV6MX4uLdNi",
+          "messageID": "msg_d53f6bdd8001OB9nsSQSyMLYul"
+        },
+        {
+          "type": "reasoning",
+          "text": "项目已经有一个 vscode-extension 包，并且已经有一些 .vsix 文件了。用户想要构建并本地安装测试。\n\n我需要：\n1. 先构建扩展（compile 或 build）\n2. 然后打包成 VSIX\n3. 最后安装\n\n根据 package.json，构建命令是 `pnpm build` 或 `pnpm compile`，打包是 `pnpm package`。\n\n让我先执行构建和打包命令。",
+          "time": {
+            "start": 1775230177462,
+            "end": 1775230178956
+          },
+          "metadata": {
+            "anthropic": {
+              "signature": "8c97084a70a547d3ea255691e9c5ca59451c083b293e3a34f42b2559cc282a3a"
+            }
+          },
+          "id": "prt_d53f6d0b6001ULCbF5M1Y3iul4",
+          "sessionID": "ses_2ac0958beffefySlV6MX4uLdNi",
+          "messageID": "msg_d53f6bdd8001OB9nsSQSyMLYul"
+        },
+        {
+          "type": "tool",
+          "tool": "bash",
+          "callID": "call_function_zlqi1427cnyt_1",
+          "state": {
+            "status": "completed",
+            "input": {
+              "command": "cd /Users/hobo/Projects/AgentLog/packages/vscode-extension && pnpm build",
+              "description": "Build vscode extension"
+            },
+            "output": "\n> agentlog-vscode@1.0.1 build /Users/hobo/Projects/AgentLog/packages/vscode-extension\n> node build.mjs\n\n\nBuilding backend...\n\n  dist/mcp.js      737.2kb\n  dist/mcp.js.map    1.2mb\n\n⚡ Done in 55ms\n\n  dist/index.js      1.4mb ⚠️\n  dist/index.js.map  2.3mb\n\n⚡ Done in 77ms\n\nCopying external packages to dist/node_modules/...\nbetter-sqlite3 native module already built (arch=arm64), skipping rebuild.\n  ✓ better-sqlite3\n  ✓ bindings\n  ✓ file-uri-to-path\n  ✓ pino\n  ✓ pino-pretty\n  ✓ pino-abstract-transport\n  ✓ pino-std-serializers\n  ✓ atomic-sleep\n  ✓ on-exit-leak-free\n  ✓ process-warning\n  ✓ quick-format-unescaped\n  ✓ real-require\n  ✓ safe-stable-stringify\n  ✓ @pinojs/redact\n  ✓ sonic-boom\n  ✓ thread-stream\n  ✓ colorette\n  ✓ dateformat\n  ✓ fast-copy\n  ✓ fast-safe-stringify\n  ✓ help-me\n  ✓ joycon\n  ✓ minimist\n  ✓ pump\n  ✓ end-of-stream\n  ✓ once\n  ✓ wrappy\n  ✓ readable-stream\n  ✓ inherits\n  ✓ string_decoder\n  ✓ util-deprecate\n  ✓ safe-buffer\n  ✓ secure-json-parse\n  ✓ strip-json-comments\n  ✓ split2\n\nBackend build complete.\n\n  dist/extension.js      140.7kb\n  dist/extension.js.map  342.4kb\n\n⚡ Done in 7ms\nwebview assets copied.\nbackend dist copied (with node_modules).\n",
+            "metadata": {
+              "output": "\n> agentlog-vscode@1.0.1 build /Users/hobo/Projects/AgentLog/packages/vscode-extension\n> node build.mjs\n\n\nBuilding backend...\n\n  dist/mcp.js      737.2kb\n  dist/mcp.js.map    1.2mb\n\n⚡ Done in 55ms\n\n  dist/index.js      1.4mb ⚠️\n  dist/index.js.map  2.3mb\n\n⚡ Done in 77ms\n\nCopying external packages to dist/node_modules/...\nbetter-sqlite3 native module already built (arch=arm64), skipping rebuild.\n  ✓ better-sqlite3\n  ✓ bindings\n  ✓ file-uri-to-path\n  ✓ pino\n  ✓ pino-pretty\n  ✓ pino-abstract-transport\n  ✓ pino-std-serializers\n  ✓ atomic-sleep\n  ✓ on-exit-leak-free\n  ✓ process-warning\n  ✓ quick-format-unescaped\n  ✓ real-require\n  ✓ safe-stable-stringify\n  ✓ @pinojs/redact\n  ✓ sonic-boom\n  ✓ thread-stream\n  ✓ colorette\n  ✓ dateformat\n  ✓ fast-copy\n  ✓ fast-safe-stringify\n  ✓ help-me\n  ✓ joycon\n  ✓ minimist\n  ✓ pump\n  ✓ end-of-stream\n  ✓ once\n  ✓ wrappy\n  ✓ readable-stream\n  ✓ inherits\n  ✓ string_decoder\n  ✓ util-deprecate\n  ✓ safe-buffer\n  ✓ secure-json-parse\n  ✓ strip-json-comments\n  ✓ split2\n\nBackend build complete.\n\n  dist/extension.js      140.7kb\n  dist/extension.js.map  342.4kb\n\n⚡ Done in 7ms\nwebview assets copied.\nbackend dist copied (with node_modules).\n",
+              "exit": 0,
+              "description": "Build vscode extension",
+              "truncated": false
+            },
+            "title": "Build vscode extension",
+            "time": {
+              "start": 1775230179649,
+              "end": 1775230180324
+            }
+          },
+          "id": "prt_d53f6d68f001XvWSU4nkkOcW29",
+          "sessionID": "ses_2ac0958beffefySlV6MX4uLdNi",
+          "messageID": "msg_d53f6bdd8001OB9nsSQSyMLYul"
+        },
+        {
+          "reason": "tool-calls",
+          "snapshot": "9df59554dfd7ccea222fc402b5e9ae677668ed16",
+          "type": "step-finish",
+          "tokens": {
+            "total": 22629,
+            "input": 7015,
+            "output": 138,
+            "reasoning": 0,
+            "cache": {
+              "write": 130,
+              "read": 15346
+            }
+          },
+          "cost": 0,
+          "id": "prt_d53f6dbe4002IwxqxME2SmUKOJ",
+          "sessionID": "ses_2ac0958beffefySlV6MX4uLdNi",
+          "messageID": "msg_d53f6bdd8001OB9nsSQSyMLYul"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1775230180385,
+          "completed": 1775230185238
+        },
+        "parentID": "msg_d53f6a74e0014NEfuDC3PnWAzG",
+        "modelID": "MiniMax-M2.7",
+        "providerID": "minimax-cn-coding-plan",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 23102,
+          "input": 470,
+          "output": 70,
+          "reasoning": 0,
+          "cache": {
+            "write": 7201,
+            "read": 15361
+          }
+        },
+        "finish": "tool-calls",
+        "id": "msg_d53f6dc21001K64F9yKBP8tzwI",
+        "sessionID": "ses_2ac0958beffefySlV6MX4uLdNi"
+      },
+      "parts": [
+        {
+          "snapshot": "9df59554dfd7ccea222fc402b5e9ae677668ed16",
+          "type": "step-start",
+          "id": "prt_d53f6e26f001hjg7vDpO37kgOh",
+          "sessionID": "ses_2ac0958beffefySlV6MX4uLdNi",
+          "messageID": "msg_d53f6dc21001K64F9yKBP8tzwI"
+        },
+        {
+          "type": "reasoning",
+          "text": "构建完成了，现在需要打包成 VSIX 文件，然后安装。",
+          "time": {
+            "start": 1775230182000,
+            "end": 1775230182000
+          },
+          "metadata": {
+            "anthropic": {
+              "signature": "474c490e9630111e6fc9517f3b3368d374d1ccc0a127634e765b244dc98e495b"
+            }
+          },
+          "id": "prt_d53f6e270001YS6daHhbqgj0gg",
+          "sessionID": "ses_2ac0958beffefySlV6MX4uLdNi",
+          "messageID": "msg_d53f6dc21001K64F9yKBP8tzwI"
+        },
+        {
+          "type": "tool",
+          "tool": "bash",
+          "callID": "call_function_lz0br3shd371_1",
+          "state": {
+            "status": "completed",
+            "input": {
+              "command": "cd /Users/hobo/Projects/AgentLog/packages/vscode-extension && pnpm package",
+              "description": "Package extension to VSIX"
+            },
+            "output": "\n> agentlog-vscode@1.0.1 package /Users/hobo/Projects/AgentLog/packages/vscode-extension\n> vsce package --no-dependencies\n\nExecuting prepublish script 'npm run vscode:prepublish'...\n\n> agentlog-vscode@1.0.1 vscode:prepublish\n> node build.mjs\n\n\nBuilding backend...\n\n  dist/mcp.js      737.2kb\n  dist/mcp.js.map    1.2mb\n\n⚡ Done in 48ms\n\n  dist/index.js      1.4mb ⚠️\n  dist/index.js.map  2.3mb\n\n⚡ Done in 66ms\n\nCopying external packages to dist/node_modules/...\nbetter-sqlite3 native module already built (arch=arm64), skipping rebuild.\n  ✓ better-sqlite3\n  ✓ bindings\n  ✓ file-uri-to-path\n  ✓ pino\n  ✓ pino-pretty\n  ✓ pino-abstract-transport\n  ✓ pino-std-serializers\n  ✓ atomic-sleep\n  ✓ on-exit-leak-free\n  ✓ process-warning\n  ✓ quick-format-unescaped\n  ✓ real-require\n  ✓ safe-stable-stringify\n  ✓ @pinojs/redact\n  ✓ sonic-boom\n  ✓ thread-stream\n  ✓ colorette\n  ✓ dateformat\n  ✓ fast-copy\n  ✓ fast-safe-stringify\n  ✓ help-me\n  ✓ joycon\n  ✓ minimist\n  ✓ pump\n  ✓ end-of-stream\n  ✓ once\n  ✓ wrappy\n  ✓ readable-stream\n  ✓ inherits\n  ✓ string_decoder\n  ✓ util-deprecate\n  ✓ safe-buffer\n  ✓ secure-json-parse\n  ✓ strip-json-comments\n  ✓ split2\n\nBackend build complete.\n\n  dist/extension.js      140.7kb\n  dist/extension.js.map  342.4kb\n\n⚡ Done in 7ms\nwebview assets copied.\nbackend dist copied (with node_modules).\n WARNING  This extension consists of 521 files, out of which 192 are JavaScript files. For performance reasons, you should bundle your extension: https://aka.ms/vscode-bundle-extension. You should also exclude unnecessary files by adding them to your .vscodeignore: https://aka.ms/vscode-vscodeignore.\n\n INFO  Files included in the VSIX:\nagentlog-vscode-1.0.1.vsix\n├─ [Content_Types].xml \n├─ extension.vsixmanifest \n└─ extension/\n   ├─ CHANGELOG.md [2.4 KB]\n   ├─ LICENSE.txt \n   ├─ README.md [3.59 KB]\n   ├─ package.json [13.73 KB]\n   ├─ assets/\n   │  ├─ 1024.png [360.6 KB]\n   │  ├─ 128-icon.png [4.01 KB]\n   │  ├─ 128.png [10.81 KB]\n   │  ├─ 16.png [0.59 KB]\n   │  ├─ 512.png [105.79 KB]\n   │  ├─ icon.svg [0.66 KB]\n   │  ├─ logo.jpg [258.65 KB]\n   │  ├─ logo.png [443.99 KB]\n   │  ├─ sidebar-icon0.svg [0.92 KB]\n   │  ├─ sidebar-icon1.svg [0.27 KB]\n   │  └─ sidebar-icon2.png [277.58 KB]\n   ├─ dist/\n   │  ├─ extension.js [140.71 KB]\n   │  ├─ extension.js.map [342.41 KB]\n   │  ├─ backend/ (497 files) [32.07 MB]\n   │  └─ webview/ (4 files) [55.43 KB]\n   └─ scripts/\n      └─ check-node-version.js [0.86 KB]\n\n=> Run vsce ls --tree to see all included files.\n\n DONE  Packaged: /Users/hobo/Projects/AgentLog/packages/vscode-extension/agentlog-vscode-1.0.1.vsix (521 files, 10.93 MB)\n",
+            "metadata": {
+              "output": "\n> agentlog-vscode@1.0.1 package /Users/hobo/Projects/AgentLog/packages/vscode-extension\n> vsce package --no-dependencies\n\nExecuting prepublish script 'npm run vscode:prepublish'...\n\n> agentlog-vscode@1.0.1 vscode:prepublish\n> node build.mjs\n\n\nBuilding backend...\n\n  dist/mcp.js      737.2kb\n  dist/mcp.js.map    1.2mb\n\n⚡ Done in 48ms\n\n  dist/index.js      1.4mb ⚠️\n  dist/index.js.map  2.3mb\n\n⚡ Done in 66ms\n\nCopying external packages to dist/node_modules/...\nbetter-sqlite3 native module already built (arch=arm64), skipping rebuild.\n  ✓ better-sqlite3\n  ✓ bindings\n  ✓ file-uri-to-path\n  ✓ pino\n  ✓ pino-pretty\n  ✓ pino-abstract-transport\n  ✓ pino-std-serializers\n  ✓ atomic-sleep\n  ✓ on-exit-leak-free\n  ✓ process-warning\n  ✓ quick-format-unescaped\n  ✓ real-require\n  ✓ safe-stable-stringify\n  ✓ @pinojs/redact\n  ✓ sonic-boom\n  ✓ thread-stream\n  ✓ colorette\n  ✓ dateformat\n  ✓ fast-copy\n  ✓ fast-safe-stringify\n  ✓ help-me\n  ✓ joycon\n  ✓ minimist\n  ✓ pump\n  ✓ end-of-stream\n  ✓ once\n  ✓ wrappy\n  ✓ readable-stream\n  ✓ inherits\n  ✓ string_decoder\n  ✓ util-deprecate\n  ✓ safe-buffer\n  ✓ secure-json-parse\n  ✓ strip-json-comments\n  ✓ split2\n\nBackend build complete.\n\n  dist/extension.js      140.7kb\n  dist/extension.js.map  342.4kb\n\n⚡ Done in 7ms\nwebview assets copied.\nbackend dist copied (with node_modules).\n WARNING  This extension consists of 521 files, out of which 192 are JavaScript files. For performance reasons, you should bundle your extension: https://aka.ms/vscode-bundle-extension. You should also exclude unnecessary files by adding them to your .vscodeignore: https://aka.ms/vscode-vscodeignore.\n\n INFO  Files included in the VSIX:\nagentlog-vscode-1.0.1.vsix\n├─ [Content_Types].xml \n├─ extension.vsixmanifest \n└─ extension/\n   ├─ CHANGELOG.md [2.4 KB]\n   ├─ LICENSE.txt \n   ├─ README.md [3.59 KB]\n   ├─ package.json [13.73 KB]\n   ├─ assets/\n   │  ├─ 1024.png [360.6 KB]\n   │  ├─ 128-icon.png [4.01 KB]\n   │  ├─ 128.png [10.81 KB]\n   │  ├─ 16.png [0.59 KB]\n   │  ├─ 512.png [105.79 KB]\n   │  ├─ icon.svg [0.66 KB]\n   │  ├─ logo.jpg [258.65 KB]\n   │  ├─ logo.png [443.99 KB]\n   │  ├─ sidebar-icon0.svg [0.92 KB]\n   │  ├─ sidebar-icon1.svg [0.27 KB]\n   │  └─ sidebar-icon2.png [277.58 KB]\n   ├─ dist/\n   │  ├─ extension.js [140.71 KB]\n   │  ├─ extension.js.map [342.41 KB]\n   │  ├─ backend/ (497 files) [32.07 MB]\n   │  └─ webview/ (4 files) [55.43 KB]\n   └─ scripts/\n      └─ check-node-version.js [0.86 KB]\n\n=> Run vsce ls --tree to see all included files.\n\n DONE  Packaged: /Users/hobo/Projects/AgentLog/packages/vscode-extension/agentlog-vscode-1.0.1.vsix (521 files, 10.93 MB)\n",
+              "exit": 0,
+              "description": "Package extension to VSIX",
+              "truncated": false
+            },
+            "title": "Package extension to VSIX",
+            "time": {
+              "start": 1775230182591,
+              "end": 1775230185181
+            }
+          },
+          "id": "prt_d53f6e270004qfxeCd1lyEa4ba",
+          "sessionID": "ses_2ac0958beffefySlV6MX4uLdNi",
+          "messageID": "msg_d53f6dc21001K64F9yKBP8tzwI"
+        },
+        {
+          "reason": "tool-calls",
+          "snapshot": "9df59554dfd7ccea222fc402b5e9ae677668ed16",
+          "type": "step-finish",
+          "tokens": {
+            "total": 23102,
+            "input": 470,
+            "output": 70,
+            "reasoning": 0,
+            "cache": {
+              "write": 7201,
+              "read": 15361
+            }
+          },
+          "cost": 0,
+          "id": "prt_d53f6eede001WiF22jOHtgSvtT",
+          "sessionID": "ses_2ac0958beffefySlV6MX4uLdNi",
+          "messageID": "msg_d53f6dc21001K64F9yKBP8tzwI"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1775230185239,
+          "completed": 1775230189199
+        },
+        "parentID": "msg_d53f6a74e0014NEfuDC3PnWAzG",
+        "modelID": "MiniMax-M2.7",
+        "providerID": "minimax-cn-coding-plan",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 24153,
+          "input": 963,
+          "output": 155,
+          "reasoning": 0,
+          "cache": {
+            "write": 616,
+            "read": 22419
+          }
+        },
+        "finish": "stop",
+        "id": "msg_d53f6ef17001DeBXpM25uDl1b1",
+        "sessionID": "ses_2ac0958beffefySlV6MX4uLdNi"
+      },
+      "parts": [
+        {
+          "snapshot": "9df59554dfd7ccea222fc402b5e9ae677668ed16",
+          "type": "step-start",
+          "id": "prt_d53f6f616001n6WKO39Nc3UJvm",
+          "sessionID": "ses_2ac0958beffefySlV6MX4uLdNi",
+          "messageID": "msg_d53f6ef17001DeBXpM25uDl1b1"
+        },
+        {
+          "type": "reasoning",
+          "text": "VSIX 文件已生成：`agentlog-vscode-1.0.1.vsix`\n\n现在用户可以通过 VS Code 安装这个 VSIX 文件。安装方法：\n1. 在 VS Code 中按 `Cmd+Shift+P`\n2. 输入 \"Extensions: Install from VSIX...\"\n3. 选择这个文件\n\n或者用命令行：\n```bash\ncode --install-extension agentlog-vscode-1.0.1.vsix\n```",
+          "time": {
+            "start": 1775230187031,
+            "end": 1775230188319
+          },
+          "metadata": {
+            "anthropic": {
+              "signature": "1a38fc8986cd20f67d48a78c85860f9af9bafd0b072732a869ac2938f9734097"
+            }
+          },
+          "id": "prt_d53f6f617002xyPpECD6ASXPQM",
+          "sessionID": "ses_2ac0958beffefySlV6MX4uLdNi",
+          "messageID": "msg_d53f6ef17001DeBXpM25uDl1b1"
+        },
+        {
+          "type": "text",
+          "text": "VSIX 已生成：`agentlog-vscode-1.0.1.vsix`\n\n安装方式：\n- **VS Code**: `Cmd+Shift+P` → \"Extensions: Install from VSIX...\"\n- **命令行**: `code --install-extension agentlog-vscode-1.0.1.vsix`",
+          "time": {
+            "start": 1775230189134,
+            "end": 1775230189134
+          },
+          "id": "prt_d53f6fb210011Yfkv8cugHsuMa",
+          "sessionID": "ses_2ac0958beffefySlV6MX4uLdNi",
+          "messageID": "msg_d53f6ef17001DeBXpM25uDl1b1"
+        },
+        {
+          "reason": "stop",
+          "snapshot": "9df59554dfd7ccea222fc402b5e9ae677668ed16",
+          "type": "step-finish",
+          "tokens": {
+            "total": 24153,
+            "input": 963,
+            "output": 155,
+            "reasoning": 0,
+            "cache": {
+              "write": 616,
+              "read": 22419
+            }
+          },
+          "cost": 0,
+          "id": "prt_d53f6fe51001llc673HAZ9BvGY",
+          "sessionID": "ses_2ac0958beffefySlV6MX4uLdNi",
+          "messageID": "msg_d53f6ef17001DeBXpM25uDl1b1"
+        }
+      ]
+    }
+  ]
+}
