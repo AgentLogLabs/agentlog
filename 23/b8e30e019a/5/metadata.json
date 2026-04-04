@@ -1,0 +1,42 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "23b8e30e019a",
+  "session_id": "ses_2a65e1b21ffeU5zOHvKgsDgidv",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-04T19:42:03.860263Z",
+  "branch": "phase1-tickets",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "packages/backend/src/index.ts",
+    "packages/backend/src/mcp.ts",
+    "packages/backend/src/routes/traces.ts",
+    "packages/backend/src/services/traceService.ts",
+    "packages/vscode-extension/src/extension.ts",
+    "docs/PHASE1-HUMAN-OVERRIDE-TEST.md",
+    "packages/backend/src/db/database.ts",
+    "packages/backend/build.mjs",
+    "packages/backend/src/routes/gitHooks.ts",
+    "packages/backend/src/services/gitHookService.ts",
+    "packages/vscode-extension/src/client/backendClient.ts",
+    "packages/vscode-extension/src/opencode-plugins/agentlog-auto/index.js",
+    "docs/PHASE1-COMPLETE-TEST.md",
+    "docs/PHASE1-INTERACTIVE-TEST.md",
+    "packages/backend/src/routes/commits.ts",
+    "packages/backend/src/routes/spans.ts",
+    "packages/vscode-extension/src/providers/sessionTreeProvider.ts",
+    "packages/vscode-extension/src/providers/traceTreeProvider.ts",
+    "packages/vscode-extension/src/providers/traceWebviewProvider.ts"
+  ],
+  "agent": "OpenCode",
+  "model": "MiniMax-M2.7",
+  "turn_id": "a09141989685",
+  "initial_attribution": {
+    "calculated_at": "2026-04-04T19:42:03.859465Z",
+    "agent_lines": 878,
+    "human_added": 128,
+    "human_modified": 112,
+    "human_removed": 0,
+    "total_committed": 1118,
+    "agent_percentage": 78.53309481216458
+  }
+}
