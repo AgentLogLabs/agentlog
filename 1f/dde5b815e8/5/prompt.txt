@@ -1,0 +1,578 @@
+请根据这个方案检查@docs/PHASE1-INTERACTIVE-TEST.md 关于trace的测试是否正确：[Pasted ~136 lines]2026.4.3
+CEO已批准技术架构，但要求在输出完整技术实施方案前，在计划中加入具体的“用例”描述。
+
+我需要整合具体的用户故事/用例，以说明此架构存在的**原因**及其在实际中的**运作方式**。根据愿景文档和战略报告，关键用例如下：
+
+**1.  用例 1：人机混合微操接管**
+    *   **场景**：智能体陷入无限循环或遇到环境错误。CEO 使用 VS Code/Cline 手动修复代码。
+    *   **流程**：CEO 打开 VS Code -> 修改代码 -> git 提交 -> Git 钩子触发 -> AgentLog 在同一个 TraceID 下捕获代码差异和人工干预意图 -> 当智能体恢复运行时，它读取上下文并理解此次人工干预。
+
+**2.  用例 2：跨 Agent 的“急诊交接”**
+    *   **场景**：Builder Agent 构建失败。它将任务委托给 Reviewer Agent。
+    *   **流程**：Builder Agent 将 TraceID 传递给 Reviewer。Reviewer 无需要求 Builder 进行总结。Reviewer 使用 MCP `get_failed_attempts(trace_id)` 来获取确切的错误堆栈和先前的工具调用记录。
+    
+
+Let's integrate these Use Cases into the full plan and present a unified, comprehensive document. 翻译
+
+让我们将这些“用例”整合到完整计划中，并呈现一份统一、全面的文档。 收到，CEO。加入具体 Use Case 描述，能让研发团队更清晰地理解架构背后的业务价值。
+
+以下是包含核心 Use Case 驱动的**完整技术架构落地方案 (Phase 1)**：
+
+---
+
+# 🏗️ AgentLog Phase 1: 完整技术落地方案（Use Case 驱动版）
+
+**核心定位**：AI 时代分布式工作流枢纽 (SSoT) **本期目标**：打通人机上下文，确立 Trace/Span 模型，通过“网关+旁路探针”双流采集机制，彻底解决“断点流转”与 Git 割裂问题。
+
+---
+
+## 🎯 核心业务场景 (Use Cases)
+
+研发团队在执行架构重构时，必须确保以下两个核心 Use Case 能够完美跑通：
+
+### Use Case 1: 人机混合微操接管 (Handoff Tracing)
+
+- **痛点**：Agent 陷入死循环报错，CEO 强行中断，用 VS Code 手动修改代码修复 Bug。随后重新唤醒 Agent，但 Agent 记忆断层，不知道发生了什么，甚至覆盖了 CEO 刚写的代码。
+    
+- **预期流转**：
+    
+
+1. CEO 在 VS Code (配合 Cline) 修复 Bug，执行 `git commit -m "fix: 修复死循环"`。
+    
+2. **AgentLog Git Hook** 瞬间捕获该 Commit 的 Diff。
+    
+3. 网关将该 Diff 封装为 `Span (actor: human)`，并挂载到当前中断的 `TraceID` 下。
+    
+4. 重新唤醒 Agent 时，Agent 自动拉取该 TraceID 的最新上下文，立刻“看到”人类的修改，并顺着修改继续执行。
+    
+
+### Use Case 2: 跨 Agent 的“急诊交接” (JIT Context Hydration)
+
+- **痛点**：`Builder Agent` 环境配置失败，只能在 Prompt 里简短总结一句“我失败了，报错是 XXX”，然后转交给 `Reviewer Agent`。`Reviewer` 因为拿不到完整的上下文和之前的错误尝试，只能重复踩坑。
+    
+- **期流转**：
+    
+
+1. `Builder` 放弃时，仅需传递：`"任务失败，请接手。TraceID: T-888"`。
+    
+2. `Reviewer` 收到指令后，主动调用 AgentLog 提供的 MCP 工具 `get_failed_attempts(trace_id="T-888")`。
+    
+3. 网关瞬间返回结构化的历史报错栈、输入参数及环境状态。`Reviewer` 零信息损耗接手修复。
+
+---
+
+## ⚙️ 核心技术架构：Gateway-Hub + Sidecar 模式
+
+为支撑上述 Use Case，系统架构必须全面升级：
+
+### 1. 数据模型重构 (ULID-based Trace & Span)
+
+完全废弃现有的扁平 Session 结构，转向支持长周期、分布式追踪的树状结构。
+
+- **Traces 表**：宏观任务流（对应 Use Case 中的一次完整研发流转）。
+    
+- **Spans 表**：具体执行动作。
+    
+- 字段：`id` (ULID), `trace_id`, `parent_span_id`, `actor_type` (human/agent), `payload` (JSON)。
+    
+- _说明_：Use Case 1 中人类的 Git Diff 和 Use Case 2 中 Agent 的报错日志，都作为不同的 Span 挂载在同一棵 Trace 树上。
+    
+
+### 2. 双流采集引擎 (Dual-Stream Ingestion)
+
+外部工具（VSCode）和内部网络（OpenClaw）的日志必须汇聚。
+
+**A. IDE 外部流（支撑 Use Case 1）**
+
+- **网关升级**：Fastify 后端增加 `SSE (Server-Sent Events)` 路由，或通过 SSH StdIO 隧道，支持外部 IDE 稳定接入。
+    
+- **Git 拦截器**：编写标准化 `post-commit` Hook 脚本，负责拦截代码变更并推送到网关。
+    
+
+**B. OpenClaw 内部流（支撑 Use Case 2）**
+
+- **旁路探针 (Telemetry Probe)**：严禁修改业务 Agent 逻辑。开发一个 OpenClaw 插件，挂载到原生 Hook (`on_agent_message`, `on_tool_execute`, `on_error`)。
+    
+- **无阻塞上报**：探针截获数据后，通过轻量级 HTTP REST API (`POST /api/spans`) 异步投递给 Gateway，确保不拖慢 Agent 运行速度。
+    
+
+### 3. 全局 TraceID 透传机制 (Trace Propagation)
+
+- 人类在 VSCode 发起指令时生成 `TraceID`。
+    
+- 唤起 OpenClaw CLI 时通过 `--trace-id` 注入环境变量。
+    
+- 所有旁路探针强制读取该环境变量打标，完成“血脉继承”。
+
+---
+
+## 📅 研发冲刺排期 (Sprint Backlog - 3.5 人天)
+
+**Ticket 1: 核心存储 Schema 升级 (0.5 d)**
+
+- 引入 ULID，创建 `traces` 和 `spans` 表。提供底层的增删改查方法。
+    
+
+**Ticket 2: 网关双轨通信层升级 (1.0 d)**
+
+- Fastify 增加 `/mcp/sse` 路由支持外部大模型 IDE 接入。
+    
+- 增加高频异步上报接口 `POST /api/spans`。
+    
+- 增加 `get_failed_attempts` MCP 工具接口（支撑 Use Case 2）。
+    
+
+**Ticket 3: OpenClaw 旁路探针开发 (1.5 d)**
+
+- 开发 OpenClaw 插件，劫持生命周期 Hook。
+    
+- 实现非阻塞的数据推流机制，支持解析 `<think>` 和错误栈。
+    
+
+**Ticket 4: 人机接管 Git Hook 模块 (0.5 d)**
+
+- 编写 `post-commit` Hook 脚本，提取 diff 并转换为 Span 写入 Gateway（支撑 Use Case 1）。
+
+---
+
+请增加
+
+---
+
+请根据https://opencode.ai/docs/mcp-servers/ opecode的mcp设置规范，检查vscode为用户安装的agenlog mcp配置格式是否正确
+
+---
+
+请修复
+
+---
+
+现在检查curl -s http://localhost:7892/api/traces?pageSize=5 没有在~/Projects/AgentLogTest下最新session对应的trace
+
+---
+
+我现在执行到TC-002了
+
+---
+
+修复前先检查是否符合以下的方案设计，trace一定需要workpath吗
+
+---
+
+修复前先检查是否符合以下的方案设计，trace一定需要workpath吗，方案如下：[Pasted ~136 lines] 2026.4.3
+CEO已批准技术架构，但要求在输出完整技术实施方案前，在计划中加入具体的“用例”描述。
+
+我需要整合具体的用户故事/用例，以说明此架构存在的**原因**及其在实际中的**运作方式**。根据愿景文档和战略报告，关键用例如下：
+
+**1.  用例 1：人机混合微操接管**
+    *   **场景**：智能体陷入无限循环或遇到环境错误。CEO 使用 VS Code/Cline 手动修复代码。
+    *   **流程**：CEO 打开 VS Code -> 修改代码 -> git 提交 -> Git 钩子触发 -> AgentLog 在同一个 TraceID 下捕获代码差异和人工干预意图 -> 当智能体恢复运行时，它读取上下文并理解此次人工干预。
+
+**2.  用例 2：跨 Agent 的“急诊交接”**
+    *   **场景**：Builder Agent 构建失败。它将任务委托给 Reviewer Agent。
+    *   **流程**：Builder Agent 将 TraceID 传递给 Reviewer。Reviewer 无需要求 Builder 进行总结。Reviewer 使用 MCP `get_failed_attempts(trace_id)` 来获取确切的错误堆栈和先前的工具调用记录。
+    
+
+Let's integrate these Use Cases into the full plan and present a unified, comprehensive document. 翻译
+
+让我们将这些“用例”整合到完整计划中，并呈现一份统一、全面的文档。 收到，CEO。加入具体 Use Case 描述，能让研发团队更清晰地理解架构背后的业务价值。
+
+以下是包含核心 Use Case 驱动的**完整技术架构落地方案 (Phase 1)**：
+
+---
+
+# 🏗️ AgentLog Phase 1: 完整技术落地方案（Use Case 驱动版）
+
+**核心定位**：AI 时代分布式工作流枢纽 (SSoT) **本期目标**：打通人机上下文，确立 Trace/Span 模型，通过“网关+旁路探针”双流采集机制，彻底解决“断点流转”与 Git 割裂问题。
+
+---
+
+## 🎯 核心业务场景 (Use Cases)
+
+研发团队在执行架构重构时，必须确保以下两个核心 Use Case 能够完美跑通：
+
+### Use Case 1: 人机混合微操接管 (Handoff Tracing)
+
+- **痛点**：Agent 陷入死循环报错，CEO 强行中断，用 VS Code 手动修改代码修复 Bug。随后重新唤醒 Agent，但 Agent 记忆断层，不知道发生了什么，甚至覆盖了 CEO 刚写的代码。
+    
+- **预期流转**：
+    
+
+1. CEO 在 VS Code (配合 Cline) 修复 Bug，执行 `git commit -m "fix: 修复死循环"`。
+    
+2. **AgentLog Git Hook** 瞬间捕获该 Commit 的 Diff。
+    
+3. 网关将该 Diff 封装为 `Span (actor: human)`，并挂载到当前中断的 `TraceID` 下。
+    
+4. 重新唤醒 Agent 时，Agent 自动拉取该 TraceID 的最新上下文，立刻“看到”人类的修改，并顺着修改继续执行。
+    
+
+### Use Case 2: 跨 Agent 的“急诊交接” (JIT Context Hydration)
+
+- **痛点**：`Builder Agent` 环境配置失败，只能在 Prompt 里简短总结一句“我失败了，报错是 XXX”，然后转交给 `Reviewer Agent`。`Reviewer` 因为拿不到完整的上下文和之前的错误尝试，只能重复踩坑。
+    
+- **预期转**：
+    
+
+1. `Builder` 放弃时，仅需传递：`"任务失败，请接手。TraceID: T-888"`。
+    
+2. `Reviewer` 收到指令后，主动调用 AgentLog 提供的 MCP 工具 `get_failed_attempts(trace_id="T-888")`。
+    
+3. 网关瞬间返回结构化的历史报错栈、输入参数及环境状态。`Reviewer` 零信息损耗接手修复。
+
+---
+
+## ⚙️ 核心技术架构：Gateway-Hub + Sidecar 模式
+
+为支撑上述 Use Case，系统架构必须全面升级：
+
+### 1. 数据模型重构 (ULID-based Trace & Span)
+
+完全废弃现有的扁平 Session 结构，转向支持长周期、分布式追踪的树状结构。
+
+- **Traces 表**：宏观任务流（对应 Use Case 中的一次完整研发流转）。
+    
+- **Spans 表**：具体执行动作。
+    
+- 字段：`id` (ULID), `trace_id`, `parent_span_id`, `actor_type` (human/agent), `payload` (JSON)。
+    
+- _说明_：Use Case 1 中人类的 Git Diff 和 Use Case 2 中 Agent 的报错日志，都作为不同的 Span 挂载在同一棵 Trace 树上。
+    
+
+### 2. 双流采集引擎 (Dual-Stream Ingestion)
+
+外部工具（VSCode）和内部网络（OpenClaw）的日志必须汇聚。
+
+**A. IDE 外部流（支撑 Use Case 1）**
+
+- **网关升级**：Fastify 后端增加 `SSE (Server-Sent Events)` 路由，或通过 SSH StdIO 隧道，支持外部 IDE 稳定接入。
+    
+- **Git 拦截器**：编写标准化 `post-commit` Hook 脚本，负责拦截代码变更并推送到网关。
+    
+
+**B. OpenClaw 内部流（支撑 Use Case 2）**
+
+- **旁路探针 (Telemetry Probe)**：严禁修改业务 Agent 逻辑。开发一个 OpenClaw 插件，挂载到原生 Hook (`on_agent_message`, `on_tool_execute`, `on_error`)。
+    
+- **无阻塞上报**：探针截获数据后，通过轻量级 HTTP REST API (`POST /api/spans`) 异步投递给 Gateway，确保不拖慢 Agent 运行速度。
+    
+
+### 3. 全局 TraceID 透传机制 (Trace Propagation)
+
+- 人类在 VSCode 发起指令时生成 `TraceID`。
+    
+- 唤起 OpenClaw CLI 时通过 `--trace-id` 注入环境变量。
+    
+- 所有旁路探针强制读取该环境变量打标，完成“血脉继承”。
+
+---
+
+## 📅 研发冲刺排期 (Sprint Backlog - 3.5 人天)
+
+**Ticket 1: 核心存储 Schema 升级 (0.5 d)**
+
+- 引入 ULID，创建 `traces` 和 `spans` 表。提供底层的增删改查方法。
+    
+
+**Ticket 2: 网关双轨通信层升级 (1.0 d)**
+
+- Fastify 增加 `/mcp/sse` 路由支持外部大模型 IDE 接入。
+    
+- 增加高频异步上报接口 `POST /api/spans`。
+    
+- 增加 `get_failed_attempts` MCP 工具接口（支撑 Use Case 2）。
+    
+
+**Ticket 3: OpenClaw 旁路探针开发 (1.5 d)**
+
+- 开发 OpenClaw 插件，劫持生命周期 Hook。
+    
+- 实现非阻塞的数据推流机制，支持解析 `<think>` 和错误栈。
+    
+
+**Ticket 4: 人机接管 Git Hook 模块 (0.5 d)**
+
+- 编写 `post-commit` Hook 脚本，提取 diff 并转换为 Span 写入 Gateway（支撑 Use Case 1）。
+
+---
+
+/opencode mcp list
+
+---
+
+检查为什么log_turn 没有被正确调用
+
+---
+
+是opencode的agentlog插件实现有问题吗
+
+---
+
+执行方案A
+
+---
+
+请思考，按照新架构方案，是否还有保留session的必要，是否用trace就可以了
+
+---
+
+新的架构师trace 、span方案，session是否不需要，现在是冗余的
+
+---
+
+新的架构是trace 、span方案，session是否不需要，现在是冗余的，请思考，按照新架构方案，是否还有保留session的必要，是否用trace就可以了
+
+---
+
+执行迁移方案
+
+---
+
+请拉取Git当前分支最新的变更。
+
+注意，最新的变更的改动可能和你的有类似。因为是改动的相同的测试用例，是依据相同测试用例进行的功能修改，你可以认为是另外一个人对相同功能的修改响应。
+
+请和你改动的做比较，保留正确的版本，也就是说将Git拉取下来的代码和你的保持功能保持一致
+
+---
+
+现在分析你pull新代码的功能，我检查一下
+
+---
+
+我测试的代码现在有几个问题：
+1. AI交互记录，也就是说Session页面就VS Code左侧的属性列表仍然存在，这个是否应该取消掉？
+2. Trace列表目前没有测试数据，请增加AgentLogTest项目的Trace测试数据，我看一下。
+3. 现在Commit绑定面板下面的Commit还是和Session绑定的，请增加一些Commit和Trae绑定的数据。
+
+还是说你目前， git commit绑定面板还没有改？如果没有改动的话，请考虑将Commit和Trace的记录绑定起来，而不是和Session，因为Session已经废弃掉了
+
+---
+
+按照Plan A修改
+
+---
+
+执行修改
+
+---
+
+原来session列表右侧的按钮应该迁移到trace列表上
+
+---
+
+请按以下要求进行检查：
+1. 把VS Code插件上的Trace列表放在Commit列表之前。
+2. Trace列表右上角的配置MCP按钮以及之前加的跳往GitHub issue的按钮都没有了。
+
+我希望Trace列表的按键和之前Session列表上的右上角的按钮是一样的
+
+---
+
+vscode插件加载报错：[Pasted[agentloglabs.agentlog-vscode]: Menu item references a command `agentlog.refreshTraceList` which is not defined in the 'commands' section.
+[agentloglabs.agentlog-vscode]: Menu item references a command `agentlog.viewTraceDetail` which is not defined in the 'commands' section.
+
+---
+
+确认一下，现在Agent Log内部的所有版本号都是1.1.0吧？
+
+为什么现在启动看到的Agent Log版本是0.1.0？
+
+---
+
+能否把接口里面的这个版本号硬编码改为读配置文件？
+
+改一个地方就可以改动软件里面的所有版本号
+
+---
+
+agentlog后台启动报错：[PastedAgentLog] [后台][ERR] node:fs:440
+    return binding.readFileUtf8(path, stringToFlags(options.flag));
+                   ^
+
+Error: ENOENT: no such file or directory, open '/Users/hobo/Projects/AgentLog/packages/package.json'
+    at readFileSync (node:fs:440:20)
+    at tracesRoutes (/Users/hobo/Projects/AgentLog/packages/backend/src/index.ts:18:3)
+    at Object.<anonymous> (/Users/hobo/Projects/AgentLog/packages/backend/src/index.ts:499:7)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object.transformer (/Users/hobo/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/register-D46fvsV_.cjs:3:1104)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at cjsLoader (node:internal/modules/esm/translators:309:5) {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/hobo/Projects/AgentLog/packages/package.json'
+}
+
+Node.js v22.22.0
+
+---
+
+仍然报错：[Past[AgentLog] [MCP] 启动命令: npx tsx /Users/hobo/Projects/AgentLog/packages/backend/src/mcp.ts
+[AgentLog] [后台][ERR] node:fs:440
+    return binding.readFileUtf8(path, stringToFlags(options.flag));
+                   ^
+
+Error: ENOENT: no such file or directory, open '/package.json'
+    at readFileSync (node:fs:440:20)
+    at tracesRoutes (/Users/hobo/Projects/AgentLog/packages/backend/src/index.ts:18:3)
+    at Object.<anonymous> (/Users/hobo/Projects/AgentLog/packages/backend/src/index.ts:499:7)
+    at Module._compile (node:internal/modules/cjs/loader:1706:14)
+    at Object.transformer (/Users/hobo/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/register-D46fvsV_.cjs:3:1104)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at cjsLoader (node:internal/modules/esm/translators:309:5) {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/package.json'
+}
+
+Node.js v22.22.0
+
+---
+
+你不能改成绝对路径吧
+
+---
+
+你不能改成绝对路径吧
+
+---
+
+现在给 agentlog test 项目增加一些 trace 和 commit 的测试数据，并且 trace 和 commit 要相关，现在看不到数据
+
+---
+
+备份angentlog.db文件，重新建立
+
+---
+
+备份angentlog.db文件，重新建立
+
+---
+
+我希望测试数据是~/Projects/AgentLogTest项目的
+
+---
+
+我希望测试数据是~/Projects/AgentLogTest项目的
+
+---
+
+现在Vscode插件上看不到任何~/Projects/AgentLogTest项目的trace和commit数据
+
+---
+
+你一直停在这里，我中断了，你的日志如下
+
+---
+
+你一直停在这里，我中断了，你的日志如下
+
+---
+
+lsof -ti:7892 | xargs kill -9 2>/dev/null; sleep 1
+cd /Users/hobo/Projects/AgentLog/packages/backend && npx tsx src/index.ts &
+sleep 3
+curl -s http://localhost:7892/api/traces?pageSize=5 2>&1 | head -100
+[AgentLog DB] 数据库已就绪：/Users/hobo/.agentlog/agentlog.db
+[21:18:27] INFO: Server listening at http://127.0.0.1:7892
+[21:18:27] INFO: [AgentLog] 后台服务已启动：http://127.0.0.1:7892
+[21:18:27] INFO: [AgentLog] 健康检查：http://127.0.0.1:7892/health
+[21:18:27] INFO: [AgentLog] API 入口：  http://127.0.0.1:7892/api
+[21:18:27] DEBUG: [AgentLog] 已启用开发模式（详细日志 + pino-pretty）
+zsh:4: no matches found: http://localhost:7892/api/traces?pageSize=5
+[21:19:16] INFO: incoming request
+    reqId: "req-1"
+    req: {
+      "method": "GET",
+      "url": "/health",
+      "hostname": "localhost:7892",
+      "remoteAddress": "127.0.0.1",
+      "remotePort": 50572
+    }
+[21:19:16] INFO: request completed
+    reqId: "req-1"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 1.5942497253417969
+[21:19:22] INFO: incoming request
+    reqId: "req-2"
+    req: {
+      "method": "GET",
+      "url": "/api/traces?pageSize=50",
+      "hostname": "localhost:7892",
+      "remoteAddress": "127.0.0.1",
+      "remotePort": 50575
+    }
+[21:19:22] INFO: request completed
+    reqId: "req-2"
+    res: {
+      "statusCode": 200
+    }
+    responseTime: 1.9319992065429688
+
+---
+
+现在Vscode插件上看不到任何~/Projects/AgentLogTest项目的trace和commit数据
+
+---
+
+现在commit上看到有数据并且有关联的trace，但trace列表上没有任何数据
+
+---
+
+trace列表现在有数据了，但数据是无限嵌套的，请改正
+
+---
+
+点击查看trace列表右侧的眼睛“详情页按钮”，出现的页面报错：[404] /api/traces/%5Bobject%20Object%5D/summary — Trace not found
+
+---
+
+现在dashboard页面还是原来显示session详情的，请设计并改为trace列表
+
+---
+
+现在导出PR，code review说明，导出本周AI开发周报，复活上下文，生成Commit上下文文档，生成Commit AI交互解释，这几个功能都不可用了。请检查并修复
+
+---
+
+继续任务
+
+---
+
+Trace列表和Trace详情页与原来的Session列表和Session详情页相比，丢失了很多功能。
+
+比如：
+1. Trace列表：
+  上面没有按照日期分割的树形列表。原来按照日期表，比如说今天我做了哪些，昨天我做了哪些，是一个树形列表，很清楚，现在没有了。
+2. Trace列表：
+  原来图标能看出来是哪个模型，不同的模型有不同的图标。鼠标放上去也会出现一些浮动框，能够看出session的概要信息现在Trace列表上没有。详情页面上，用户交互的信息看不全，就是Span里面的信息看不全，没有具体的内容，请把它列出来，显示全。每一个 span 用的哪个模型，它的来源 south 就是说，比如说我是与 IDE 是 Opencde 还是 vscode，这个也没有了，请把它补
+
+---
+
+树形列表的改动4自动刷新不做，trace列表和详情页应该有model和source的显示
+
+---
+
+开始实施
+
+---
+
+开始实施
+
+---
+
+“购物车结算”trace页面上有个错误：❌ TypeError: Cannot read property subtotal of null
+
+---
+
+trace树形列表日期节点右侧不应该有眼睛图标，点击的时候报错
