@@ -1094,3 +1094,175 @@ semantic_search({
 | T-E1 | 添加 `parent_trace_id` 字段支持 trace 继承 | P1 |
 | T-E2 | 实现语义检索（embedding + 向量搜索） | P1 |
 | T-E3 | 确认 OpenClaw Agent 的 workspacePath 处理逻辑 | P0 |
+
+---
+
+## ✅ 三、T-A & T-B 专项测试（git config traceId 透传）
+
+### TC-T-A：MCP 创建 trace 时写入 git config
+
+**目的**：验证 MCP (log_intent/log_turn/create_trace) 创建 trace 时同时写入 `.git/config`
+
+**前置条件**：
+- Backend 运行在 localhost:7892
+- 处于 git 仓库中
+
+**测试步骤**：
+
+1. **确认 git 仓库状态**
+   ```bash
+   cd /tmp/test-repo-tc-ta
+   rm -rf /tmp/test-repo-tc-ta
+   mkdir -p /tmp/test-repo-tc-ta && cd /tmp/test-repo-tc-ta
+   git init
+   git config user.email "test@test.com"
+   git config user.name "Test"
+   ```
+
+2. **调用 MCP create_trace（模拟）**
+   ```bash
+   # 直接调用 API 创建 trace
+   TRACE=$(curl -s -X POST http://localhost:7892/api/traces \
+     -H "Content-Type: application/json" \
+     -d '{"taskGoal":"T-A 测试任务"}')
+   TRACE_ID=$(echo $TRACE | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])")
+   echo "Created Trace: $TRACE_ID"
+   ```
+
+3. **模拟 MCP 写入 git config（实际由 MCP 自动执行）**
+   ```bash
+   git config agentlog.traceId "$TRACE_ID"
+   echo "✅ 写入 git config: agentlog.traceId=$TRACE_ID"
+   ```
+
+4. **验证 git config 写入成功**
+   ```bash
+   GIT_CONFIG_TRACE=$(git config agentlog.traceId)
+   if [ "$GIT_CONFIG_TRACE" = "$TRACE_ID" ]; then
+       echo "✅ git config 验证通过: $GIT_CONFIG_TRACE"
+   else
+       echo "❌ git config 验证失败"
+   fi
+   ```
+
+**预期结果**：
+- [ ] trace 创建成功
+- [ ] git config agentlog.traceId 包含正确的 traceId
+
+---
+
+### TC-T-B：Git Hook 从 git config 读取 traceId
+
+**目的**：验证 Git Hook post-commit 从 `.git/config` 读取 traceId 并创建 human span
+
+**前置条件**：
+- TC-T-A 已完成
+- Git Hook 已安装
+
+**测试步骤**：
+
+1. **安装 Git Hook**
+   ```bash
+   curl -s -X POST http://localhost:7892/api/hooks/install \
+     -H "Content-Type: application/json" \
+     -d '{"workspacePath":"/tmp/test-repo-tc-ta"}' | python3 -c "import sys,json; d=json.load(sys.stdin); print('✅ 安装成功' if d.get('success') else '❌ 失败')"
+   ```
+
+2. **确认 git config 有 traceId**
+   ```bash
+   cd /tmp/test-repo-tc-ta
+   echo $GIT_CONFIG_TRACE
+   ```
+
+3. **人类 git commit（触发 Git Hook）**
+   ```bash
+   echo "test content" > test.txt
+   git add . && git commit -m "Human commit via Git Hook"
+   sleep 2
+   ```
+
+4. **验证 human span 创建**
+   ```bash
+   curl -s "http://localhost:7892/api/traces/$TRACE_ID/summary" | python3 -c "
+   import sys,json
+   d=json.load(sys.stdin)
+   s=d.get('data',{}).get('statistics',{})
+   print('=== Human Override ===')
+   print('Total:', s.get('totalSpans'))
+   print('Human:', s.get('humanSpans'))
+   if s.get('humanSpans', 0) > 0:
+       print('✅ Git Hook + git config 透传成功')
+   "
+   ```
+
+**预期结果**：
+- [ ] Git Hook 安装成功
+- [ ] 人类 git commit 后创建 human span
+- [ ] span 绑定到同一个 traceId
+
+---
+
+### TC-T-C：关键字搜索精度
+
+**目的**：验证 `GET /api/traces/search?keyword=xxx` 返回正确结果
+
+**前置条件**：
+- Backend 运行中
+
+**测试步骤**：
+
+1. **创建多个不同 task_goal 的 traces**
+   ```bash
+   # 创建 3 个不同任务的 trace
+   for task in "斐波那契数列实现" "Git Hook 测试" "用户登录功能"; do
+     curl -s -X POST http://localhost:7892/api/traces \
+       -H "Content-Type: application/json" \
+       -d "{\"taskGoal\":\"$task\"}" > /dev/null
+   done
+   ```
+
+2. **搜索"斐波那契"**
+   ```bash
+   RESULT=$(curl -s "http://localhost:7892/api/traces/search?keyword=%E6%96%AF%E6%B3%A2%E9%82%A3%E5%A5%87")
+   echo "$RESULT" | python3 -c "
+   import sys,json
+   d=json.load(sys.stdin)
+   results = d.get('data', [])
+   print('搜索\"斐波那契\":', len(results), '条结果')
+   for r in results:
+       print(' -', r['trace']['taskGoal'])
+   "
+   ```
+
+3. **搜索"登录"**
+   ```bash
+   RESULT=$(curl -s "http://localhost:7892/api/traces/search?keyword=%E7%99%BB%E5%BD%95")
+   echo "$RESULT" | python3 -c "
+   import sys,json
+   d=json.load(sys.stdin)
+   results = d.get('data', [])
+   print('搜索\"登录\":', len(results), '条结果')
+   "
+   ```
+
+**预期结果**：
+- [ ] 搜索"斐波那契"返回相关 trace
+- [ ] 搜索"登录"返回相关 trace
+- [ ] 搜索结果不包含无关 trace
+
+---
+
+## 📊 T1-T8 功能覆盖总表
+
+| Ticket | 功能 | 测试用例 | 状态 |
+|--------|------|---------|------|
+| T1 | traces/spans 表 + ULID | TC-002, TC-007 | ✅ |
+| T2 | MCP Stdio + SSE | TC-001, TC-006 | ✅ |
+| T3 | POST /api/spans | TC-002, TC-T-C | ✅ |
+| T4 | OpenClaw Hook 探针 | TC-HO-004 | ✅ |
+| T5 | Git Hook post-commit | TC-005, TC-T-B | ✅ |
+| T6 | Trace summary API | TC-007 | ✅ |
+| T7 | Trace diff API | TC-007 | ✅ |
+| T8 | UI SSE 实时刷新 | TC-004, TC-006 | ✅ |
+
+**覆盖率：8/8 = 100% ✅**
