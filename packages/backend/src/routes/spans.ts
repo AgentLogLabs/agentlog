@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { createSpan, type CreateSpanRequest, type ActorType } from '../services/traceService';
 import { HookEventAdapter } from '../utils/hookAdapter';
+import { broadcastEvent } from '../utils/sseManager';
 
 interface CreateSpanBody {
   traceId: string;
@@ -88,6 +89,13 @@ async function spansRoutes(app: FastifyInstance): Promise<void> {
       }
 
       const span = createSpan(spanReq);
+
+      // SSE 实时推送：广播新 Span 事件到所有连接的客户端
+      broadcastEvent({
+        type: "span_created",
+        data: span,
+        timestamp: new Date().toISOString(),
+      });
 
       return reply.status(201).send({
         success: true,
