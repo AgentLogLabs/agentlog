@@ -16,6 +16,7 @@ import {
   getModifiedFiles,
   getRepoInfo,
   isGitRepo,
+  getGitConfig,
 } from "./gitService.js";
 import { createSpan, getTraceById } from "./traceService.js";
 import type { ActorType } from "./traceService.js";
@@ -166,8 +167,24 @@ export async function handlePostCommitCallback(
 ): Promise<{ success: boolean; spanId?: string; error?: string }> {
   const { workspacePath, commitHash, parentCommitHash, agentId, sessionId, traceId: paramTraceId } = params;
 
-  // 优先级：参数 traceId > 环境变量 AGENTLOG_TRACE_ID > agentId > "system"
-  const traceId = paramTraceId ?? process.env.AGENTLOG_TRACE_ID ?? agentId ?? "system";
+  // 优先级：参数 traceId > 环境变量 > git config > agentId > "system"
+  let traceId = paramTraceId ?? process.env.AGENTLOG_TRACE_ID ?? agentId ?? null;
+
+  // 如果还没有，尝试从 git config 读取
+  if (!traceId) {
+    try {
+      const gitConfigTraceId = await getGitConfig(workspacePath, "agentlog.traceId");
+      if (gitConfigTraceId) {
+        traceId = gitConfigTraceId;
+        console.log(`[GitHook] 从 git config 读取 traceId: ${traceId}`);
+      }
+    } catch (err) {
+      console.log(`[GitHook] 读取 git config traceId 失败: ${err}`);
+    }
+  }
+
+  // 兜底默认值
+  traceId ??= "system";
 
   try {
     // 获取 commit 详细信息和仓库信息

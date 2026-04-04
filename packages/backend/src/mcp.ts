@@ -32,6 +32,8 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
+import { isGitRepo, setGitConfig } from "./services/gitService.js";
+
 // ─────────────────────────────────────────────
 // 配置
 // ─────────────────────────────────────────────
@@ -783,6 +785,7 @@ async function main(): Promise<void> {
       const args = request.params.arguments ?? {};
       const taskGoal = (args.task_goal as string | undefined) ?? "Untitled Trace";
       const traceId = (args.trace_id as string | undefined) ?? undefined;
+      const workspacePath = (args.workspace_path as string | undefined) ?? process.cwd();
 
       try {
         const body: Record<string, unknown> = { taskGoal };
@@ -794,6 +797,16 @@ async function main(): Promise<void> {
 
         // 将 trace_id 写入环境变量（供后续 log_turn 使用）
         process.env.AGENTLOG_TRACE_ID = result.id;
+
+        // T-A: 将 trace_id 写入 git config
+        try {
+          if (await isGitRepo(workspacePath)) {
+            await setGitConfig(workspacePath, "agentlog.traceId", result.id);
+            process.stderr.write(`[agentlog-mcp] create_trace: 已写入 git config agentlog.traceId=${result.id}\n`);
+          }
+        } catch (gitErr) {
+          process.stderr.write(`[agentlog-mcp] create_trace: 写入 git config 失败（忽略）: ${gitErr}\n`);
+        }
 
         return {
           content: [
@@ -1220,6 +1233,18 @@ async function main(): Promise<void> {
               process.stderr.write(`[agentlog-mcp] log_intent: 自动创建 Trace ${traceId}\n`);
             } catch (err) {
               process.stderr.write(`[agentlog-mcp] log_intent: 自动创建 Trace 失败: ${err}\n`);
+            }
+          }
+
+          // T-A: 将 trace_id 写入 git config（如果存在 traceId 且在 git 仓库中）
+          if (traceId) {
+            try {
+              if (await isGitRepo(workspacePath)) {
+                await setGitConfig(workspacePath, "agentlog.traceId", traceId);
+                process.stderr.write(`[agentlog-mcp] log_intent: 已写入 git config agentlog.traceId=${traceId}\n`);
+              }
+            } catch (gitErr) {
+              process.stderr.write(`[agentlog-mcp] log_intent: 写入 git config 失败（忽略）: ${gitErr}\n`);
             }
           }
 
