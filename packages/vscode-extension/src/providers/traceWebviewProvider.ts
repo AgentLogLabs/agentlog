@@ -274,6 +274,17 @@ export class TracePanel {
         system: "System",
         rootSpans: "Root Spans",
         totalSpans: "Total",
+        duration: "Duration",
+        effectiveTime: "Effective",
+        startTime: "Start",
+        endTime: "End",
+        tokens: "Token Stats",
+        input: "Input",
+        output: "Output",
+        cacheCreate: "Cache Create",
+        cacheRead: "Cache Read",
+        total: "Total",
+        content: "Content",
       },
       "zh-CN": {
         title: "AgentLog Trace",
@@ -288,12 +299,15 @@ export class TracePanel {
         system: "系统",
         rootSpans: "根节点",
         totalSpans: "总计",
-        duration: "耗时",
+        duration: "总耗时",
+        effectiveTime: "有效时间",
         startTime: "开始",
         endTime: "结束",
-        tokens: "Tokens",
+        tokens: "Token 统计",
         input: "输入",
         output: "输出",
+        cacheCreate: "缓存创建",
+        cacheRead: "缓存读取",
         total: "合计",
         content: "内容",
       },
@@ -325,22 +339,26 @@ body { font-family: var(--vscode-font-family); font-size: var(--vscode-font-size
 .stat-label { font-size: 12px; color: var(--vscode-descriptionForeground); }
 .info-section { margin-bottom: 16px; }
 .info-section h3 { margin: 0 0 8px 0; font-size: 14px; color: var(--vscode-foreground); }
-.info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; }
 .info-card { background: var(--vscode-editorWidget-background); border-radius: 4px; padding: 12px; }
 .info-label { font-size: 12px; color: var(--vscode-descriptionForeground); margin-bottom: 4px; }
 .info-value { font-size: 18px; font-weight: 600; }
 .span-tree { background: var(--vscode-editorWidget-background); border-radius: 4px; padding: 12px; }
-.span-item { padding: 8px; margin: 4px 0; border-radius: 4px; cursor: pointer; }
+.span-item { padding: 10px; margin: 4px 0; border-radius: 4px; cursor: pointer; border-left: 3px solid #888; }
 .span-item:hover { background: var(--vscode-list-hoverBackground); }
-.span-human { border-left: 3px solid #4caf50; }
-.span-agent { border-left: 3px solid #1e8cff; }
-.span-system { border-left: 3px solid #ff9800; }
+.span-human { border-left-color: #4caf50; }
+.span-agent { border-left-color: #1e8cff; }
+.span-system { border-left-color: #ff9800; }
+.span-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .span-id { font-family: monospace; font-size: 11px; color: var(--vscode-descriptionForeground); }
 .span-name { font-weight: 500; }
 .span-meta { font-size: 12px; color: var(--vscode-descriptionForeground); }
-.span-content { font-size: 13px; margin-top: 6px; padding: 8px; background: var(--vscode-editor-background); border-radius: 4px; color: var(--vscode-foreground); word-break: break-word; }
-.span-token { font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 4px; }
-.span-children { margin-left: 20px; margin-top: 8px; }
+.span-time { font-size: 12px; color: var(--vscode-descriptionForeground); margin-top: 4px; }
+.span-token { display: flex; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
+.token-badge { font-size: 11px; padding: 2px 6px; border-radius: 3px; background: var(--vscode-badge-background); color: var(--vscode-badge-foreground); }
+.token-badge.tot { background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
+.span-content { font-size: 13px; margin-top: 6px; padding: 8px; background: var(--vscode-editor-background); border-radius: 4px; color: var(--vscode-foreground); word-break: break-word; white-space: pre-wrap; }
+.span-children { margin-left: 20px; margin-top: 8px; border-left: 1px dashed var(--vscode-widget-border); padding-left: 8px; }
 .empty { text-align: center; padding: 60px; color: var(--vscode-descriptionForeground); }
 </style>
 </head>
@@ -472,25 +490,31 @@ function render() {
       </div>
     </div>
 
-    \${(tokenUsage.totalTokens || tokenUsage.totalInputTokens) ? \`
     <div class="info-section">
       <h3>\${t.tokens}</h3>
       <div class="info-grid">
         <div class="info-card">
           <div class="info-label">\${t.input}</div>
-          <div class="info-value">\${formatTokens(tokenUsage.totalInputTokens)}</div>
+          <div class="info-value">\${formatTokens(tokenUsage.totalInputTokens || 0)}</div>
         </div>
         <div class="info-card">
           <div class="info-label">\${t.output}</div>
-          <div class="info-value">\${formatTokens(tokenUsage.totalOutputTokens)}</div>
+          <div class="info-value">\${formatTokens(tokenUsage.totalOutputTokens || 0)}</div>
         </div>
         <div class="info-card">
           <div class="info-label">\${t.total}</div>
-          <div class="info-value">\${formatTokens(tokenUsage.totalTokens)}</div>
+          <div class="info-value">\${formatTokens(tokenUsage.totalTokens || 0)}</div>
+        </div>
+        <div class="info-card">
+          <div class="info-label">\${t.cacheCreate}</div>
+          <div class="info-value">\${formatTokens(tokenUsage.totalCacheCreationTokens || 0)}</div>
+        </div>
+        <div class="info-card">
+          <div class="info-label">\${t.cacheRead}</div>
+          <div class="info-value">\${formatTokens(tokenUsage.totalCacheReadTokens || 0)}</div>
         </div>
       </div>
     </div>
-    \` : ''}
 
     <h3>\${t.rootSpans} (\${rootSpans.length})</h3>
     <div class="span-tree">
@@ -508,20 +532,48 @@ function renderSpan(span, allSpans) {
   const tokenInfo = span.payload?.tokenUsage || '';
   const isHuman = span.actorType === 'human';
 
+  // Span 时间戳
+  const timeStr = span.createdAt ? formatTime(span.createdAt) : '-';
+  const durationStr = span.payload?.durationMs ? formatDuration(span.payload.durationMs) : '';
+
   // 对于 human span，显示内容
-  const contentHtml = (isHuman && content) ? \`<div class="span-content">\${content.slice(0, 200)}\${content.length > 200 ? '...' : ''}</div>\` : '';
-  const tokenHtml = tokenInfo ? \`<div class="span-token">Tokens: \${formatTokens(tokenInfo.inputTokens || 0)} in / \${formatTokens(tokenInfo.outputTokens || 0)} out</div>\` : '';
+  const contentHtml = (isHuman && content) ? \`<div class="span-content">\${escapeHtml(content.slice(0, 300))}\${content.length > 300 ? '...' : ''}</div>\` : '';
+
+  // Token 统计
+  let tokenHtml = '';
+  if (tokenInfo) {
+    const inTokens = tokenInfo.inputTokens || 0;
+    const outTokens = tokenInfo.outputTokens || 0;
+    const totalSpanTokens = inTokens + outTokens;
+    tokenHtml = \`<div class="span-token">
+      <span class="token-badge">IN: \${formatTokens(inTokens)}</span>
+      <span class="token-badge">OUT: \${formatTokens(outTokens)}</span>
+      <span class="token-badge">TOT: \${formatTokens(totalSpanTokens)}</span>
+    </div>\`;
+  }
+
+  // 时间信息
+  let timeHtml = \`<div class="span-time">⏱ \${timeStr}\${durationStr ? ' (' + durationStr + ')' : ''}</div>\`;
 
   return \`
     <div class="span-item \${typeClass}">
-      <div class="span-id">\${span.id.slice(0, 16)}...</div>
-      <div class="span-name">\${span.actorName} \${toolName ? '(' + toolName + ')' : ''}</div>
+      <div class="span-header">
+        <div class="span-id">\${span.id.slice(0, 12)}...</div>
+        <div class="span-name">\${span.actorName} \${toolName ? '(' + toolName + ')' : ''}</div>
+      </div>
       <div class="span-meta">\${span.actorType} | \${event || (isHuman ? 'user message' : '')}</div>
-      \${contentHtml}
+      \${timeHtml}
       \${tokenHtml}
+      \${contentHtml}
       \${children.length > 0 ? '<div class="span-children">' + children.map(c => renderSpan(c, allSpans)).join('') + '</div>' : ''}
     </div>
   \`;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 vscode.postMessage({ command: 'ready' });
