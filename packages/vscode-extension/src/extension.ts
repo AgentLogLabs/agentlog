@@ -525,19 +525,18 @@ async function writeMcpEntryToConfig(
   }
 
   if (format === "opencode") {
-    // { mcp: { "agentlog-mcp": { type, command, enabled } } }
+    // OpenCode uses { mcpServers: { "agentlog-mcp": { command, args } } }
     if (
-      !configJson.mcp ||
-      typeof configJson.mcp !== "object" ||
-      Array.isArray(configJson.mcp)
+      !configJson.mcpServers ||
+      typeof configJson.mcpServers !== "object" ||
+      Array.isArray(configJson.mcpServers)
     ) {
-      configJson.mcp = {};
+      configJson.mcpServers = {};
     }
-    const mcp = configJson.mcp as Record<string, unknown>;
-    mcp["agentlog-mcp"] = {
-      type: "local",
-      command: [mcpCommand, ...mcpArgs],
-      enabled: true,
+    const servers = configJson.mcpServers as Record<string, unknown>;
+    servers["agentlog-mcp"] = {
+      command: mcpCommand,
+      args: mcpArgs,
     };
   } else if (format === "mcpServers" || format === "cline") {
     // { mcpServers: { "agentlog-mcp": { command, args, ... } } }
