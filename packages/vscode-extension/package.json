@@ -199,6 +199,13 @@
           "type": "tree",
           "icon": "$(git-commit)",
           "contextualTitle": "AgentLog — Commit 绑定"
+        },
+        {
+          "id": "agentlog.traceList",
+          "name": "Trace 列表",
+          "type": "tree",
+          "icon": "$(debug-pause)",
+          "contextualTitle": "AgentLog — Trace 列表"
         }
       ]
     },
@@ -210,6 +217,10 @@
       {
         "view": "agentlog.commitBindings",
         "contents": "尚无 Commit 绑定记录。\n\n安装 Git 钩子后，每次 git commit 时将自动关联最近的 AI 交互会话。\n\n[安装 Git 钩子](command:agentlog.installGitHook)"
+      },
+      {
+        "view": "agentlog.traceList",
+        "contents": "尚无 Trace 记录。\n\n开始一个任务后，Trace 会自动显示在这里。\n\n[打开 Trace 面板](command:agentlog.openTracePanel)\n[查看服务状态](command:agentlog.showBackendStatus)"
       }
     ],
     "menus": {

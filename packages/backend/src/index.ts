@@ -16,7 +16,16 @@ import sessionsRoutes from "./routes/sessions";
 import commitsRouter from "./routes/commits";
 import { exportRoutes } from "./routes/export";
 import hooksRoutes from "./routes/hooks";
+import spansRoutes from "./routes/spans";
+import gitHooksRoutes from "./routes/gitHooks";
+import tracesRoutes from "./routes/traces";
 import { getDatabase, closeDatabase } from "./db/database";
+import {
+  addSseClient,
+  removeSseClient,
+  broadcastEvent,
+  closeAllClients,
+} from "./utils/sseManager";
 
 // ─────────────────────────────────────────────
 // 配置常量
@@ -49,7 +58,11 @@ async function gracefulShutdown(
 ): Promise<void> {
   app.log.info(`[AgentLog] 收到信号 ${signal}，正在优雅退出…`);
   try {
+    // 关闭所有 SSE 客户端连接
+    await closeAllClients();
+    // 关闭 Fastify 应用
     await app.close();
+    // 关闭数据库
     closeDatabase();
     app.log.info("[AgentLog] 服务已正常关闭");
     process.exit(0);
@@ -139,6 +152,8 @@ async function start(): Promise<void> {
         commits: "/api/commits",
         export: "/api/export",
         hooks: "/api/hooks/:agent/:event",
+        spans: "/api/spans",
+        mcpSse: "/mcp/sse",
         health: "/health",
         status: "/api/status",
       },
@@ -173,6 +188,252 @@ async function start(): Promise<void> {
 
   /** 导出（周报 / PR 描述 / JSONL / CSV） */
   await exportRoutes(app);
+
+  /** 高频 Span 数据接收（探针专用） */
+  await app.register(spansRoutes, { prefix: "/api" });
+
+  /** Git Hook 路由（post-commit 回调等） */
+  await app.register(gitHooksRoutes, { prefix: "/api/hooks" });
+
+  /** Trace API（UC-002 summary, UC-003 diff） */
+  await app.register(tracesRoutes, { prefix: "/api/traces" });
+
+  /** MCP SSE 端点（供外部 IDE 接入） */
+  app.get("/mcp/sse", async (req, reply) => {
+    reply.raw.setHeader("Content-Type", "text/event-stream");
+    reply.raw.setHeader("Cache-Control", "no-cache");
+    reply.raw.setHeader("Connection", "keep-alive");
+    reply.raw.setHeader("Access-Control-Allow-Origin", "*");
+
+    const clientId = (req.query as { clientId?: string }).clientId ?? `client-${Date.now()}`;
+    const sseClient = {
+      id: clientId,
+      timestamp: new Date().toISOString(),
+    };
+
+    req.log.info(`[MCP SSE] 客户端已连接: ${JSON.stringify(sseClient)}`);
+
+    // 注册到 SSE 客户端管理器
+    addSseClient(clientId, reply.raw);
+
+    // 发送连接确认
+    reply.raw.write(`data: ${JSON.stringify({ type: "connected", client: sseClient })}\n\n`);
+
+    // 定期心跳
+    const heartbeatInterval = setInterval(() => {
+      if (reply.raw.writable) {
+        reply.raw.write(`data: ${JSON.stringify({ type: "heartbeat", timestamp: new Date().toISOString() })}\n\n`);
+      }
+    }, 30000);
+
+    req.raw.on("close", () => {
+      clearInterval(heartbeatInterval);
+      removeSseClient(clientId);
+      req.log.info(`[MCP SSE] 客户端已断开: ${clientId}`);
+    });
+  });
+
+  /**
+   * MCP SSE 消息端点
+   * 接收客户端的 MCP JSON-RPC 请求（POST）
+   * 用于完整的 MCP over SSE 双轨通信
+   */
+  app.post("/mcp/messages", async (req, reply) => {
+    const sessionId = (req.query as { sessionId?: string }).sessionId;
+    const body = req.body as Record<string, unknown>;
+
+    req.log.info(`[MCP Messages] 收到消息: method=${body.method ?? "unknown"}, sessionId=${sessionId ?? "none"}`);
+
+    // 处理 JSON-RPC 请求
+    if (body.method === "tools/list") {
+      // 返回工具列表（与 stdio MCP 服务器相同）
+      return reply.send({
+        jsonrpc: "2.0",
+        id: body.id,
+        result: {
+          tools: [
+            {
+              name: "log_turn",
+              description: "逐轮上报 AI 对话消息",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  session_id: { type: "string" },
+                  role: { type: "string", enum: ["user", "assistant", "tool"] },
+                  content: { type: "string" },
+                  tool_name: { type: "string" },
+                  tool_input: { type: "string" },
+                  model: { type: "string" },
+                  workspace_path: { type: "string" },
+                },
+                required: ["role", "content"],
+              },
+            },
+            {
+              name: "log_intent",
+              description: "任务结束后记录汇总信息",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  session_id: { type: "string" },
+                  response: { type: "string" },
+                  affected_files: { type: "array", items: { type: "string" } },
+                  duration_ms: { type: "number" },
+                },
+                required: ["response"],
+              },
+            },
+            {
+              name: "query_historical_interaction",
+              description: "检索历史交互记录",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  keyword: { type: "string" },
+                  filename: { type: "string" },
+                  session_id: { type: "string" },
+                  start_date: { type: "string" },
+                  end_date: { type: "string" },
+                  page: { type: "number" },
+                  page_size: { type: "number" },
+                },
+              },
+            },
+            {
+              name: "create_trace",
+              description: "创建新的 Trace（全局任务）",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  task_goal: { type: "string" },
+                  status: { type: "string", enum: ["running", "paused", "completed", "failed"] },
+                },
+                required: ["task_goal"],
+              },
+            },
+            {
+              name: "create_span",
+              description: "创建新的 Span（执行单元）",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  trace_id: { type: "string" },
+                  parent_span_id: { type: ["string", "null"] },
+                  actor_type: { type: "string", enum: ["human", "agent", "system"] },
+                  actor_name: { type: "string" },
+                  payload: { type: "object" },
+                },
+                required: ["trace_id", "actor_type", "actor_name"],
+              },
+            },
+          ],
+        },
+      });
+    }
+
+    if (body.method === "tools/call") {
+      const args = (body.params as { arguments?: Record<string, unknown> })?.arguments ?? {};
+      const toolName = args.tool_name as string | undefined;
+
+      if (toolName === "create_trace" || toolName === "log_turn" || toolName === "log_intent" || toolName === "create_span") {
+        // 转发到内部 API 处理
+        let apiPath = "/api/sessions";
+        let method = "POST";
+
+        if (toolName === "create_trace") {
+          apiPath = "/api/traces";
+        } else if (toolName === "create_span") {
+          apiPath = "/api/spans";
+        }
+
+        try {
+          const resp = await fetch(`http://localhost:${PORT}${apiPath}`, {
+            method,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(args),
+          });
+
+          const result = (await resp.json()) as { success?: boolean; data?: unknown; error?: string };
+
+          // SSE 推送：广播新创建的 Span/Trace 事件
+          if (toolName === "create_span" && result.success) {
+            broadcastEvent({
+              type: "span_created",
+              data: result.data,
+              timestamp: new Date().toISOString(),
+            });
+          }
+
+          return reply.send({
+            jsonrpc: "2.0",
+            id: body.id,
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(result, null, 2),
+                },
+              ],
+            },
+          });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          return reply.send({
+            jsonrpc: "2.0",
+            id: body.id,
+            error: { code: -32603, message: `Internal error: ${msg}` },
+          });
+        }
+      }
+
+      // query_historical_interaction
+      if (toolName === "query_historical_interaction") {
+        try {
+          const queryParams = new URLSearchParams();
+          for (const [key, value] of Object.entries(args)) {
+            if (value !== undefined && value !== null) {
+              queryParams.set(key, String(value));
+            }
+          }
+          const resp = await fetch(`http://localhost:${PORT}/api/sessions?${queryParams.toString()}`);
+          const result = (await resp.json()) as unknown;
+
+          return reply.send({
+            jsonrpc: "2.0",
+            id: body.id,
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(result, null, 2),
+                },
+              ],
+            },
+          });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          return reply.send({
+            jsonrpc: "2.0",
+            id: body.id,
+            error: { code: -32603, message: `Internal error: ${msg}` },
+          });
+        }
+      }
+
+      return reply.send({
+        jsonrpc: "2.0",
+        id: body.id,
+        error: { code: -32601, message: `Unknown tool: ${toolName}` },
+      });
+    }
+
+    // 未知方法
+    return reply.send({
+      jsonrpc: "2.0",
+      id: body.id,
+      error: { code: -32601, message: `Method not found: ${body.method}` },
+    });
+  });
 
   // 6. 全局错误处理
 

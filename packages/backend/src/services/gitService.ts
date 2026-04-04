@@ -243,6 +243,42 @@ export async function getModifiedFiles(
   ].filter((value, index, self) => self.indexOf(value) === index); // 去重
 }
 
+/**
+ * 读取 Git 配置项。
+ * @param workspacePath 工作区路径
+ * @param key 配置键名
+ * @returns 配置值（不存在返回 null）
+ */
+export async function getGitConfig(
+  workspacePath: string,
+  key: string,
+): Promise<string | null> {
+  const g = git(workspacePath);
+  try {
+    // 使用 git config --get 读取配置
+    const output = await g.raw(["config", "--get", key]);
+    return output.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 写入 Git 配置项（local级别）。
+ * @param workspacePath 工作区路径
+ * @param key 配置键名
+ * @param value 配置值
+ */
+export async function setGitConfig(
+  workspacePath: string,
+  key: string,
+  value: string,
+): Promise<void> {
+  const g = git(workspacePath);
+  // 使用 git config 设置本地配置
+  await g.raw(["config", key, value]);
+}
+
 // ─────────────────────────────────────────────
 // Git Hook 注入（post-commit 自动触发绑定）
 // ─────────────────────────────────────────────

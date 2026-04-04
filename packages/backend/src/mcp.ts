@@ -32,6 +32,8 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
+import { isGitRepo, setGitConfig } from "./services/gitService.js";
+
 // ─────────────────────────────────────────────
 // 配置
 // ─────────────────────────────────────────────
@@ -114,6 +116,12 @@ interface BackendSessionResponse {
   error?: string;
 }
 
+interface BackendTraceResponse {
+  success: boolean;
+  data?: { id: string; parentTraceId: string | null; taskGoal: string; status: string };
+  error?: string;
+}
+
 /**
  * 向 Backend 提交新会话。
  * 失败时抛出 Error，由调用方统一处理。
@@ -140,6 +148,150 @@ async function postSession(body: Record<string, unknown>): Promise<string> {
   }
 
   return json.data.id;
+}
+
+/**
+ * 向 Backend 创建新 Trace。
+ * 失败时抛出 Error，由调用方统一处理。
+ */
+async function postTrace(body: Record<string, unknown>): Promise<{ id: string; parentTraceId: string | null; taskGoal: string; status: string }> {
+  const url = `${BACKEND_BASE}/api/traces`;
+
+  process.stderr.write(`[agentlog-mcp] POST ${url}\n`);
+
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(`Backend 返回 HTTP ${resp.status}：${text}`);
+  }
+
+  const json = (await resp.json()) as BackendTraceResponse;
+  if (!json.success || !json.data?.id) {
+    throw new Error(`Backend 返回业务错误：${json.error ?? "unknown"}`);
+  }
+
+  return json.data;
+}
+
+interface BackendSpanResponse {
+  success: boolean;
+  data?: { id: string };
+  error?: string;
+}
+
+/**
+ * 向 Backend 创建新 Span。
+ */
+async function postSpan(body: Record<string, unknown>): Promise<string> {
+  const url = `${BACKEND_BASE}/api/spans`;
+
+  process.stderr.write(`[agentlog-mcp] POST ${url}\n`);
+
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(`Backend 返回 HTTP ${resp.status}：${text}`);
+  }
+
+  const json = (await resp.json()) as BackendSpanResponse;
+  if (!json.success || !json.data?.id) {
+    throw new Error(`Backend 返回业务错误：${json.error ?? "unknown"}`);
+  }
+
+  return json.data.id;
+}
+
+/**
+ * 向 Backend 更新 trace 状态。
+ */
+async function patchTrace(
+  traceId: string,
+  body: Record<string, unknown>,
+): Promise<void> {
+  const url = `${BACKEND_BASE}/api/traces/${encodeURIComponent(traceId)}`;
+
+  process.stderr.write(`[agentlog-mcp] PATCH ${url}\n`);
+
+  const resp = await fetch(url, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(`Backend 返回 HTTP ${resp.status}：${text}`);
+  }
+}
+
+interface SearchTracesResult {
+  success: boolean;
+  data?: Array<{ trace: unknown; spans: unknown[] }>;
+  total?: number;
+  error?: string;
+}
+
+/**
+ * 获取 trace 的状态。
+ * @returns null if trace 不存在
+ */
+async function getTraceStatus(traceId: string): Promise<string | null> {
+  const url = `${BACKEND_BASE}/api/traces/${encodeURIComponent(traceId)}`;
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      return null;
+    }
+    const json = await resp.json() as { success: boolean; data?: { status: string } };
+    if (!json.success || !json.data) {
+      return null;
+    }
+    return json.data.status;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 搜索 traces 和 spans（内部使用 spans 表搜索）
+ */
+async function searchTracesAndSpans(params: {
+  keyword?: string;
+  filename?: string;
+  commitHash?: string;
+  source?: string;
+  workspacePath?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<SearchTracesResult> {
+  const query = new URLSearchParams();
+  if (params.keyword) query.set("keyword", params.keyword);
+  if (params.filename) query.set("keyword", params.filename);
+  if (params.commitHash) query.set("commitHash", params.commitHash);
+  if (params.source) query.set("source", params.source);
+  if (params.workspacePath) query.set("workspacePath", params.workspacePath);
+  query.set("page", String(params.page ?? 1));
+  query.set("pageSize", String(Math.min(params.pageSize ?? 20, 100)));
+
+  const url = `${BACKEND_BASE}/api/traces/search?${query.toString()}`;
+  process.stderr.write(`[agentlog-mcp] searchTracesAndSpans: GET ${url}\n`);
+
+  const resp = await fetch(url);
+  if (!resp.ok) {
+    return { success: false, error: `HTTP ${resp.status}` };
+  }
+
+  return resp.json() as Promise<SearchTracesResult>;
 }
 
 /**
@@ -246,6 +398,47 @@ async function fetchSessionById(sessionId: string): Promise<GetSessionResponse> 
 }
 
 // ─────────────────────────────────────────────
+// Session 调用状态追踪器（进程级）
+// ─────────────────────────────────────────────
+
+interface SessionState {
+  /** 创建时间 */
+  createdAt: number;
+  /** log_turn 调用次数 */
+  turnCount: number;
+  /** 是否已调用 log_intent */
+  intentCalled: boolean;
+  /** 上次活动时间 */
+  lastActivityAt: number;
+  /** 已记录的角色类型集合 */
+  recordedRoles: Set<"user" | "assistant" | "tool">;
+}
+
+/**
+ * 追踪当前 MCP 进程中所有活跃 session 的调用状态。
+ * 用于：
+ * 1. 检测 Agent 未传 session_id 导致重复创建 session
+ * 2. 检测 log_intent 在 log_turn 之前被调用
+ * 3. 提醒 Agent 正确的调用顺序
+ */
+const sessionTracker = new Map<string, SessionState>();
+
+/** 最近一次创建的 session_id（用于检测 Agent 是否忘记传 session_id） */
+let lastCreatedSessionId: string | null = null;
+let lastCreatedSessionAt: number = 0;
+
+/** 清理超过 2 小时不活跃的 session 记录，防止内存泄漏 */
+function cleanupStaleSessionStates(): void {
+  const twoHoursMs = 2 * 60 * 60 * 1000;
+  const now = Date.now();
+  for (const [id, state] of sessionTracker) {
+    if (now - state.lastActivityAt > twoHoursMs) {
+      sessionTracker.delete(id);
+    }
+  }
+}
+
+// ─────────────────────────────────────────────
 // MCP Server 主流程
 // ─────────────────────────────────────────────
 
@@ -253,7 +446,7 @@ async function main(): Promise<void> {
   const server = new Server(
     {
       name: "agentlog-mcp",
-      version: "0.4.0",
+      version: "0.5.0",
     },
     {
       capabilities: {
@@ -262,7 +455,8 @@ async function main(): Promise<void> {
     },
   );
 
-
+  // 定期清理不活跃的 session 状态
+  setInterval(cleanupStaleSessionStates, 30 * 60 * 1000);
 
   // ── 工具列表 ────────────────────────────────
 
@@ -273,16 +467,31 @@ async function main(): Promise<void> {
         {
           name: "log_turn",
           description:
-            "逐轮记录 AI 交互消息（user / assistant / tool）。" +
-            "首次调用时自动创建会话并返回 session_id，后续每轮调用传入相同 session_id 持续追加。" +
-            "请在每条消息产生后立即调用，以完整保留对话历史。",
+            "⚠️ 【强制协议 - 禁止跳过】⚠️\n" +
+            "每轮对话必须按以下顺序调用本工具，记录完整的 AI 编码过程！\n\n" +
+            "调用流程：\n" +
+            "  Step 1. log_turn(role=\"user\", ...)         ← 对话开始时调用（禁止省略）\n" +
+            "  Step 2. log_turn(role=\"tool\", ...)         ← 每次工具执行后调用\n" +
+            "  Step 3. log_turn(role=\"assistant\", ...)     ← 每次回复后调用\n" +
+            "  循环 Step 2-3 直到任务完成\n" +
+            "  Step 4. log_intent(...)                     ← 任务完成时调用一次\n\n" +
+            "⚠️ 禁止行为：\n" +
+            "  ✗ 不调用 log_turn 就直接执行 read/edit/bash（将导致编码过程无法记录）\n" +
+            "  ✗ 省略 session_id（会导致每条消息创建独立会话，对话碎片化）\n" +
+            "  ✗ 在 log_turn 之前调用 log_intent（将导致存证数据不完整）\n" +
+            "  ✗ 批量延迟上报（必须实时逐条调用）\n\n" +
+            "【session_id 获取方式】\n" +
+            "首次调用时不传 session_id，从返回 JSON 中提取 session_id 字段并缓存，\n" +
+            "后续所有调用必须传入。",
           inputSchema: {
             type: "object" as const,
             properties: {
               session_id: {
                 type: "string",
                 description:
-                  "会话 ID（由首次调用返回）。首次调用时省略此参数，后续调用必须传入。",
+                  "会话 ID（由首次 log_turn 返回的 JSON 中的 session_id 字段获取）。" +
+                  "首次调用时省略，后续每次调用必须传入。" +
+                  "不传此参数将创建新会话，导致对话记录碎片化。",
               },
               role: {
                 type: "string",
@@ -420,10 +629,18 @@ async function main(): Promise<void> {
         {
           name: "log_intent",
           description:
-            "⚠️ 强制调用顺序：1) log_turn(首次) → 2) log_turn(后续) → 3) log_intent(最后)" +
-            "禁止在 log_turn 之前调用此工具，否则存证数据将不完整。" +
-            "在完成一项任务后调用，记录任务目标和受影响文件。" +
-            "推理过程摘要（reasoning_summary）和格式化对话记录（formatted_transcript）由系统从 transcript 自动生成，无需手动填写。",
+            "⚠️ 【强制协议 - 禁止跳过】⚠️\n" +
+            "本工具必须在 log_turn 之后调用，是整个记录流程的最后一步。\n\n" +
+            "正确调用顺序：\n" +
+            "  Step 1. log_turn(role=\"user\", ...)           ← 建立会话\n" +
+            "  Step 2. log_turn(role=\"tool\"/\"assistant\")   ← 逐条记录（循环）\n" +
+            "  Step 3. log_intent(...)                      ← 任务归档（仅一次）\n\n" +
+            "⚠️ 如果你省略了中间的 log_turn(tool/assistant) 调用，\n" +
+            "   仅仅在最后调用 log_intent，将导致存证数据不完整，\n" +
+            "   无法追溯 AI 的实际编码过程！\n\n" +
+            "【session_id 获取方式】\n" +
+            "从首次 log_turn 返回的 JSON 中获取 session_id，后续传入。\n\n" +
+            "reasoning_summary 和 formatted_transcript 由系统自动生成，无需手动填写。",
           inputSchema: {
             type: "object" as const,
             properties: {
@@ -449,8 +666,8 @@ async function main(): Promise<void> {
               session_id: {
                 type: "string",
                 description:
-                  "已有会话的 ID（由 log_turn 首次调用返回）。" +
-                  "传入时回写到该会话；不传时创建新会话。",
+                  "已有会话的 ID（由首次 log_turn 返回的 JSON 中 session_id 字段获取）。" +
+                  "⚠️ 强烈建议传入：不传将创建孤立会话，丢失之前 log_turn 记录的对话上下文。",
               },
               transcript: {
                 type: "array",
@@ -489,6 +706,145 @@ async function main(): Promise<void> {
             required: ["task", "model"],
           },
         },
+
+        // ── create_trace ─────────────────────────────────────────────────
+        {
+          name: "create_trace",
+          description:
+            "创建一个新的 Trace（全局任务追踪）。\n\n" +
+            "建议在开始一个新任务时优先调用，返回的 trace_id 需要保存，\n" +
+            "后续的 log_turn 调用可以传入 trace_id 以关联到该 Trace。\n\n" +
+            "【使用场景】\n" +
+            "  - 开始一个全新的开发任务时\n" +
+            "  - 需要追踪一个跨多个会话的完整任务流程时\n" +
+            "  - 作为父级 Trace 关联多个子任务时\n\n" +
+            "【trace_id 传递方式】\n" +
+            "将返回的 trace_id 存入环境变量或工具调用上下文，\n" +
+            "后续 log_turn 调用时传入 trace_id 参数。",
+          inputSchema: {
+            type: "object" as const,
+            properties: {
+              task_goal: {
+                type: "string",
+                description: "任务目标描述（可选，默认 'Untitled Trace'）",
+              },
+              trace_id: {
+                type: "string",
+                description: "指定 trace ID（可选，默认自动生成 ULID）",
+              },
+              parent_trace_id: {
+                type: "string",
+                description: "父 trace ID（可选，用于 fork 场景）",
+              },
+            },
+            required: [],
+          },
+        },
+
+        // ── fork_trace ───────────────────────────────────────────────────
+        {
+          name: "fork_trace",
+          description:
+            "Fork 一个已有的 Trace，创建新的子 trace。\n\n" +
+            "当需要基于已有任务继续开发时，使用 fork_trace 创建子 trace，\n" +
+            "新 trace 会保留对父 trace 的引用。\n\n" +
+            "【使用场景】\n" +
+            "  - 继续之前的开发任务时\n" +
+            "  - 需要在同一个父任务下创建子任务时\n\n" +
+            "【Fork 与 Create 的区别】\n" +
+            "create_trace: 创建全新 trace\n" +
+            "fork_trace: 基于已有 trace 创建子 trace，保留关联",
+          inputSchema: {
+            type: "object" as const,
+            properties: {
+              parent_trace_id: {
+                type: "string",
+                description: "父 trace ID（必填）",
+              },
+              task_goal: {
+                type: "string",
+                description: "新 trace 的任务目标（可选，默认 'Forked Task'）",
+              },
+            },
+            required: ["parent_trace_id"],
+          },
+        },
+
+        {
+          name: "suggest_trace",
+          description:
+            "根据任务描述，语义搜索相似的 Trace。\n\n" +
+            "当需要继续之前的任务时，调用此工具搜索相似的 trace，\n" +
+            "根据返回的 trace_id 决定是继续现有 trace 还是 fork 新 trace。\n\n" +
+            "【使用场景】\n" +
+            "  - 开始新任务前，先搜索是否有相似的历史 trace\n" +
+            "  - 人类说「继续之前的任务」时，Agent 自动搜索\n" +
+            "  - 发现历史任务有问题，想基于它继续\n\n" +
+            "【返回】\n" +
+            "返回最相似的 trace 列表，每个包含 trace_id、task_goal、状态等。\n" +
+            "如果找到相似的 trace，建议使用 fork_trace 基于它创建新 trace。",
+          inputSchema: {
+            type: "object" as const,
+            properties: {
+              task_goal: {
+                type: "string",
+                description: "任务目标描述（用于语义搜索）",
+              },
+              workspace_path: {
+                type: "string",
+                description: "工作区路径（用于过滤同一项目的 trace）",
+              },
+              limit: {
+                type: "number",
+                description: "返回数量（默认 5）",
+              },
+            },
+            required: ["task_goal"],
+          },
+        },
+
+        {
+          name: "query_traces",
+          description:
+            "查询 Trace 列表（语义检索）。\n\n" +
+            "搜索 traces.task_goal 和 spans.payload 中的内容，\n" +
+            "找到与关键词最匹配的 trace。\n\n" +
+            "【使用场景】\n" +
+            "  - OpenClaw Agent 接手任务时，先搜索相似 trace\n" +
+            "  - 按关键字查找历史 trace\n" +
+            "  - 按工作区过滤 trace\n\n" +
+            "【搜索范围】\n" +
+            "  - traces.task_goal：任务目标\n" +
+            "  - spans.payload：包含 content、tool_name、commit_hash 等\n" +
+            "  - workspace_path：过滤同一项目的 trace",
+          inputSchema: {
+            type: "object" as const,
+            properties: {
+              keyword: {
+                type: "string",
+                description: "搜索关键字（匹配 task_goal 和 span payload）",
+              },
+              workspace_path: {
+                type: "string",
+                description: "工作区路径（过滤同一项目）",
+              },
+              status: {
+                type: "string",
+                enum: ["running", "paused", "completed", "failed"],
+                description: "按状态过滤",
+              },
+              limit: {
+                type: "number",
+                description: "返回数量（默认 10）",
+              },
+              page: {
+                type: "number",
+                description: "页码（默认 1）",
+              },
+            },
+            required: [],
+          },
+        },
       ],
     };
   });
@@ -507,17 +863,35 @@ async function main(): Promise<void> {
       const args = request.params.arguments ?? {};
 
       try {
-        // 精确查询单条会话
-        const sessionId = args.session_id as string | undefined;
-        if (sessionId) {
-          process.stderr.write(`[agentlog-mcp] query_historical_interaction: session_id=${sessionId}\n`);
+        // 精确查询单条 trace（复用 session_id 参数作为 trace_id，向后兼容）
+        const traceId = args.session_id as string | undefined;
+        if (traceId) {
+          process.stderr.write(`[agentlog-mcp] query_historical_interaction: trace_id=${traceId}\n`);
 
-          const result = await fetchSessionById(sessionId);
-          if (!result.success || !result.data) {
+          // 获取 trace 详情
+          const traceUrl = `${BACKEND_BASE}/api/traces/${encodeURIComponent(traceId)}`;
+          const traceResp = await fetch(traceUrl);
+          if (!traceResp.ok) {
             return {
               isError: true,
-              content: [{ type: "text" as const, text: `未找到会话：${sessionId}` }],
+              content: [{ type: "text" as const, text: `未找到 Trace：${traceId}` }],
             };
+          }
+          const traceJson = await traceResp.json() as { success: boolean; data?: unknown; error?: string };
+          if (!traceJson.success || !traceJson.data) {
+            return {
+              isError: true,
+              content: [{ type: "text" as const, text: `未找到 Trace：${traceId}` }],
+            };
+          }
+
+          // 获取该 trace 的所有 spans
+          const spansUrl = `${BACKEND_BASE}/api/traces/${encodeURIComponent(traceId)}/summary`;
+          const spansResp = await fetch(spansUrl);
+          let spans: unknown[] = [];
+          if (spansResp.ok) {
+            const spansJson = await spansResp.json() as { success: boolean; data?: { spanTree?: unknown[] } };
+            spans = spansJson.data?.spanTree ?? [];
           }
 
           return {
@@ -529,7 +903,7 @@ async function main(): Promise<void> {
                     total: 1,
                     page: 1,
                     pageSize: 1,
-                    records: [result.data],
+                    records: [{ trace: traceJson.data, spans }],
                   },
                   null,
                   2,
@@ -539,88 +913,29 @@ async function main(): Promise<void> {
           };
         }
 
-        // 列表查询：构造查询参数
-        const queryParams: Record<string, string> = {};
-
+        // 列表查询：使用 spans 搜索
         const filename = args.filename as string | undefined;
         const keyword = args.keyword as string | undefined;
-        const startDate = args.start_date as string | undefined;
-        const endDate = args.end_date as string | undefined;
         const commitHash = args.commit_hash as string | undefined;
-        const provider = args.provider as string | undefined;
         const source = args.source as string | undefined;
         const page = (args.page as number | undefined) ?? 1;
         const pageSize = Math.min((args.page_size as number | undefined) ?? 20, 100);
-        const includeTranscript = (args.include_transcript as boolean | undefined) ?? false;
 
-        // filename → keyword 补充（affected_files 用 LIKE 模糊匹配，
-        // Backend 现有 API 通过 keyword 覆盖 prompt/response/note，
-        // affected_files 暂通过独立参数 affectedFile 传递）
-        if (keyword) queryParams.keyword = keyword;
-        if (startDate) queryParams.startDate = startDate;
-        if (endDate) queryParams.endDate = endDate;
-        if (provider) queryParams.provider = provider;
-        if (source) queryParams.source = source;
-        if (commitHash) queryParams.commitHash = commitHash;
-        queryParams.page = String(page);
-        queryParams.pageSize = String(pageSize);
+        const result = await searchTracesAndSpans({
+          keyword,
+          filename,
+          commitHash,
+          source,
+          page,
+          pageSize,
+        });
 
-        // commit_hash 过滤：onlyBoundToCommit 仅作布尔标记，具体 hash 需客户端过滤
-        if (commitHash) {
-          queryParams.onlyBoundToCommit = "true";
-          // 增大 pageSize 以确保客户端有足够数据来过滤（最大 100 条/页）
-          queryParams.pageSize = String(Math.min(pageSize * 5, 100));
-        }
-
-        process.stderr.write(
-          `[agentlog-mcp] query_historical_interaction: params=${JSON.stringify(queryParams)}\n`,
-        );
-
-        const result = await fetchSessions(queryParams);
-        if (!result.success || !result.data) {
+        if (!result.success) {
           return {
             isError: true,
-            content: [
-              {
-                type: "text" as const,
-                text: `查询失败：${result.error ?? "Backend 未返回数据"}`,
-              },
-            ],
+            content: [{ type: "text" as const, text: `查询失败：${result.error ?? "unknown"}` }],
           };
         }
-
-        let records = result.data.data as Array<Record<string, unknown>>;
-
-        // 客户端侧：按文件名过滤（affected_files 模糊匹配）
-        if (filename) {
-          const lowerFile = filename.toLowerCase();
-          records = records.filter((s) => {
-            const files = s.affectedFiles;
-            if (!Array.isArray(files)) return false;
-            return (files as string[]).some((f) =>
-              f.toLowerCase().includes(lowerFile),
-            );
-          });
-        }
-
-        // 客户端侧：按 commit_hash 精确过滤
-        if (commitHash) {
-          records = records.filter((s) => {
-            const ch = s.commitHash as string | undefined;
-            return ch != null && ch.startsWith(commitHash);
-          });
-        }
-
-        // 若不需要 transcript，从结果中删除（减少响应体积）
-        if (!includeTranscript) {
-          records = records.map((s) => {
-            const { transcript: _t, ...rest } = s;
-            return rest;
-          });
-        }
-
-        // 若有客户端侧过滤，total 以过滤后结果为准
-        const clientFiltered = !!(filename || commitHash);
 
         return {
           content: [
@@ -628,10 +943,10 @@ async function main(): Promise<void> {
               type: "text" as const,
               text: JSON.stringify(
                 {
-                  total: clientFiltered ? records.length : result.data.total,
-                  page: result.data.page,
-                  pageSize: result.data.pageSize,
-                  records,
+                  total: result.total ?? 0,
+                  page,
+                  pageSize: result.data?.length ?? 0,
+                  records: result.data ?? [],
                 },
                 null,
                 2,
@@ -645,6 +960,276 @@ async function main(): Promise<void> {
         return {
           isError: true,
           content: [{ type: "text" as const, text: `查询失败：${msg}` }],
+        };
+      }
+    }
+
+
+    // ── create_trace ────────────────────────────────────────────────────
+    if (request.params.name === "create_trace") {
+      const args = request.params.arguments ?? {};
+      const taskGoal = (args.task_goal as string | undefined) ?? "Untitled Trace";
+      const traceId = (args.trace_id as string | undefined) ?? undefined;
+      const parentTraceId = (args.parent_trace_id as string | undefined) ?? undefined;
+      const workspacePath = (args.workspace_path as string | undefined) ?? process.cwd();
+
+      try {
+        const body: Record<string, unknown> = { taskGoal };
+        if (traceId) {
+          body.id = traceId;
+        }
+        if (parentTraceId) {
+          body.parentTraceId = parentTraceId;
+        }
+
+        const result = await postTrace(body);
+
+        // 将 trace_id 写入环境变量（供后续 log_turn 使用）
+        process.env.AGENTLOG_TRACE_ID = result.id;
+
+        // T-A: 将 trace_id 写入 git config
+        try {
+          if (await isGitRepo(workspacePath)) {
+            await setGitConfig(workspacePath, "agentlog.traceId", result.id);
+            process.stderr.write(`[agentlog-mcp] create_trace: 已写入 git config agentlog.traceId=${result.id}\n`);
+          }
+        } catch (gitErr) {
+          process.stderr.write(`[agentlog-mcp] create_trace: 写入 git config 失败（忽略）: ${gitErr}\n`);
+        }
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  success: true,
+                  trace_id: result.id,
+                  parent_trace_id: result.parentTraceId,
+                  task_goal: result.taskGoal,
+                  status: result.status,
+                  env_var_set: "AGENTLOG_TRACE_ID",
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        process.stderr.write(`[agentlog-mcp] create_trace 失败: ${msg}\n`);
+        return {
+          isError: true,
+          content: [{ type: "text" as const, text: `创建 Trace 失败：${msg}` }],
+        };
+      }
+    }
+
+    // ── fork_trace ───────────────────────────────────────────────────────
+    if (request.params.name === "fork_trace") {
+      const args = request.params.arguments ?? {};
+      const parentTraceId = (args.parent_trace_id as string | undefined);
+      const taskGoal = (args.task_goal as string | undefined) ?? "Forked Task";
+      const workspacePath = (args.workspace_path as string | undefined) ?? process.cwd();
+
+      if (!parentTraceId) {
+        return {
+          isError: true,
+          content: [{ type: "text" as const, text: "fork_trace 需要传入 parent_trace_id 参数" }],
+        };
+      }
+
+      try {
+        // 创建新的子 trace，关联到父 trace
+        const result = await postTrace({
+          taskGoal,
+          parentTraceId,
+        });
+
+        // 将新的 trace_id 写入环境变量和 git config
+        process.env.AGENTLOG_TRACE_ID = result.id;
+
+        try {
+          if (await isGitRepo(workspacePath)) {
+            await setGitConfig(workspacePath, "agentlog.traceId", result.id);
+          }
+        } catch (gitErr) {
+          // ignore git config errors
+        }
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  success: true,
+                  trace_id: result.id,
+                  parent_trace_id: result.parentTraceId,
+                  task_goal: result.taskGoal,
+                  status: result.status,
+                  message: `Fork 成功。新 trace ${result.id} 已从 parent trace ${parentTraceId} 创建。`,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        process.stderr.write(`[agentlog-mcp] fork_trace 失败: ${msg}\n`);
+        return {
+          isError: true,
+          content: [{ type: "text" as const, text: `Fork Trace 失败：${msg}` }],
+        };
+      }
+    }
+
+    // ── suggest_trace ──────────────────────────────────────────────────
+    if (request.params.name === "suggest_trace") {
+      const args = request.params.arguments ?? {};
+      const taskGoal = (args.task_goal as string | undefined) ?? "";
+      const workspacePath = (args.workspace_path as string | undefined);
+      const limit = (args.limit as number | undefined) ?? 5;
+
+      if (!taskGoal) {
+        return {
+          isError: true,
+          content: [{ type: "text" as const, text: "suggest_trace 需要传入 task_goal 参数" }],
+        };
+      }
+
+      try {
+        // 使用现有的 searchTracesAndSpans 函数搜索相似的 trace
+        const result = await searchTracesAndSpans({
+          keyword: taskGoal,
+          workspacePath,
+          pageSize: limit,
+        });
+
+        if (!result.success || !result.data) {
+          return {
+            isError: true,
+            content: [{ type: "text" as const, text: `搜索失败：${result.error ?? "unknown"}` }],
+          };
+        }
+
+        // 格式化返回结果
+        const suggestions = result.data.slice(0, limit).map(({ trace, spans }) => {
+          const t = trace as { id: string; parentTraceId: string | null; taskGoal: string; status: string; createdAt: string };
+          return {
+            trace_id: t.id,
+            parent_trace_id: t.parentTraceId,
+            task_goal: t.taskGoal,
+            status: t.status,
+            created_at: t.createdAt,
+            span_count: (spans as unknown[]).length,
+            suggestion: `找到相似 trace: ${t.id} (${t.status})`,
+          };
+        });
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  success: true,
+                  total: result.total ?? suggestions.length,
+                  suggestions,
+                  message: suggestions.length > 0
+                    ? `找到 ${suggestions.length} 个相似 trace。建议使用 fork_trace 继续任务。`
+                    : "未找到相似 trace。可以使用 create_trace 创建新 trace。",
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        process.stderr.write(`[agentlog-mcp] suggest_trace 失败: ${msg}\n`);
+        return {
+          isError: true,
+          content: [{ type: "text" as const, text: `搜索失败：${msg}` }],
+        };
+      }
+    }
+
+    // ── query_traces ───────────────────────────────────────────────────
+    if (request.params.name === "query_traces") {
+      const args = request.params.arguments ?? {};
+      const keyword = (args.keyword as string | undefined) ?? "";
+      const workspacePath = (args.workspace_path as string | undefined);
+      const status = (args.status as string | undefined);
+      const limit = (args.limit as number | undefined) ?? 10;
+      const page = (args.page as number | undefined) ?? 1;
+
+      try {
+        // 调用后端 API 搜索 traces
+        const params = new URLSearchParams();
+        if (keyword) params.set("keyword", keyword);
+        if (workspacePath) params.set("workspacePath", workspacePath);
+        if (status) params.set("status", status);
+        params.set("page", String(page));
+        params.set("pageSize", String(limit));
+
+        const url = `${BACKEND_BASE}/api/traces/search?${params.toString()}`;
+        process.stderr.write(`[agentlog-mcp] query_traces: GET ${url}\n`);
+
+        const resp = await fetch(url);
+        if (!resp.ok) {
+          const text = await resp.text().catch(() => "");
+          return {
+            isError: true,
+            content: [{ type: "text" as const, text: `搜索失败：HTTP ${resp.status} - ${text}` }],
+          };
+        }
+
+        const json = await resp.json() as { success?: boolean; data?: unknown[]; total?: number; error?: string };
+        if (!json.success) {
+          return {
+            isError: true,
+            content: [{ type: "text" as const, text: `搜索失败：${json.error ?? "unknown"}` }],
+          };
+        }
+
+        const traces = json.data ?? [];
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  success: true,
+                  total: json.total ?? traces.length,
+                  count: traces.length,
+                  page,
+                  traces: traces.map((t) => ({
+                    trace_id: (t as { trace: { id: string; taskGoal: string; status: string; createdAt: string } }).trace?.id,
+                    task_goal: (t as { trace: { id: string; taskGoal: string; status: string; createdAt: string } }).trace?.taskGoal,
+                    status: (t as { trace: { id: string; taskGoal: string; status: string; createdAt: string } }).trace?.status,
+                    created_at: (t as { trace: { id: string; taskGoal: string; status: string; createdAt: string } }).trace?.createdAt,
+                  })),
+                  message: traces.length > 0
+                    ? `找到 ${traces.length} 个匹配的 trace`
+                    : "未找到匹配的 trace",
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        process.stderr.write(`[agentlog-mcp] query_traces 失败: ${msg}\n`);
+        return {
+          isError: true,
+          content: [{ type: "text" as const, text: `搜索失败：${msg}` }],
         };
       }
     }
@@ -692,70 +1277,193 @@ async function main(): Promise<void> {
 
         let resultSessionId: string;
 
-        let finalTokenUsage = tokenUsage;
-        if (sessionId && !finalTokenUsage) {
-          // 客户端未提供 token_usage，尝试从现有会话获取并估算增量
-          try {
-            const existingSession = await fetchSessionById(sessionId);
-            if (existingSession.success && existingSession.data) {
-              const sessionData = existingSession.data as any;
-              const currentTokenUsage = sessionData.tokenUsage || { inputTokens: 0, outputTokens: 0 };
-              const updatedTokenUsage = { ...currentTokenUsage };
-              
-              // 估算新消息的 token 数量
-              const contentTokens = estimateTokenCount(turnContent);
-              const reasoningTokens = reasoning ? estimateTokenCount(reasoning) : 0;
-              
-              if (role === "user" || role === "tool") {
-                // 用户消息和工具结果计入输入 tokens
-                updatedTokenUsage.inputTokens = (updatedTokenUsage.inputTokens || 0) + contentTokens;
-              } else if (role === "assistant") {
-                // 助理回复计入输出 tokens
-                updatedTokenUsage.outputTokens = (updatedTokenUsage.outputTokens || 0) + contentTokens + reasoningTokens;
-              }
-              
-              finalTokenUsage = updatedTokenUsage;
-              process.stderr.write(`[agentlog-mcp] token_usage 自动估算：input=${updatedTokenUsage.inputTokens}, output=${updatedTokenUsage.outputTokens}\n`);
-            }
-          } catch (err) {
-            // 获取现有会话失败，继续使用 undefined（保持原值）
-            process.stderr.write(`[agentlog-mcp] 获取现有会话 token_usage 失败，跳过自动估算：${err}\n`);
+        // 新的 trace 架构：直接使用客户端传入的 token_usage，不再从 sessions 获取
+        const finalTokenUsage = tokenUsage;
+
+        // ── 重复创建检测 ──
+        // 如果 Agent 没有传 session_id，但最近刚创建过 session，说明 Agent 可能丢失了 session_id
+        let duplicateWarning: string | undefined;
+        if (!sessionId && lastCreatedSessionId) {
+          const timeSinceLastCreate = Date.now() - lastCreatedSessionAt;
+          // 5 分钟内重复创建 → 大概率是同一对话中 Agent 忘记传 session_id
+          if (timeSinceLastCreate < 5 * 60 * 1000) {
+            duplicateWarning =
+              `⚠️ 警告：${Math.round(timeSinceLastCreate / 1000)}秒前刚创建过会话 ${lastCreatedSessionId}，` +
+              `现在又在创建新会话。这通常意味着你丢失了 session_id。` +
+              `如果这是同一个对话，请在后续调用中传入 session_id="${lastCreatedSessionId}"。`;
+            process.stderr.write(`[agentlog-mcp] ⚠️ 重复创建检测：上次=${lastCreatedSessionId} (${timeSinceLastCreate}ms前)\n`);
           }
         }
 
-        if (sessionId) {
-          // 追加到已有会话
-          await patchTranscript(sessionId, {
-            turns: [turn],
-            ...(finalTokenUsage ? { tokenUsage: finalTokenUsage } : {}),
-          });
-          resultSessionId = sessionId;
-        } else {
-          // 创建新会话（首条消息）
-          // 注意：DeepSeek-R1 首条 assistant 消息 content 可能为空（仅有推理内容），
-          // 此时用 "(pending)" 占位，后续通过 log_intent 或后续 log_turn 完善
-          const provider = inferProvider(model);
-          resultSessionId = await postSession({
-            provider,
-            model,
-            source,
-            workspacePath,
-            prompt: role === "user" ? content : "(pending)",
-            response: role === "assistant" ? content : "(pending)",
-            affectedFiles: [],
-            durationMs: 0,
-            transcript: [turn],
-            ...(finalTokenUsage ? { tokenUsage: finalTokenUsage } : {}),
-          });
+        // ── 新的 Span 架构：直接创建 Span ───────────────────────────────
+        // 优先使用 session_id 作为 trace_id（向后兼容）
+        let traceId = sessionId ?? process.env.AGENTLOG_TRACE_ID ?? null;
+
+        // 检查现有 trace 的状态，决定是继续还是 fork
+        if (traceId) {
+          const status = await getTraceStatus(traceId);
+          if (status === "completed" || status === "failed") {
+            // Trace 已结束，自动 fork 新 trace
+            const parentTraceId = traceId;
+            try {
+              const forkResult = await postTrace({
+                taskGoal: `Continued from ${parentTraceId}`,
+                parentTraceId,
+              });
+              traceId = forkResult.id;
+              process.env.AGENTLOG_TRACE_ID = traceId;
+
+              // 写入 git config
+              try {
+                if (await isGitRepo(workspacePath)) {
+                  await setGitConfig(workspacePath, "agentlog.traceId", traceId);
+                }
+              } catch (gitErr) {
+                // ignore
+              }
+
+              process.stderr.write(`[agentlog-mcp] log_turn: Trace ${parentTraceId} 已${status}，自动 Fork 新 trace ${traceId}\n`);
+            } catch (err) {
+              process.stderr.write(`[agentlog-mcp] log_turn: 自动 Fork 失败: ${err}，继续使用原 trace\n`);
+            }
+          } else if (status === null) {
+            // Trace 不存在，创建新 trace
+            process.stderr.write(`[agentlog-mcp] log_turn: Trace ${traceId} 不存在，创建新 trace\n`);
+            traceId = null;
+          } else {
+            // status === "running" or "paused"，继续使用同一 trace
+            process.stderr.write(`[agentlog-mcp] log_turn: 继续使用 trace ${traceId} (status=${status})\n`);
+          }
         }
 
-        process.stderr.write(`[agentlog-mcp] log_turn 写入成功 session_id=${resultSessionId}\n`);
+        // 如果没有 trace_id，创建新 trace
+        if (!traceId) {
+          try {
+            const traceResult = await postTrace({
+              taskGoal: `Task started by ${source || "agent"}`,
+              status: "running",
+            });
+            traceId = traceResult.id;
+            process.env.AGENTLOG_TRACE_ID = traceId;
+
+            // T-A: 写入 git config
+            try {
+              if (await isGitRepo(workspacePath)) {
+                await setGitConfig(workspacePath, "agentlog.traceId", traceId);
+                process.stderr.write(`[agentlog-mcp] log_turn: 已写入 git config agentlog.traceId=${traceId}\n`);
+              }
+            } catch (gitErr) {
+              process.stderr.write(`[agentlog-mcp] log_turn: 写入 git config 失败（忽略）: ${gitErr}\n`);
+            }
+
+            process.stderr.write(`[agentlog-mcp] log_turn: 自动创建 Trace ${traceId}\n`);
+          } catch (err) {
+            process.stderr.write(`[agentlog-mcp] log_turn: 自动创建 Trace 失败: ${err}\n`);
+            throw err;
+          }
+        }
+
+        // 创建 Span（每次 log_turn 调用都创建一个 Span）
+        const spanPayload = {
+          role,
+          content: turnContent,
+          timestamp: new Date().toISOString(),
+          ...(toolName ? { toolName } : {}),
+          ...(toolInput ? { toolInput } : {}),
+          ...(reasoning ? { reasoning } : {}),
+          ...(finalTokenUsage ? { tokenUsage: finalTokenUsage } : {}),
+          model,
+          source,
+          workspacePath,
+        };
+
+        const spanId = await postSpan({
+          traceId,
+          actorType: role === "user" ? "human" : role === "assistant" ? "agent" : "agent",
+          actorName: source || "unknown",
+          payload: spanPayload,
+        });
+
+        process.stderr.write(`[agentlog-mcp] log_turn: 创建 Span ${spanId} 关联到 trace=${traceId}\n`);
+
+        resultSessionId = traceId;
+
+        // 更新 session 状态追踪（内存中，用于向后兼容和 call_reminder）
+        if (traceId) {
+          const state = sessionTracker.get(traceId);
+          if (state) {
+            state.turnCount++;
+            state.lastActivityAt = Date.now();
+            state.recordedRoles.add(role);
+          } else {
+            sessionTracker.set(traceId, {
+              createdAt: Date.now(),
+              turnCount: 1,
+              intentCalled: false,
+              lastActivityAt: Date.now(),
+              recordedRoles: new Set([role]),
+            });
+          }
+          lastCreatedSessionId = traceId;
+          lastCreatedSessionAt = Date.now();
+        }
+
+        process.stderr.write(`[agentlog-mcp] log_turn 写入成功 trace_id=${resultSessionId}, span_id=${spanId}\n`);
+
+        // 返回结构化 JSON，便于 Agent 可靠解析 session_id
+        const isNewSession = !sessionId;
+        const responsePayload: Record<string, unknown> = {
+          session_id: resultSessionId,
+          trace_id: resultSessionId,
+          span_id: spanId,
+          status: "ok",
+          is_new_session: isNewSession,
+          message: isNewSession
+            ? `新会话已创建。请在后续每次调用 log_turn 和最终调用 log_intent 时都传入 session_id="${resultSessionId}"。`
+            : `消息已追加到会话 ${resultSessionId}。`,
+        };
+
+        if (isNewSession) {
+          responsePayload.next_steps = [
+            `每次工具调用完成后：log_turn(session_id="${resultSessionId}", role="tool", ...)`,
+            `每次生成回复后：log_turn(session_id="${resultSessionId}", role="assistant", ...)`,
+            `任务完成后：log_intent(session_id="${resultSessionId}", task="...", ...)`,
+          ];
+        }
+
+        if (duplicateWarning) {
+          responsePayload.warning = duplicateWarning;
+        }
+
+        // 附加 call_reminder，帮助 Agent 确认调用状态
+        const state = sessionTracker.get(resultSessionId);
+        if (state) {
+          const callReminder: Record<string, unknown> = {
+            total_turns_recorded: state.turnCount,
+            recorded_roles: Array.from(state.recordedRoles),
+          };
+
+          // 检测遗漏的角色
+          const allRoles = ["user", "assistant", "tool"] as const;
+          const missingRoles = allRoles.filter(r => !state.recordedRoles.has(r));
+          if (missingRoles.length > 0) {
+            callReminder.missing_roles = missingRoles;
+            callReminder.hint = `当前已记录 ${callReminder.recorded_roles}，缺少 ${missingRoles}。请补充记录。`;
+          }
+
+          // 如果还没有 user 就已经是 assistant/tool，说明跳过了第一步
+          if (!state.recordedRoles.has("user") && (state.recordedRoles.has("assistant") || state.recordedRoles.has("tool"))) {
+            callReminder.warning = "⚠️ 你还没有调用 log_turn(role='user') 建立会话。正确流程必须从 user 开始。";
+          }
+
+          responsePayload.call_reminder = callReminder;
+        }
 
         return {
           content: [
             {
               type: "text" as const,
-              text: `消息已记录（session_id=${resultSessionId}）。后续调用请传入此 session_id。`,
+              text: JSON.stringify(responsePayload, null, 2),
             },
           ],
         };
@@ -815,119 +1523,62 @@ async function main(): Promise<void> {
         process.stderr.write(`[agentlog-mcp]   provider=${provider}\n`);
         process.stderr.write(`[agentlog-mcp]   source=${source}\n`);
 
-        let resultId: string;
+        // ── 新的 trace 架构 ─────────────────────────────────
+        // session_id 现在作为 trace_id 使用，不再操作 sessions 表
 
-        if (existingSessionId) {
-          // 已有会话：回写 response/affectedFiles/durationMs，formatted_transcript 和 reasoning_summary 由后端从 transcript 自动生成
-          const intentBody: { response?: string; affectedFiles?: string[]; durationMs?: number } = {};
-          if (task) intentBody.response = task;
-          if (affectedFiles.length > 0) intentBody.affectedFiles = affectedFiles;
+        // 优先使用 existingSessionId 作为 traceId（向后兼容）
+        let traceId = existingSessionId ?? process.env.AGENTLOG_TRACE_ID ?? null;
 
-          // 耗时计算：优先使用外部传入值，否则从会话创建时间自动推算
-          if (explicitDurationMs && explicitDurationMs > 0) {
-            intentBody.durationMs = Math.round(explicitDurationMs);
-          } else {
-            // 从已有会话的 createdAt 时间戳推算耗时
-            try {
-              const sessionResp = await fetchSessionById(existingSessionId);
-              const sessionData = sessionResp.data as Record<string, unknown> | undefined;
-              const createdAt = sessionData?.createdAt as string | undefined;
-              if (createdAt) {
-                const created = new Date(createdAt).getTime();
-                if (!isNaN(created)) {
-                  intentBody.durationMs = Math.round(Date.now() - created);
-                }
-              }
-            } catch {
-              // 查询失败时跳过自动计算，不影响主流程
-              process.stderr.write(`[agentlog-mcp] 自动计算耗时失败，跳过\n`);
-            }
+        // 如果没有 traceId，创建一个新 trace
+        if (!traceId) {
+          try {
+            const traceResult = await postTrace({ taskGoal: task || "Untitled Trace" });
+            traceId = traceResult.id;
+            process.env.AGENTLOG_TRACE_ID = traceId;
+            process.stderr.write(`[agentlog-mcp] log_intent: 自动创建 Trace ${traceId}\n`);
+          } catch (err) {
+            process.stderr.write(`[agentlog-mcp] log_intent: 自动创建 Trace 失败: ${err}\n`);
           }
-
-          await patchIntent(existingSessionId, intentBody);
-
-          // Auto-fill transcript from database if not provided
-          let finalTranscript = transcript ?? [];
-          if ((!finalTranscript || finalTranscript.length === 0) && existingSessionId) {
-            try {
-              const sessionResp = await fetchSessionById(existingSessionId);
-              const sessionData = sessionResp.data as { transcript?: Array<Record<string, unknown>> } | undefined;
-              if (sessionData?.transcript && sessionData.transcript.length > 0) {
-                finalTranscript = sessionData.transcript.map((t) => ({
-                  role: t.role as "user" | "assistant" | "tool",
-                  content: t.content as string,
-                  ...(t.toolName ? { toolName: t.toolName as string } : {}),
-                  ...(t.toolInput ? { toolInput: JSON.stringify(t.toolInput) } : {}),
-                  ...(t.timestamp ? { timestamp: t.timestamp as string } : {}),
-                }));
-                process.stderr.write(`[agentlog-mcp] log_intent: 自动从数据库填充 transcript (${finalTranscript.length} turns)\n`);
-              }
-            } catch {
-              process.stderr.write(`[agentlog-mcp] log_intent: 自动填充 transcript 失败，继续\n`);
-            }
-          }
-
-          if (finalTranscript && finalTranscript.length > 0) {
-            await patchTranscript(existingSessionId, {
-              turns: finalTranscript,
-              ...(tokenUsage ? { tokenUsage } : {}),
-            });
-          } else if (tokenUsage) {
-            await patchTranscript(existingSessionId, { turns: [], tokenUsage });
-          }
-          resultId = existingSessionId;
-        } else {
-          // ── 方案 A+B：兜底逻辑 ─────────────────────────────────
-          // 没有 session_id 时，用 task 作为 prompt
-          const finalPrompt = task || "Untitled Task";
-
-          // 从 transcript 生成 summary（用于 response 字段）
-          let summary = "";
-          if (transcript && transcript.length > 0) {
-            summary = transcript
-              .filter(t => t.role === "assistant")
-              .map(t => {
-                const content = t.content || "";
-                return content.length > 200 ? content.slice(0, 200) + "..." : content;
-              })
-              .join("; ");
-          }
-
-          // 耗时：优先使用外部传入值，其次从 transcript 首尾时间戳推算
-          let newSessionDurationMs = explicitDurationMs && explicitDurationMs > 0
-            ? Math.round(explicitDurationMs)
-            : 0;
-          if (newSessionDurationMs === 0 && transcript && transcript.length > 0) {
-            const firstTs = transcript[0].timestamp;
-            if (firstTs) {
-              const firstTime = new Date(firstTs).getTime();
-              if (!isNaN(firstTime)) {
-                newSessionDurationMs = Math.round(Date.now() - firstTime);
-              }
-            }
-          }
-
-          resultId = await postSession({
-            provider,
-            model,
-            source,
-            workspacePath,
-            prompt: finalPrompt,                    // 直接用 task，不占位
-            response: summary || finalPrompt,        // 用 summary 作为 response
-            affectedFiles,
-            durationMs: newSessionDurationMs,
-            ...(transcript && transcript.length > 0 ? { transcript } : {}),
-            ...(tokenUsage ? { tokenUsage } : {}),
-          });
         }
 
-        process.stderr.write(`[agentlog-mcp] 写入成功 id=${resultId}\n`);
+        // T-A: 将 traceId 写入 git config
+        if (traceId) {
+          try {
+            if (await isGitRepo(workspacePath)) {
+              await setGitConfig(workspacePath, "agentlog.traceId", traceId);
+              process.stderr.write(`[agentlog-mcp] log_intent: 已写入 git config agentlog.traceId=${traceId}\n`);
+            }
+          } catch (gitErr) {
+            process.stderr.write(`[agentlog-mcp] log_intent: 写入 git config 失败（忽略）: ${gitErr}\n`);
+          }
+        }
+
+        // 更新 trace 状态为 completed
+        if (traceId) {
+          await patchTrace(traceId, {
+            status: "completed",
+            ...(task ? { taskGoal: task } : {}),
+          });
+          process.stderr.write(`[agentlog-mcp] log_intent: 更新 trace ${traceId} 状态为 completed\n`);
+        }
+
+        const resultId = traceId ?? "unknown";
+
+        process.stderr.write(`[agentlog-mcp] log_intent 完成 trace_id=${resultId}\n`);
+
+        const intentResponsePayload: Record<string, unknown> = {
+          session_id: resultId,
+          status: "ok",
+          trace_id: process.env.AGENTLOG_TRACE_ID ?? null,
+          message: `任务记录完成。Trace ${resultId} 状态已更新为 completed。` +
+            (process.env.AGENTLOG_TRACE_ID ? ` 关联到 trace_id=${process.env.AGENTLOG_TRACE_ID}` : ""),
+        };
 
         return {
           content: [
             {
               type: "text" as const,
-              text: `意图记录成功（id=${resultId}），请继续工作。`,
+              text: JSON.stringify(intentResponsePayload, null, 2),
             },
           ],
         };
