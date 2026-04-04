@@ -452,41 +452,73 @@ curl http://localhost:7892/health
 
 ---
 
-### TC-HO-003：人类接管并修复代码
+### TC-HO-003：人类接管并修复代码（通过 OpenCode）
 
-**目的**：验证 Human Override 完整流程
+**目的**：验证人类通过 OpenCode（装了 AgentLog 插件）接管并修复代码，OpenCode 继续使用同一个 traceId 进行记录
+
+**关键理解**：
+- 人类用 **同一个 OpenCode 客户端**（已装 AgentLog 插件），但切换到**人类操作模式**
+- 不是通过命令行 git commit，而是通过 OpenCode 的**终端**执行 git 命令
+- OpenCode 的 AgentLog 插件能够**继续识别同一个 traceId** 并记录人类的操作
 
 **前置条件**：
 - TC-HO-002 已完成
-- Git Hook 已安装
+- OpenCode 已配置 AgentLog MCP
+- OpenCode 中设置了 `AGENTLOG_TRACE_ID` 环境变量
 
 **测试步骤**：
 
-1. **设置环境变量**
+1. **确认 OpenCode Agent 留下的 traceId**
    ```bash
-   export AGENTLOG_TRACE_ID="<traceId from TC-HO-002>"
-   export AGENTLOG_GATEWAY_URL="http://localhost:7892"
-   export AGENTLOG_WORKSPACE_PATH="/path/to/repo"
+   # OpenCode Agent 任务完成后，检查当前环境的 traceId
+   echo $AGENTLOG_TRACE_ID
+   # 或从之前的 log_intent 返回中获取
    ```
 
-2. **人类修复代码**
-   ```bash
-   # 修复 /tmp/buggy.py 中的 bug
-   cat > /tmp/buggy.py << 'EOF'
-   def sum_list(nums):
-       return sum(nums)  # 修复后的正确版本
-   EOF
+2. **人类切换到 OpenCode 操作**
    
-   git add /tmp/buggy.py
-   git commit -m "fix: correct sum function"
+   在 OpenCode 客户端中：
+   - 切换到**人类操作模式**（不使用 Agent，直接操作）
+   - 打开 Agent 生成的有 Bug 的文件
+
+3. **人类修复代码**
+   
+   在 OpenCode 中直接编辑 `buggy.py`：
+   ```python
+   # 修复前（有 Bug）
+   def sum_list(nums):
+       return 0  # Bug!
+   
+   # 修复后（正确）
+   def sum_list(nums):
+       return sum(nums)  # Fixed!
    ```
 
-3. **等待异步处理**
+4. **人类提交（通过 OpenCode 终端）**
+   
+   在 OpenCode 终端中执行：
+   ```bash
+   # 确保使用同一个 traceId
+   export AGENTLOG_TRACE_ID="<traceId from TC-HO-002>"
+   
+   git add .
+   git commit -m "fix: correct sum function by human"
+   ```
+
+5. **等待异步处理**
    ```bash
    sleep 2
    ```
 
-4. **验证 Human Override Span**
+6. **验证 Human Override Span 创建**
+   
+   **方式A：通过 OpenCode MCP 插件记录**
+   ```bash
+   # 如果 OpenCode MCP 插件会自动记录终端 git 操作
+   # 应该自动创建 human span
+   ```
+   
+   **方式B：通过 Git Hook 记录**
    ```bash
    curl -s "http://localhost:7892/api/traces/$TRACE_ID/summary" | python3 -c "
    import sys, json
@@ -499,27 +531,39 @@ curl http://localhost:7892/health
    "
    ```
 
-5. **验证 Human Span 详情**
+7. **验证 Human Span 详情**
    ```bash
    curl -s "http://localhost:7892/api/traces/$TRACE_ID/diff" | python3 -c "
    import sys, json
    d = json.load(sys.stdin)
    tree = d.get('data', {}).get('spanTree', [])
    human = [s for s in tree if s.get('actorType') == 'human']
+   agent = [s for s in tree if s.get('actorType') == 'agent']
+   
+   print('✅ Complete Context:')
+   print(f'   🤖 Agent Spans: {len(agent)}')
+   print(f'   👤 Human Spans: {len(human)}')
+   
    if human:
-       print('✅ Human Override detected!')
-       print('   ActorName:', human[0].get('actorName'))
-       print('   Payload:', human[0].get('payload'))
-   else:
-       print('❌ No human span found')
+       h = human[-1]  # 最新的人类 span
+       print()
+       print('Latest Human Override:')
+       print('   ActorName:', h.get('actorName'))
+       print('   Event:', h.get('payload', {}).get('event'))
+       print('   Commit:', h.get('payload', {}).get('commitHash', 'N/A')[:12])
    "
    ```
 
 **预期结果**：
-- [ ] Git Hook 触发
+- [ ] OpenCode 终端执行的 git commit 被 AgentLog 插件记录
 - [ ] 创建 actor=human Span
-- [ ] actorName = "git:human-override"
-- [ ] payload 包含 commitHash
+- [ ] Span 绑定到同一个 traceId
+- [ ] payload 包含 commitHash 和 diff 信息
+- [ ] Agent 后续能查询到完整的 Agent+Human span 树
+
+**⚠️ 关键验证点**：
+- 验证 OpenCode 是否支持 `AGENTLOG_TRACE_ID` 环境变量透传
+- 验证 OpenCode 的 git 操作是否自动触发 AgentLog MCP 记录
 
 ---
 
