@@ -1,0 +1,14 @@
+I need to understand how the AgentLog codebase handles git commit association with traces. 
+
+Please search for and analyze:
+1. The git hook service implementation - likely in packages/backend/src/services/gitHookService.ts or similar
+2. The post-commit hook handling - how it reads traceId and creates spans
+3. The MCP implementation that creates traces and should write to git config
+4. Any code related to AGENTLOG_TRACE_ID environment variable handling
+
+Focus on finding:
+- Where git config "agentlog.traceId" is written
+- Where git config "agentlog.traceId" is read
+- How spans are created with traceId association on git commit
+
+Return the file paths and relevant code sections that handle this flow.
