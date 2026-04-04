@@ -1,0 +1,58 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "1fdde5b815e8",
+  "session_id": "ses_2a749848fffef3lngoguzX0UcL",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-04T14:33:28.544644Z",
+  "branch": "phase1-tickets",
+  "checkpoints_count": 11,
+  "files_touched": [
+    "README.md",
+    "docs/PHASE1-INTERACTIVE-TEST.md",
+    "package.json",
+    "packages/backend/package.json",
+    "packages/backend/src/db/database.ts",
+    "packages/backend/src/index.ts",
+    "packages/backend/src/mcp.ts",
+    "packages/backend/src/routes/commits.ts",
+    "packages/backend/src/routes/traces.ts",
+    "packages/backend/src/services/contextService.ts",
+    "packages/backend/test/integration.test.ts",
+    "packages/shared/package.json",
+    "packages/shared/src/types.ts",
+    "packages/vscode-extension/build.mjs",
+    "packages/vscode-extension/package.json",
+    "packages/vscode-extension/src/client/backendClient.ts",
+    "packages/vscode-extension/src/extension.ts",
+    "packages/vscode-extension/src/providers/sessionTreeProvider.ts",
+    "packages/vscode-extension/src/providers/sessionWebviewProvider.ts",
+    "packages/vscode-extension/src/providers/traceTreeProvider.ts",
+    "packages/vscode-extension/src/providers/traceWebviewProvider.ts",
+    "packages/vscode-extension/src/webview/dashboard.js",
+    "skills/agentlog-auto/openclaw.plugin.json",
+    "skills/agentlog-auto/package.json",
+    "skills/agentlog-auto/src/index.ts"
+  ],
+  "agent": "OpenCode",
+  "model": "MiniMax-M2.7",
+  "turn_id": "2d7c9cf624f7",
+  "token_usage": {
+    "input_tokens": 3621,
+    "cache_creation_tokens": 8499,
+    "cache_read_tokens": 103365,
+    "output_tokens": 3194,
+    "api_call_count": 6
+  },
+  "session_metrics": {
+    "turn_count": 17
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-04T14:33:28.532371Z",
+    "agent_lines": 270,
+    "human_added": 1005,
+    "human_modified": 512,
+    "human_removed": 0,
+    "total_committed": 1787,
+    "agent_percentage": 15.10912143256855
+  }
+}

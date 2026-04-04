@@ -3,7 +3,7 @@
   "checkpoint_id": "1fdde5b815e8",
   "strategy": "manual-commit",
   "branch": "phase1-tickets",
-  "checkpoints_count": 3,
+  "checkpoints_count": 14,
   "files_touched": [
     "README.md",
     "docs/PHASE1-INTERACTIVE-TEST.md",
@@ -58,13 +58,19 @@
       "transcript": "/1f/dde5b815e8/3/full.jsonl",
       "content_hash": "/1f/dde5b815e8/3/content_hash.txt",
       "prompt": ""
+    },
+    {
+      "metadata": "/1f/dde5b815e8/4/metadata.json",
+      "transcript": "/1f/dde5b815e8/4/full.jsonl",
+      "content_hash": "/1f/dde5b815e8/4/content_hash.txt",
+      "prompt": "/1f/dde5b815e8/4/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 5422,
-    "cache_creation_tokens": 5343,
-    "cache_read_tokens": 100109,
-    "output_tokens": 881,
-    "api_call_count": 6
+    "input_tokens": 9043,
+    "cache_creation_tokens": 13842,
+    "cache_read_tokens": 203474,
+    "output_tokens": 4075,
+    "api_call_count": 12
   }
 }
