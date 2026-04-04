@@ -178,6 +178,62 @@ async function postTrace(body: Record<string, unknown>): Promise<{ id: string; t
   return json.data;
 }
 
+interface BackendSpanResponse {
+  success: boolean;
+  data?: { id: string };
+  error?: string;
+}
+
+/**
+ * 向 Backend 创建新 Span。
+ */
+async function postSpan(body: Record<string, unknown>): Promise<string> {
+  const url = `${BACKEND_BASE}/api/spans`;
+
+  process.stderr.write(`[agentlog-mcp] POST ${url}\n`);
+
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(`Backend 返回 HTTP ${resp.status}：${text}`);
+  }
+
+  const json = (await resp.json()) as BackendSpanResponse;
+  if (!json.success || !json.data?.id) {
+    throw new Error(`Backend 返回业务错误：${json.error ?? "unknown"}`);
+  }
+
+  return json.data.id;
+}
+
+/**
+ * 向 Backend 更新 trace 状态。
+ */
+async function patchTrace(
+  traceId: string,
+  body: Record<string, unknown>,
+): Promise<void> {
+  const url = `${BACKEND_BASE}/api/traces/${encodeURIComponent(traceId)}`;
+
+  process.stderr.write(`[agentlog-mcp] PATCH ${url}\n`);
+
+  const resp = await fetch(url, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(`Backend 返回 HTTP ${resp.status}：${text}`);
+  }
+}
+
 /**
  * 向 Backend 追加 transcript 消息到已有会话。
  */
@@ -925,23 +981,71 @@ async function main(): Promise<void> {
           }
         }
 
-        if (sessionId) {
-          // 追加到已有会话
-          await patchTranscript(sessionId, {
-            turns: [turn],
-            ...(finalTokenUsage ? { tokenUsage: finalTokenUsage } : {}),
-          });
-          resultSessionId = sessionId;
+        // ── 新的 Span 架构：直接创建 Span ───────────────────────────────
+        // 优先使用 session_id 作为 trace_id（向后兼容）
+        let traceId = sessionId ?? process.env.AGENTLOG_TRACE_ID ?? null;
 
-          // 更新 session 状态追踪
-          const state = sessionTracker.get(sessionId);
+        // 如果没有 trace_id，创建新 trace
+        if (!traceId) {
+          try {
+            const traceResult = await postTrace({
+              taskGoal: `Task started by ${source || "agent"}`,
+              status: "running",
+            });
+            traceId = traceResult.id;
+            process.env.AGENTLOG_TRACE_ID = traceId;
+
+            // T-A: 写入 git config
+            try {
+              if (await isGitRepo(workspacePath)) {
+                await setGitConfig(workspacePath, "agentlog.traceId", traceId);
+                process.stderr.write(`[agentlog-mcp] log_turn: 已写入 git config agentlog.traceId=${traceId}\n`);
+              }
+            } catch (gitErr) {
+              process.stderr.write(`[agentlog-mcp] log_turn: 写入 git config 失败（忽略）: ${gitErr}\n`);
+            }
+
+            process.stderr.write(`[agentlog-mcp] log_turn: 自动创建 Trace ${traceId}\n`);
+          } catch (err) {
+            process.stderr.write(`[agentlog-mcp] log_turn: 自动创建 Trace 失败: ${err}\n`);
+            throw err;
+          }
+        }
+
+        // 创建 Span（每次 log_turn 调用都创建一个 Span）
+        const spanPayload = {
+          role,
+          content: turnContent,
+          timestamp: new Date().toISOString(),
+          ...(toolName ? { toolName } : {}),
+          ...(toolInput ? { toolInput } : {}),
+          ...(reasoning ? { reasoning } : {}),
+          ...(finalTokenUsage ? { tokenUsage: finalTokenUsage } : {}),
+          model,
+          source,
+          workspacePath,
+        };
+
+        const spanId = await postSpan({
+          traceId,
+          actorType: role === "user" ? "human" : role === "assistant" ? "agent" : "agent",
+          actorName: source || "unknown",
+          payload: spanPayload,
+        });
+
+        process.stderr.write(`[agentlog-mcp] log_turn: 创建 Span ${spanId} 关联到 trace=${traceId}\n`);
+
+        resultSessionId = traceId;
+
+        // 更新 session 状态追踪（内存中，用于向后兼容和 call_reminder）
+        if (traceId) {
+          const state = sessionTracker.get(traceId);
           if (state) {
             state.turnCount++;
             state.lastActivityAt = Date.now();
             state.recordedRoles.add(role);
           } else {
-            // 可能是从之前的进程恢复的 session
-            sessionTracker.set(sessionId, {
+            sessionTracker.set(traceId, {
               createdAt: Date.now(),
               turnCount: 1,
               intentCalled: false,
@@ -949,44 +1053,18 @@ async function main(): Promise<void> {
               recordedRoles: new Set([role]),
             });
           }
-        } else {
-          // 创建新会话（首条消息）
-          // 注意：DeepSeek-R1 首条 assistant 消息 content 可能为空（仅有推理内容），
-          // 此时用 "(pending)" 占位，后续通过 log_intent 或后续 log_turn 完善
-          const provider = inferProvider(model);
-          const traceId = process.env.AGENTLOG_TRACE_ID;
-          resultSessionId = await postSession({
-            provider,
-            model,
-            source,
-            workspacePath,
-            prompt: role === "user" ? content : "(pending)",
-            response: role === "assistant" ? content : "(pending)",
-            affectedFiles: [],
-            durationMs: 0,
-            transcript: [turn],
-            ...(finalTokenUsage ? { tokenUsage: finalTokenUsage } : {}),
-            ...(traceId ? { traceId } : {}),
-          });
-
-          // 记录新 session 到追踪器
-          sessionTracker.set(resultSessionId, {
-            createdAt: Date.now(),
-            turnCount: 1,
-            intentCalled: false,
-            lastActivityAt: Date.now(),
-            recordedRoles: new Set([role]),
-          });
-          lastCreatedSessionId = resultSessionId;
+          lastCreatedSessionId = traceId;
           lastCreatedSessionAt = Date.now();
         }
 
-        process.stderr.write(`[agentlog-mcp] log_turn 写入成功 session_id=${resultSessionId}\n`);
+        process.stderr.write(`[agentlog-mcp] log_turn 写入成功 trace_id=${resultSessionId}, span_id=${spanId}\n`);
 
         // 返回结构化 JSON，便于 Agent 可靠解析 session_id
         const isNewSession = !sessionId;
         const responsePayload: Record<string, unknown> = {
           session_id: resultSessionId,
+          trace_id: resultSessionId,
+          span_id: spanId,
           status: "ok",
           is_new_session: isNewSession,
           message: isNewSession
@@ -1248,28 +1326,25 @@ async function main(): Promise<void> {
             }
           }
 
-          resultId = await postSession({
-            provider,
-            model,
-            source,
-            workspacePath,
-            prompt: finalPrompt,                    // 直接用 task，不占位
-            response: summary || finalPrompt,        // 用 summary 作为 response
-            affectedFiles,
-            durationMs: newSessionDurationMs,
-            ...(transcript && transcript.length > 0 ? { transcript } : {}),
-            ...(tokenUsage ? { tokenUsage } : {}),
-            ...(traceId ? { traceId } : {}),
-          });
+          // 新的 trace 架构：只更新 trace 状态为 completed，不再写入 sessions 表
+          if (traceId) {
+            await patchTrace(traceId, {
+              status: "completed",
+              ...(task ? { taskGoal: task } : {}),
+            });
+            process.stderr.write(`[agentlog-mcp] log_intent: 更新 trace ${traceId} 状态为 completed\n`);
+          }
+
+          resultId = traceId ?? "unknown";
         }
 
-        process.stderr.write(`[agentlog-mcp] 写入成功 id=${resultId}\n`);
+        process.stderr.write(`[agentlog-mcp] log_intent 完成 trace_id=${resultId}\n`);
 
         const intentResponsePayload: Record<string, unknown> = {
           session_id: resultId,
           status: "ok",
           trace_id: process.env.AGENTLOG_TRACE_ID ?? null,
-          message: `任务记录完成（session_id=${resultId}）。会话已归档。` +
+          message: `任务记录完成。Trace ${resultId} 状态已更新为 completed。` +
             (process.env.AGENTLOG_TRACE_ID ? ` 关联到 trace_id=${process.env.AGENTLOG_TRACE_ID}` : ""),
         };
         if (intentWarnings.length > 0) {

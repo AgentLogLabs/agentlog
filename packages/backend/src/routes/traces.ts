@@ -17,6 +17,7 @@ import {
   deleteTrace,
   buildSpanTree,
   createTrace,
+  updateTrace,
 } from "../services/traceService.js";
 
 interface TraceParams {
@@ -123,6 +124,53 @@ async function tracesRoutes(app: FastifyInstance): Promise<void> {
       return reply.send({
         success: true,
         data: trace,
+      });
+    }
+  );
+
+  /**
+   * PATCH /api/traces/:id
+   * 更新 trace（状态、taskGoal）
+   */
+  app.patch<{ Params: TraceParams; Body: { status?: string; taskGoal?: string } }>(
+    "/:id",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: {
+            id: { type: "string", minLength: 1 },
+          },
+        },
+        body: {
+          type: "object",
+          properties: {
+            status: { type: "string" },
+            taskGoal: { type: "string" },
+          },
+        },
+      },
+    },
+    async (req: FastifyRequest<{ Params: TraceParams; Body: { status?: string; taskGoal?: string } }>, reply: FastifyReply) => {
+      const { id } = req.params;
+      const { status, taskGoal } = req.body;
+
+      const updated = updateTrace(id, {
+        ...(status ? { status: status as "running" | "paused" | "completed" | "failed" } : {}),
+        ...(taskGoal ? { taskGoal } : {}),
+      });
+
+      if (!updated) {
+        return reply.status(404).send({
+          success: false,
+          error: "Trace not found",
+        });
+      }
+
+      return reply.send({
+        success: true,
+        data: updated,
       });
     }
   );
