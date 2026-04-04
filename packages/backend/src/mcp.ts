@@ -767,6 +767,39 @@ async function main(): Promise<void> {
             required: ["parent_trace_id"],
           },
         },
+
+        {
+          name: "suggest_trace",
+          description:
+            "根据任务描述，语义搜索相似的 Trace。\n\n" +
+            "当需要继续之前的任务时，调用此工具搜索相似的 trace，\n" +
+            "根据返回的 trace_id 决定是继续现有 trace 还是 fork 新 trace。\n\n" +
+            "【使用场景】\n" +
+            "  - 开始新任务前，先搜索是否有相似的历史 trace\n" +
+            "  - 人类说「继续之前的任务」时，Agent 自动搜索\n" +
+            "  - 发现历史任务有问题，想基于它继续\n\n" +
+            "【返回】\n" +
+            "返回最相似的 trace 列表，每个包含 trace_id、task_goal、状态等。\n" +
+            "如果找到相似的 trace，建议使用 fork_trace 基于它创建新 trace。",
+          inputSchema: {
+            type: "object" as const,
+            properties: {
+              task_goal: {
+                type: "string",
+                description: "任务目标描述（用于语义搜索）",
+              },
+              workspace_path: {
+                type: "string",
+                description: "工作区路径（用于过滤同一项目的 trace）",
+              },
+              limit: {
+                type: "number",
+                description: "返回数量（默认 5）",
+              },
+            },
+            required: ["task_goal"],
+          },
+        },
       ],
     };
   });
@@ -1005,6 +1038,78 @@ async function main(): Promise<void> {
         return {
           isError: true,
           content: [{ type: "text" as const, text: `Fork Trace 失败：${msg}` }],
+        };
+      }
+    }
+
+    // ── suggest_trace ──────────────────────────────────────────────────
+    if (request.params.name === "suggest_trace") {
+      const args = request.params.arguments ?? {};
+      const taskGoal = (args.task_goal as string | undefined) ?? "";
+      const workspacePath = (args.workspace_path as string | undefined);
+      const limit = (args.limit as number | undefined) ?? 5;
+
+      if (!taskGoal) {
+        return {
+          isError: true,
+          content: [{ type: "text" as const, text: "suggest_trace 需要传入 task_goal 参数" }],
+        };
+      }
+
+      try {
+        // 使用现有的 searchTracesAndSpans 函数搜索相似的 trace
+        const result = await searchTracesAndSpans({
+          keyword: taskGoal,
+          workspacePath,
+          pageSize: limit,
+        });
+
+        if (!result.success || !result.data) {
+          return {
+            isError: true,
+            content: [{ type: "text" as const, text: `搜索失败：${result.error ?? "unknown"}` }],
+          };
+        }
+
+        // 格式化返回结果
+        const suggestions = result.data.slice(0, limit).map(({ trace, spans }) => {
+          const t = trace as { id: string; parentTraceId: string | null; taskGoal: string; status: string; createdAt: string };
+          return {
+            trace_id: t.id,
+            parent_trace_id: t.parentTraceId,
+            task_goal: t.taskGoal,
+            status: t.status,
+            created_at: t.createdAt,
+            span_count: (spans as unknown[]).length,
+            suggestion: `找到相似 trace: ${t.id} (${t.status})`,
+          };
+        });
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  success: true,
+                  total: result.total ?? suggestions.length,
+                  suggestions,
+                  message: suggestions.length > 0
+                    ? `找到 ${suggestions.length} 个相似 trace。建议使用 fork_trace 继续任务。`
+                    : "未找到相似 trace。可以使用 create_trace 创建新 trace。",
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        process.stderr.write(`[agentlog-mcp] suggest_trace 失败: ${msg}\n`);
+        return {
+          isError: true,
+          content: [{ type: "text" as const, text: `搜索失败：${msg}` }],
         };
       }
     }
