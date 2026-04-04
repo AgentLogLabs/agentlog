@@ -130,6 +130,14 @@ export class TracePanel {
     return TracePanel.current;
   }
 
+  /**
+   * 打开指定 trace 的详情面板
+   */
+  static async open(traceId: string, context: vscode.ExtensionContext): Promise<void> {
+    const panel = TracePanel.createOrShow(context.extensionUri);
+    await panel.loadTrace(traceId);
+  }
+
   private handleMessage(msg: FromWebviewMessage): void {
     switch (msg.command) {
       case "ready":

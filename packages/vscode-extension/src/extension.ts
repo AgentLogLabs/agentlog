@@ -2084,7 +2084,7 @@ function registerTreeViews(): void {
 
 let traceTreeProvider: TraceTreeProvider;
 
-function registerTraceTreeView(): void {
+function registerTraceTreeView(context: vscode.ExtensionContext): void {
   traceTreeProvider = new TraceTreeProvider();
 
   disposables.push(
@@ -2093,6 +2093,17 @@ function registerTraceTreeView(): void {
       traceTreeProvider,
     ),
     traceTreeProvider,
+  );
+
+  // 注册查看 trace 详情的命令
+  disposables.push(
+    vscode.commands.registerCommand("agentlog.viewTraceDetail", async (traceId: string) => {
+      if (!traceId) {
+        vscode.window.showErrorMessage("无效的 Trace ID");
+        return;
+      }
+      await TracePanel.open(traceId, context);
+    }),
   );
 }
 
@@ -2168,7 +2179,7 @@ export async function activate(
 
   // ── 注册 TreeView ────────────────────────────
   registerTreeViews();
-  registerTraceTreeView();
+  registerTraceTreeView(context);
 
   // ── 监听配置变更 ────────────────────────────
   registerConfigWatcher(context);

@@ -63,6 +63,13 @@ export class TraceItem extends vscode.TreeItem {
     this.description = trace.status;
     this.tooltip = `${trace.id}\n状态: ${trace.status}\n创建: ${trace.createdAt}`;
 
+    // 点击时打开 trace 详情
+    this.command = {
+      command: "agentlog.viewTraceDetail",
+      title: "查看 Trace 详情",
+      arguments: [trace.id],
+    };
+
     switch (trace.status) {
       case "running":
         this.iconPath = new vscode.ThemeIcon("debug-pause");
