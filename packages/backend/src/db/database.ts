@@ -33,7 +33,7 @@ function resolveDbPath(): string {
  * 当前 Schema 版本。
  * 每次变更 DDL 时递增，迁移系统据此判断是否需要升级。
  */
-const SCHEMA_VERSION = 7;
+const SCHEMA_VERSION = 8;
 
 const DDL_SCHEMA_VERSION = `
   CREATE TABLE IF NOT EXISTS schema_version (
@@ -239,11 +239,12 @@ const DDL_USER_OPERATIONS_INDEXES = `
  */
 const DDL_TRACES = `
   CREATE TABLE IF NOT EXISTS traces (
-    id          TEXT    NOT NULL PRIMARY KEY,
-    task_goal   TEXT    NOT NULL,
-    status      TEXT    NOT NULL DEFAULT 'running',
-    created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-    updated_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    id                TEXT    NOT NULL PRIMARY KEY,
+    parent_trace_id   TEXT,
+    task_goal         TEXT    NOT NULL,
+    status            TEXT    NOT NULL DEFAULT 'running',
+    created_at        TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at        TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   );
 `;
 
@@ -394,6 +395,13 @@ const MIGRATIONS: Array<{ version: number; up: MigrationFn }> = [
       db.exec(DDL_TRACES_INDEXES);
       db.exec(DDL_SPANS);
       db.exec(DDL_SPANS_INDEXES);
+    },
+  },
+  {
+    version: 8,
+    up: (db) => {
+      // Trace Fork 支持：新增 parent_trace_id 字段支持 trace 分叉
+      db.exec(`ALTER TABLE traces ADD COLUMN parent_trace_id TEXT`);
     },
   },
 ];
@@ -598,6 +606,7 @@ export type UserOperationRow = {
 
 export type TraceRow = {
   id: string;
+  parent_trace_id: string | null;
   task_goal: string;
   status: string;
   created_at: string;

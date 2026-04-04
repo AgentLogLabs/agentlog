@@ -118,7 +118,7 @@ interface BackendSessionResponse {
 
 interface BackendTraceResponse {
   success: boolean;
-  data?: { id: string; taskGoal: string; status: string };
+  data?: { id: string; parentTraceId: string | null; taskGoal: string; status: string };
   error?: string;
 }
 
@@ -154,7 +154,7 @@ async function postSession(body: Record<string, unknown>): Promise<string> {
  * 向 Backend 创建新 Trace。
  * 失败时抛出 Error，由调用方统一处理。
  */
-async function postTrace(body: Record<string, unknown>): Promise<{ id: string; taskGoal: string; status: string }> {
+async function postTrace(body: Record<string, unknown>): Promise<{ id: string; parentTraceId: string | null; taskGoal: string; status: string }> {
   const url = `${BACKEND_BASE}/api/traces`;
 
   process.stderr.write(`[agentlog-mcp] POST ${url}\n`);
@@ -709,8 +709,41 @@ async function main(): Promise<void> {
                 type: "string",
                 description: "指定 trace ID（可选，默认自动生成 ULID）",
               },
+              parent_trace_id: {
+                type: "string",
+                description: "父 trace ID（可选，用于 fork 场景）",
+              },
             },
             required: [],
+          },
+        },
+
+        // ── fork_trace ───────────────────────────────────────────────────
+        {
+          name: "fork_trace",
+          description:
+            "Fork 一个已有的 Trace，创建新的子 trace。\n\n" +
+            "当需要基于已有任务继续开发时，使用 fork_trace 创建子 trace，\n" +
+            "新 trace 会保留对父 trace 的引用。\n\n" +
+            "【使用场景】\n" +
+            "  - 继续之前的开发任务时\n" +
+            "  - 需要在同一个父任务下创建子任务时\n\n" +
+            "【Fork 与 Create 的区别】\n" +
+            "create_trace: 创建全新 trace\n" +
+            "fork_trace: 基于已有 trace 创建子 trace，保留关联",
+          inputSchema: {
+            type: "object" as const,
+            properties: {
+              parent_trace_id: {
+                type: "string",
+                description: "父 trace ID（必填）",
+              },
+              task_goal: {
+                type: "string",
+                description: "新 trace 的任务目标（可选，默认 'Forked Task'）",
+              },
+            },
+            required: ["parent_trace_id"],
           },
         },
       ],
@@ -838,12 +871,16 @@ async function main(): Promise<void> {
       const args = request.params.arguments ?? {};
       const taskGoal = (args.task_goal as string | undefined) ?? "Untitled Trace";
       const traceId = (args.trace_id as string | undefined) ?? undefined;
+      const parentTraceId = (args.parent_trace_id as string | undefined) ?? undefined;
       const workspacePath = (args.workspace_path as string | undefined) ?? process.cwd();
 
       try {
         const body: Record<string, unknown> = { taskGoal };
         if (traceId) {
           body.id = traceId;
+        }
+        if (parentTraceId) {
+          body.parentTraceId = parentTraceId;
         }
 
         const result = await postTrace(body);
@@ -869,6 +906,7 @@ async function main(): Promise<void> {
                 {
                   success: true,
                   trace_id: result.id,
+                  parent_trace_id: result.parentTraceId,
                   task_goal: result.taskGoal,
                   status: result.status,
                   env_var_set: "AGENTLOG_TRACE_ID",
@@ -885,6 +923,67 @@ async function main(): Promise<void> {
         return {
           isError: true,
           content: [{ type: "text" as const, text: `创建 Trace 失败：${msg}` }],
+        };
+      }
+    }
+
+    // ── fork_trace ───────────────────────────────────────────────────────
+    if (request.params.name === "fork_trace") {
+      const args = request.params.arguments ?? {};
+      const parentTraceId = (args.parent_trace_id as string | undefined);
+      const taskGoal = (args.task_goal as string | undefined) ?? "Forked Task";
+      const workspacePath = (args.workspace_path as string | undefined) ?? process.cwd();
+
+      if (!parentTraceId) {
+        return {
+          isError: true,
+          content: [{ type: "text" as const, text: "fork_trace 需要传入 parent_trace_id 参数" }],
+        };
+      }
+
+      try {
+        // 创建新的子 trace，关联到父 trace
+        const result = await postTrace({
+          taskGoal,
+          parentTraceId,
+        });
+
+        // 将新的 trace_id 写入环境变量和 git config
+        process.env.AGENTLOG_TRACE_ID = result.id;
+
+        try {
+          if (await isGitRepo(workspacePath)) {
+            await setGitConfig(workspacePath, "agentlog.traceId", result.id);
+          }
+        } catch (gitErr) {
+          // ignore git config errors
+        }
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  success: true,
+                  trace_id: result.id,
+                  parent_trace_id: result.parentTraceId,
+                  task_goal: result.taskGoal,
+                  status: result.status,
+                  message: `Fork 成功。新 trace ${result.id} 已从 parent trace ${parentTraceId} 创建。`,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        process.stderr.write(`[agentlog-mcp] fork_trace 失败: ${msg}\n`);
+        return {
+          isError: true,
+          content: [{ type: "text" as const, text: `Fork Trace 失败：${msg}` }],
         };
       }
     }

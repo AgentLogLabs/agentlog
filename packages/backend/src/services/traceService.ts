@@ -16,6 +16,7 @@ export type TraceStatus = 'running' | 'completed' | 'failed' | 'paused';
 
 export interface Trace {
   id: string;
+  parentTraceId: string | null;
   taskGoal: string;
   status: TraceStatus;
   createdAt: string;
@@ -25,6 +26,7 @@ export interface Trace {
 export interface CreateTraceRequest {
   taskGoal: string;
   status?: TraceStatus;
+  parentTraceId?: string;
 }
 
 export interface UpdateTraceRequest {
@@ -63,6 +65,7 @@ export interface SpanTreeNode extends Span {
 function rowToTrace(row: TraceRow): Trace {
   return {
     id: row.id,
+    parentTraceId: (row as unknown as { parent_trace_id: string | null }).parent_trace_id ?? null,
     taskGoal: row.task_goal,
     status: row.status as TraceStatus,
     createdAt: row.created_at,
@@ -91,12 +94,14 @@ export function createTrace(req: CreateTraceRequest): Trace {
   const id = ulid();
   const now = new Date().toISOString();
   const status = req.status ?? 'running';
+  const parentTraceId = req.parentTraceId ?? null;
 
   db.prepare(`
-    INSERT INTO traces (id, task_goal, status, created_at, updated_at)
-    VALUES (@id, @task_goal, @status, @created_at, @updated_at)
+    INSERT INTO traces (id, parent_trace_id, task_goal, status, created_at, updated_at)
+    VALUES (@id, @parent_trace_id, @task_goal, @status, @created_at, @updated_at)
   `).run({
     id,
+    parent_trace_id: parentTraceId,
     task_goal: req.taskGoal,
     status,
     created_at: now,
