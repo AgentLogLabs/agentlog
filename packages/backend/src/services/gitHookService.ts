@@ -36,6 +36,7 @@ export interface PostCommitCallback {
   parentCommitHash?: string;
   agentId?: string;
   sessionId?: string;
+  traceId?: string;
 }
 
 // ─────────────────────────────────────────────
@@ -48,6 +49,7 @@ const POST_COMMIT_HOOK_TEMPLATE = `#!/bin/bash
 
 AGENTLOG_GATEWAY_URL="\${AGENTLOG_GATEWAY_URL:-http://localhost:7892}"
 WORKSPACE_PATH="\${AGENTLOG_WORKSPACE_PATH:-$(pwd)}"
+TRACE_ID="\${AGENTLOG_TRACE_ID:-}"
 COMMIT_HASH="\${GIT_COMMIT_HASH:-$(git rev-parse HEAD 2>/dev/null || echo "")}"
 PARENT_HASH="\${GIT_PARENT_COMMIT_HASH:-$(git rev-parse HEAD^ 2>/dev/null || echo "")}"
 
@@ -55,10 +57,18 @@ if [ -z "$COMMIT_HASH" ]; then
   exit 0
 fi
 
+# 构建请求体
+REQUEST_BODY="{\\"workspacePath\\":\\"\${WORKSPACE_PATH}\\",\\"commitHash\\":\\"\${COMMIT_HASH}\\",\\"parentCommitHash\\":\\"\${PARENT_HASH}\\"}"
+
+# 如果有 TRACE_ID，添加到请求体
+if [ -n "$TRACE_ID" ]; then
+  REQUEST_BODY="{\\"workspacePath\\":\\"\${WORKSPACE_PATH}\\",\\"commitHash\\":\\"\${COMMIT_HASH}\\",\\"parentCommitHash\\":\\"\${PARENT_HASH}\\",\\"traceId\\":\\"\${TRACE_ID}\\"}"
+fi
+
 # 异步调用 AgentLog 网关，不阻塞 git 流程
 curl -s -X POST "\${AGENTLOG_GATEWAY_URL}/api/hooks/post-commit" \\
   -H "Content-Type: application/json" \\
-  -d "{\\"workspacePath\\":\\"\${WORKSPACE_PATH}\\",\\"commitHash\\":\\"\${COMMIT_HASH}\\",\\"parentCommitHash\\":\\"\${PARENT_HASH}\\"}" \\
+  -d "$REQUEST_BODY" \\
   > /dev/null 2>&1 &
 
 exit 0
@@ -154,7 +164,10 @@ export function isGitHookInstalled(workspacePath: string): boolean {
 export async function handlePostCommitCallback(
   params: PostCommitCallback
 ): Promise<{ success: boolean; spanId?: string; error?: string }> {
-  const { workspacePath, commitHash, parentCommitHash, agentId, sessionId } = params;
+  const { workspacePath, commitHash, parentCommitHash, agentId, sessionId, traceId: paramTraceId } = params;
+
+  // 优先级：参数 traceId > 环境变量 AGENTLOG_TRACE_ID > agentId > "system"
+  const traceId = paramTraceId ?? process.env.AGENTLOG_TRACE_ID ?? agentId ?? "system";
 
   try {
     // 获取 commit 详细信息和仓库信息
@@ -164,10 +177,8 @@ export async function handlePostCommitCallback(
     ]);
 
     // 创建 Human Override Span
-    // 注意：这里假设存在一个与当前 workspace 关联的 active trace
-    // 在实际场景中，可以通过 sessionId 或 agentId 查找对应的 trace
     const span = createSpan({
-      traceId: agentId ?? "system", // 后续需要关联到正确的 trace
+      traceId,
       parentSpanId: null,
       actorType: "human" as ActorType,
       actorName: "git:human-override",

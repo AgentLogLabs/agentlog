@@ -114,6 +114,12 @@ interface BackendSessionResponse {
   error?: string;
 }
 
+interface BackendTraceResponse {
+  success: boolean;
+  data?: { id: string; taskGoal: string; status: string };
+  error?: string;
+}
+
 /**
  * 向 Backend 提交新会话。
  * 失败时抛出 Error，由调用方统一处理。
@@ -140,6 +146,34 @@ async function postSession(body: Record<string, unknown>): Promise<string> {
   }
 
   return json.data.id;
+}
+
+/**
+ * 向 Backend 创建新 Trace。
+ * 失败时抛出 Error，由调用方统一处理。
+ */
+async function postTrace(body: Record<string, unknown>): Promise<{ id: string; taskGoal: string; status: string }> {
+  const url = `${BACKEND_BASE}/api/traces`;
+
+  process.stderr.write(`[agentlog-mcp] POST ${url}\n`);
+
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(`Backend 返回 HTTP ${resp.status}：${text}`);
+  }
+
+  const json = (await resp.json()) as BackendTraceResponse;
+  if (!json.success || !json.data?.id) {
+    throw new Error(`Backend 返回业务错误：${json.error ?? "unknown"}`);
+  }
+
+  return json.data;
 }
 
 /**
@@ -554,6 +588,36 @@ async function main(): Promise<void> {
             required: ["task", "model"],
           },
         },
+
+        // ── create_trace ─────────────────────────────────────────────────
+        {
+          name: "create_trace",
+          description:
+            "创建一个新的 Trace（全局任务追踪）。\n\n" +
+            "建议在开始一个新任务时优先调用，返回的 trace_id 需要保存，\n" +
+            "后续的 log_turn 调用可以传入 trace_id 以关联到该 Trace。\n\n" +
+            "【使用场景】\n" +
+            "  - 开始一个全新的开发任务时\n" +
+            "  - 需要追踪一个跨多个会话的完整任务流程时\n" +
+            "  - 作为父级 Trace 关联多个子任务时\n\n" +
+            "【trace_id 传递方式】\n" +
+            "将返回的 trace_id 存入环境变量或工具调用上下文，\n" +
+            "后续 log_turn 调用时传入 trace_id 参数。",
+          inputSchema: {
+            type: "object" as const,
+            properties: {
+              task_goal: {
+                type: "string",
+                description: "任务目标描述（可选，默认 'Untitled Trace'）",
+              },
+              trace_id: {
+                type: "string",
+                description: "指定 trace ID（可选，默认自动生成 ULID）",
+              },
+            },
+            required: [],
+          },
+        },
       ],
     };
   });
@@ -714,6 +778,51 @@ async function main(): Promise<void> {
       }
     }
 
+    // ── create_trace ────────────────────────────────────────────────────
+    if (request.params.name === "create_trace") {
+      const args = request.params.arguments ?? {};
+      const taskGoal = (args.task_goal as string | undefined) ?? "Untitled Trace";
+      const traceId = (args.trace_id as string | undefined) ?? undefined;
+
+      try {
+        const body: Record<string, unknown> = { taskGoal };
+        if (traceId) {
+          body.id = traceId;
+        }
+
+        const result = await postTrace(body);
+
+        // 将 trace_id 写入环境变量（供后续 log_turn 使用）
+        process.env.AGENTLOG_TRACE_ID = result.id;
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  success: true,
+                  trace_id: result.id,
+                  task_goal: result.taskGoal,
+                  status: result.status,
+                  env_var_set: "AGENTLOG_TRACE_ID",
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        process.stderr.write(`[agentlog-mcp] create_trace 失败: ${msg}\n`);
+        return {
+          isError: true,
+          content: [{ type: "text" as const, text: `创建 Trace 失败：${msg}` }],
+        };
+      }
+    }
+
     // ── log_turn ────────────────────────────────────────────────────────
     if (request.params.name === "log_turn") {
       const args = request.params.arguments ?? {};
@@ -832,6 +941,7 @@ async function main(): Promise<void> {
           // 注意：DeepSeek-R1 首条 assistant 消息 content 可能为空（仅有推理内容），
           // 此时用 "(pending)" 占位，后续通过 log_intent 或后续 log_turn 完善
           const provider = inferProvider(model);
+          const traceId = process.env.AGENTLOG_TRACE_ID;
           resultSessionId = await postSession({
             provider,
             model,
@@ -843,6 +953,7 @@ async function main(): Promise<void> {
             durationMs: 0,
             transcript: [turn],
             ...(finalTokenUsage ? { tokenUsage: finalTokenUsage } : {}),
+            ...(traceId ? { traceId } : {}),
           });
 
           // 记录新 session 到追踪器

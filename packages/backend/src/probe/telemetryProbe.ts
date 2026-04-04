@@ -200,7 +200,12 @@ export function initProbe(config: ProbeConfig = {}): SpanBuffer {
     return globalProbe;
   }
 
-  globalTraceId = config.traceId ?? null;
+  // 优先从环境变量读取 trace_id
+  globalTraceId = process.env.AGENTLOG_TRACE_ID ?? config.traceId ?? null;
+  if (globalTraceId) {
+    console.log(`[AgentLog Probe] 使用已有 Trace: ${globalTraceId}`);
+  }
+
   globalProbe = new SpanBuffer(config);
   globalProbe.start();
 
@@ -219,8 +224,10 @@ export function getProbe(): SpanBuffer | null {
  */
 export function getCurrentTraceId(): string {
   if (!globalTraceId) {
-    globalTraceId = ulid();
-    console.log(`[AgentLog Probe] 创建新 Trace: ${globalTraceId}`);
+    globalTraceId = process.env.AGENTLOG_TRACE_ID ?? ulid();
+    if (!process.env.AGENTLOG_TRACE_ID) {
+      console.log(`[AgentLog Probe] 创建新 Trace: ${globalTraceId}`);
+    }
   }
   return globalTraceId;
 }

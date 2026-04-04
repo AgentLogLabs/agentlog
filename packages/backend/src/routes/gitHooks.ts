@@ -23,6 +23,7 @@ interface PostCommitBody {
   parentCommitHash?: string;
   agentId?: string;
   sessionId?: string;
+  traceId?: string;
 }
 
 interface InstallBody {
@@ -56,7 +57,7 @@ async function gitHooksRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (req: FastifyRequest<{ Body: PostCommitBody }>, reply: FastifyReply) => {
-      const { workspacePath, commitHash, parentCommitHash, agentId, sessionId } = req.body;
+      const { workspacePath, commitHash, parentCommitHash, agentId, sessionId, traceId } = req.body;
 
       const result = await handlePostCommitCallback({
         workspacePath,
@@ -64,6 +65,7 @@ async function gitHooksRoutes(app: FastifyInstance): Promise<void> {
         parentCommitHash,
         agentId,
         sessionId,
+        traceId,
       });
 
       if (result.success) {
