@@ -581,54 +581,114 @@ curl http://localhost:7892/health
 
 ---
 
-### TC-HO-004：Agent 通过 TraceID 恢复上下文
+### TC-HO-004：传递到 OpenClaw Agent 继续编辑
 
-**目的**：验证 Agent 能获取完整上下文（包含 Human Override）
+**目的**：验证 traceId 传递到 OpenClaw Agent，OpenClaw 能看到完整上下文并继续工作
 
-**前置条件**：TC-HO-003 已完成
+**关键理解**：
+- **Step 3**：OpenClaw Agent（运行在 Gateway/云端）接收任务
+- OpenClaw Agent 通过 `AGENTLOG_TRACE_ID` 环境变量或 MCP 工具传入 traceId
+- OpenClaw TelemetryProbe 继续记录 Agent 内部活动
+- 最终 span 树包含：**OpenCode Agent** + **VS Code Human** + **OpenClaw Agent**
+
+**前置条件**：
+- TC-HO-003 已完成
+- OpenClaw Agent 已配置 AgentLog TelemetryProbe
 
 **测试步骤**：
 
-1. **Agent 查询 Trace**
+1. **确认当前 traceId 的完整性**
+   ```bash
+   TRACE_ID="<traceId from TC-HO-003>"
+   curl -s "http://localhost:7892/api/traces/$TRACE_ID/summary" | python3 -c "
+   import sys, json
+   d = json.load(sys.stdin)
+   s = d.get('data', {}).get('statistics', {})
+   print('=== Current Trace State ===')
+   print('TraceId:', '$TRACE_ID')
+   print('Total Spans:', s.get('totalSpans'))
+   print('🤖 Agent Spans (OpenCode):', s.get('agentSpans'))
+   print('👤 Human Spans (VS Code):', s.get('humanSpans'))
+   "
    ```
-   使用 query_historical_interaction 工具
-   参数: limit=5
-   ```
-   验证返回包含 TC-HO-003 的 trace
 
-2. **Agent 获取完整详情**
-   ```
-   获取 traceId = <traceId> 的完整信息
+2. **传递 traceId 到 OpenClaw Agent**
+   
+   启动 OpenClaw Agent 时传入 traceId：
+   ```bash
+   # 方式A：通过环境变量
+   export AGENTLOG_TRACE_ID="$TRACE_ID"
+   openclaw agent --task "基于人类修复的上下文，继续完成剩余任务"
+   
+   # 方式B：通过 MCP 工具
+   # 使用 log_intent 工具并指定 trace_id 参数
    ```
 
-3. **验证 Agent 能看到 Human Override**
+3. **OpenClaw Agent 执行任务**
+   
+   OpenClaw Agent 接收任务后：
+   - 查询 traceId=T-001 获取完整上下文
+   - 理解人类在 VS Code 中修复了什么
+   - 继续完成剩余开发任务
+
+4. **OpenClaw TelemetryProbe 记录活动**
+   ```bash
+   # OpenClaw 内部的 TelemetryProbe 会自动上报 spans
+   sleep 10
+   ```
+
+5. **验证 OpenClaw Agent 的 Span 创建**
+   ```bash
+   curl -s "http://localhost:7892/api/traces/$TRACE_ID/summary" | python3 -c "
+   import sys, json
+   d = json.load(sys.stdin)
+   s = d.get('data', {}).get('statistics', {})
+   print()
+   print('=== After OpenClaw Agent ===')
+   print('Total Spans:', s.get('totalSpans'))
+   print('🤖 Agent Spans (Total):', s.get('agentSpans'))
+   print('👤 Human Spans:', s.get('humanSpans'))
+   "
+   ```
+
+6. **验证完整 span 树（三方合并）**
    ```bash
    curl -s "http://localhost:7892/api/traces/$TRACE_ID/diff" | python3 -c "
    import sys, json
    d = json.load(sys.stdin)
    tree = d.get('data', {}).get('spanTree', [])
-   human = [s for s in tree if s.get('actorType') == 'human']
-   agent = [s for s in tree if s.get('actorType') == 'agent']
    
-   print('Span Tree:')
-   print(f'  🤖 Agent Spans: {len(agent)}')
-   print(f'  👤 Human Spans: {len(human)}')
+   agent_spans = [s for s in tree if s.get('actorType') == 'agent']
+   human_spans = [s for s in tree if s.get('actorType') == 'human']
    
-   if human and agent:
-       print('✅ Complete context: Agent + Human Override')
+   print('=== Complete Span Tree (3 Sources) ===')
+   print(f'🤖 OpenCode + OpenClaw Agent Spans: {len(agent_spans)}')
+   print(f'👤 VS Code Human Spans: {len(human_spans)}')
+   print()
+   
+   if agent_spans and human_spans:
+       print('✅ Complete traceability: Agent → Human → Agent')
+       print()
+       print('Timeline:')
+       for span in sorted(tree, key=lambda x: x.get('createdAt', '')):
+           actor = span.get('actorType', '?')
+           icon = '🤖' if actor == 'agent' else '👤' if actor == 'human' else '⚙️'
+           name = span.get('actorName', '?')[:30]
+           ts = span.get('createdAt', '?')[:19]
+           print(f'  {icon} [{ts}] {name}')
    "
    ```
 
-4. **Agent 基于上下文继续工作**
-   ```
-   已知 traceId <traceId> 中人类修复了一个 bug。
-   请继续完成剩余任务。
-   ```
-
 **预期结果**：
-- [ ] Agent 能查询完整 Trace
-- [ ] Agent 能识别 Human Override 内容
-- [ ] Agent 能基于完整上下文继续
+- [ ] OpenClaw Agent 能接收 traceId=T-001
+- [ ] OpenClaw Agent 能看到完整的 Agent+Human span 树
+- [ ] TelemetryProbe 创建新的 agent span（OpenClaw 内部活动）
+- [ ] 最终 span 树包含三个来源：OpenCode Agent + VS Code Human + OpenClaw Agent
+- [ ] 时间线上正确展示：OpenCode Agent → VS Code Human → OpenClaw Agent
+
+**⚠️ 关键验证点**：
+- 验证 OpenClaw 支持 `AGENTLOG_TRACE_ID` 环境变量
+- 验证 TelemetryProbe 能将 OpenClaw 内部活动绑定到传入的 traceId
 
 ---
 
