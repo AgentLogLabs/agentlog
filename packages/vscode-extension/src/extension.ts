@@ -47,6 +47,12 @@ import {
   DashboardPanel,
 } from "./providers/sessionWebviewProvider";
 import {
+  TraceTreeProvider,
+} from "./providers/traceTreeProvider";
+import {
+  TracePanel,
+} from "./providers/traceWebviewProvider";
+import {
   installClaudeCodeHooks,
   uninstallClaudeCodeHooks,
   getClaudeCodeHookStatus,
@@ -1616,6 +1622,16 @@ function registerCommands(
     DashboardPanel.open(context, outputChannel);
   });
 
+  // ── Trace 面板 ────────────────────────────
+
+  register("agentlog.openTracePanel", () => {
+    TracePanel.createOrShow(context.extensionUri);
+  });
+
+  register("agentlog.refreshTraceTree", () => {
+    traceTreeProvider?.refresh();
+  });
+
   register("agentlog.exportWeeklyReport", async () => {
     await exportInteractive("weekly-report", config);
   });
@@ -2064,6 +2080,24 @@ function registerTreeViews(): void {
 }
 
 // ─────────────────────────────────────────────
+// Trace TreeView 注册
+// ─────────────────────────────────────────────
+
+let traceTreeProvider: TraceTreeProvider;
+
+function registerTraceTreeView(): void {
+  traceTreeProvider = new TraceTreeProvider();
+
+  disposables.push(
+    vscode.window.registerTreeDataProvider(
+      "agentlog.traceList",
+      traceTreeProvider,
+    ),
+    traceTreeProvider,
+  );
+}
+
+// ─────────────────────────────────────────────
 // 配置变更监听
 // ─────────────────────────────────────────────
 
@@ -2132,6 +2166,7 @@ export async function activate(
 
   // ── 注册 TreeView ────────────────────────────
   registerTreeViews();
+  registerTraceTreeView();
 
   // ── 监听配置变更 ────────────────────────────
   registerConfigWatcher(context);

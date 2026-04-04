@@ -660,6 +660,69 @@ export class BackendClient {
     }
     return resp.data;
   }
+
+  // ─────────────────────────────────────────────
+  // Trace API
+  // ─────────────────────────────────────────────
+
+  /**
+   * 获取 Trace 列表
+   */
+  async getTraces(params?: {
+    status?: string;
+    page?: number;
+    pageSize?: number;
+  }): Promise<unknown> {
+    const query = buildQueryString(params ?? {});
+    const resp = await this.request<ApiResponse<unknown>>(
+      "GET",
+      `/api/traces${query}`,
+    );
+    if (!resp.success) {
+      throw new BackendApiError(
+        200,
+        `/api/traces${query}`,
+        resp.error ?? "获取 Trace 列表失败",
+      );
+    }
+    return resp.data;
+  }
+
+  /**
+   * 获取单个 Trace 详情
+   */
+  async getTrace(id: string): Promise<unknown> {
+    const resp = await this.request<ApiResponse<unknown>>(
+      "GET",
+      `/api/traces/${encodeURIComponent(id)}`,
+    );
+    if (!resp.success || !resp.data) {
+      throw new BackendApiError(
+        200,
+        `/api/traces/${id}`,
+        resp.error ?? "Trace 不存在",
+      );
+    }
+    return resp.data;
+  }
+
+  /**
+   * 获取 Trace 摘要（UC-002）
+   */
+  async getTraceSummary(id: string): Promise<unknown> {
+    const resp = await this.request<ApiResponse<unknown>>(
+      "GET",
+      `/api/traces/${encodeURIComponent(id)}/summary`,
+    );
+    if (!resp.success || !resp.data) {
+      throw new BackendApiError(
+        200,
+        `/api/traces/${id}/summary`,
+        resp.error ?? "获取 Trace 摘要失败",
+      );
+    }
+    return resp.data;
+  }
 }
 
 // ─────────────────────────────────────────────
