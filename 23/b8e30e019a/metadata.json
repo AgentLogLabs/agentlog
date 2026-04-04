@@ -3,7 +3,7 @@
   "checkpoint_id": "23b8e30e019a",
   "strategy": "manual-commit",
   "branch": "phase1-tickets",
-  "checkpoints_count": 50,
+  "checkpoints_count": 51,
   "files_touched": [
     "docs/PHASE1-COMPLETE-TEST.md",
     "docs/PHASE1-HUMAN-OVERRIDE-TEST.md",
@@ -73,13 +73,19 @@
       "transcript": "/23/b8e30e019a/7/full.jsonl",
       "content_hash": "/23/b8e30e019a/7/content_hash.txt",
       "prompt": ""
+    },
+    {
+      "metadata": "/23/b8e30e019a/8/metadata.json",
+      "transcript": "/23/b8e30e019a/8/full.jsonl",
+      "content_hash": "/23/b8e30e019a/8/content_hash.txt",
+      "prompt": "/23/b8e30e019a/8/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 2979,
-    "cache_creation_tokens": 2985,
-    "cache_read_tokens": 78894,
-    "output_tokens": 655,
-    "api_call_count": 9
+    "input_tokens": 3157,
+    "cache_creation_tokens": 18626,
+    "cache_read_tokens": 95270,
+    "output_tokens": 1116,
+    "api_call_count": 11
   }
 }
