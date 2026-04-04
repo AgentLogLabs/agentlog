@@ -1,0 +1,49 @@
+考虑现在vscode加载后大概一个workpath，agentlog是否应该按照workpath显示trace和commit，而不是都显示更合理？
+
+---
+
+选择方案B，并且过滤掉对于 workspacePath 为空的旧 trace 记录（只显示当前项目的）
+
+---
+
+开始实施
+
+---
+
+现在trace树形列表报错：提示:b##л: [500] /aрi/traces?pageSize=200&workspacePath=%2FUsers%2Fhob0%2FProjects%2FAgentLog — Internal Server Error
+
+---
+
+现在trace树形列表报错：提示:b##л: [500] /aрi/traces?pageSize=200&workspacePath=%2FUsers%2Fhob0%2FProjects%2FAgentLog — Internal Server Error
+
+---
+
+现在trace树形列表报错：提示:b##л: [500] /aрi/traces?pageSize=200&workspacePath=%2FUsers%2Fhob0%2FProjects%2FAgentLog — Internal Server Error
+
+---
+
+显示中文建议
+
+---
+
+确认
+
+---
+
+现在还是trace树形列表报错：提示: [500] /aрi/traces?pageSize=200&workspacePath=%2FUsers%2Fhob0%2FProjects%2FAgentLog — Internal Server Error
+
+---
+
+将最新的两条trace workpath设置为~/Projects/AgentLog, 我要测试
+
+---
+
+检查为什么所有的span记录都没有token消耗
+
+---
+
+确认
+
+---
+
+确认
