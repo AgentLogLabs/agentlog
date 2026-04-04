@@ -1252,3 +1252,229 @@ semantic_search({
 | T8 | UI SSE 实时刷新 | TC-004, TC-006 | ✅ |
 
 **覆盖率：8/8 = 100% ✅**
+
+---
+
+## ✅ 四、UI 交互测试脚本（VS Code 手动测试）
+
+### TC-UI-1：VS Code Trace 树状视图完整交互
+
+**目的**：完整验证 VS Code AgentLog 插件的 UI 功能
+
+**前置条件**：
+- VS Code 已安装 AgentLog 扩展
+- Backend 运行在 localhost:7892
+- 已有测试数据（traces 和 spans）
+
+**手动测试步骤**：
+
+#### 1. 打开 Trace 视图
+
+```
+1. 打开 VS Code
+2. 打开包含 git 仓库的项目文件夹
+3. 按 Ctrl+Shift+P 打开命令面板
+4. 输入 "AgentLog: Open Dashboard"
+5. 或点击左侧边栏的 AgentLog 图标
+```
+
+预期结果：
+- [ ] AgentLog 面板打开
+- [ ] 显示 "Trace List" 视图
+
+#### 2. 验证 trace 显示
+
+在 Trace List 中查看已有的 trace：
+- [ ] 显示 trace ID（短格式）
+- [ ] 显示 task_goal
+- [ ] 显示状态图标（running/completed）
+- [ ] 显示时间戳
+
+#### 3. 展开 trace 查看 span 树
+
+点击 trace 条目展开：
+- [ ] 显示嵌套的 span 列表
+- [ ] 不同 actor 类型有不同图标：
+  - 🤖 = agent
+  - 👤 = human  
+  - ⚙️ = system
+- [ ] 显示 span 的 actorName
+- [ ] 显示创建时间
+
+#### 4. 点击 span 查看详情
+
+点击单个 span：
+- [ ] 显示 span 详情面板
+- [ ] 显示 payload 内容（JSON 格式化）
+
+#### 5. SSE 实时刷新测试
+
+在 VS Code 中执行以下操作观察实时更新：
+
+```
+操作步骤：
+1. 保持 VS Code AgentLog 面板打开
+2. 使用另一个终端发送请求创建新 span：
+   curl -X POST http://localhost:7892/api/spans \
+     -H "Content-Type: application/json" \
+     -d '{"traceId":"<当前trace ID>","actorType":"agent","actorName":"TestAgent","payload":{"event":"test"}}'
+3. 观察 VS Code 面板是否自动刷新显示新 span
+```
+
+预期结果：
+- [ ] 新 span 自动出现在列表中（无需手动刷新）
+- [ ] SSE 连接状态显示为已连接
+
+---
+
+### TC-UI-2：VS Code AgentLog 状态栏
+
+**目的**：验证 VS Code 状态栏显示 AgentLog 连接状态
+
+**手动测试步骤**：
+
+```
+1. 打开 VS Code
+2. 查看底部状态栏
+3. 找到 AgentLog 相关状态项
+```
+
+预期结果：
+- [ ] 显示 Backend 连接状态（绿色=已连接，红色=未连接）
+- [ ] 显示当前 traceId（如果已设置）
+- [ ] 点击可打开 AgentLog 面板
+
+---
+
+### TC-UI-3：Git Hook 安装验证
+
+**目的**：验证 Git Hook 安装功能
+
+**手动测试步骤**：
+
+```
+1. 在 VS Code 中打开一个 git 仓库项目
+2. 按 Ctrl+Shift+P
+3. 输入 "AgentLog: Install Git Hook"
+4. 执行命令
+5. 检查 .git/hooks/post-commit 文件是否存在
+```
+
+预期结果：
+- [ ] 命令执行成功
+- [ ] .git/hooks/post-commit 文件已创建
+- [ ] 文件内容包含 AgentLog 相关脚本
+
+---
+
+### TC-UI-4：OpenCode MCP 配置（命令面板）
+
+**目的**：验证 OpenCode MCP 配置生成功能
+
+**手动测试步骤**：
+
+```
+1. 按 Ctrl+Shift+P
+2. 输入 "AgentLog: Configure OpenCode MCP"
+3. 选择命令并执行
+4. 查看生成的配置文件内容
+```
+
+预期结果：
+- [ ] 生成正确的 JSON 配置
+- [ ] 配置包含正确的路径和参数
+- [ ] 可复制到 OpenCode 配置中使用
+
+---
+
+## 📊 UI 测试检查清单
+
+### 必需手动测试（需人工操作 VS Code）
+
+| 测试项 | 优先级 | 说明 |
+|--------|--------|------|
+| TC-UI-1: Trace 树状视图 | P0 | 核心 UI 功能 |
+| TC-UI-2: 状态栏 | P1 | 显示连接状态 |
+| TC-UI-3: Git Hook 安装 | P2 | 便捷功能 |
+| TC-UI-4: OpenCode MCP 配置 | P2 | 便捷功能 |
+
+### 可自动化测试（API 层）
+
+| 测试项 | 对应测试用例 | 状态 |
+|--------|-------------|------|
+| SSE 连接 | TC-006 | ✅ |
+| POST /api/spans | TC-002, TC-HO-001 | ✅ |
+| GET /api/traces | TC-002 | ✅ |
+| GET /api/traces/search | TC-T-C | ✅ |
+
+---
+
+## 📝 附录F：完整 E2E 验证脚本
+
+### 快速验证脚本（API 层）
+
+```bash
+#!/bin/bash
+# Phase 1 快速 E2E 验证脚本
+# 用法: bash docs/scripts/e2e-quick-test.sh
+
+set -e
+BASE_URL="${AGENTLOG_URL:-http://localhost:7892}"
+PASS=0
+FAIL=0
+
+pass() { echo "  ✅ $1"; ((PASS++)); }
+fail() { echo "  ❌ $1"; ((FAIL++)); }
+
+echo "=== Phase 1 E2E 快速验证 ==="
+
+# 1. Health
+echo -e "\n📋 Health Check"
+curl -s "$BASE_URL/health" | grep -q "ok" && pass "Backend 健康" || fail "Backend 无响应"
+
+# 2. Create Trace
+echo -e "\n📋 Create Trace"
+TRACE=$(curl -s -X POST "$BASE_URL/api/traces" -H "Content-Type: application/json" \
+  -d '{"taskGoal":"E2E Quick Test"}')
+TRACE_ID=$(echo $TRACE | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])" 2>/dev/null)
+[ -n "$TRACE_ID" ] && pass "Trace 创建成功: ${TRACE_ID:0:16}..." || fail "Trace 创建失败"
+
+# 3. Create Span
+echo -e "\n📋 Create Span"
+SPAN=$(curl -s -X POST "$BASE_URL/api/spans" -H "Content-Type: application/json" \
+  -d "{\"traceId\":\"$TRACE_ID\",\"actorType\":\"agent\",\"actorName\":\"Test\",\"payload\":{}}")
+echo $SPAN | grep -q "success" && pass "Span 创建成功" || fail "Span 创建失败"
+
+# 4. Summary
+echo -e "\n📋 Trace Summary"
+SUMMARY=$(curl -s "$BASE_URL/api/traces/$TRACE_ID/summary")
+echo $SUMMARY | grep -q "agentSpans" && pass "Summary API 正常" || fail "Summary API 失败"
+
+# 5. Diff
+echo -e "\n📋 Trace Diff"
+DIFF=$(curl -s "$BASE_URL/api/traces/$TRACE_ID/diff")
+echo $DIFF | grep -q "spanTree" && pass "Diff API 正常" || fail "Diff API 失败"
+
+# 6. Search
+echo -e "\n📋 Search"
+SEARCH=$(curl -s "$BASE_URL/api/traces/search?keyword=E2E")
+echo $SEARCH | grep -q "success" && pass "Search API 正常" || fail "Search API 失败"
+
+# 7. Git Hook Install
+echo -e "\n📋 Git Hook Install"
+mkdir -p /tmp/e2e-test-repo && cd /tmp/e2e-test-repo && git init -q 2>/dev/null
+HOOK=$(curl -s -X POST "$BASE_URL/api/hooks/install" -H "Content-Type: application/json" \
+  -d '{"workspacePath":"/tmp/e2e-test-repo"}')
+echo $HOOK | grep -q "success" && pass "Git Hook 安装成功" || fail "Git Hook 安装失败"
+
+echo -e "\n=========================================="
+echo "📊 结果: $PASS 通过, $FAIL 失败"
+[ $FAIL -eq 0 ] && echo "✅ 全部通过!" || echo "⚠️ 有失败项"
+echo "=========================================="
+```
+
+将此脚本保存到 `docs/scripts/e2e-quick-test.sh` 并执行：
+```bash
+chmod +x docs/scripts/e2e-quick-test.sh
+bash docs/scripts/e2e-quick-test.sh
+```
