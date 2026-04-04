@@ -1209,16 +1209,18 @@ function registerCommands(
   });
 
   // ── 会话管理 ──────────────────────────────
+  // Session 视图已废弃（2026-04-04），迁移到 Trace 视图
+  // 以下命令已禁用
 
-  register("agentlog.refreshSessionList", () => {
-    sessionTreeProvider.refresh();
-    commitBindingsProvider.refresh();
-  });
+  // register("agentlog.refreshSessionList", () => {
+  //   sessionTreeProvider.refresh();
+  //   commitBindingsProvider.refresh();
+  // });
 
-  register("agentlog.loadMoreSessions", async (page: unknown) => {
-    const pageNum = typeof page === "number" ? page : 2;
-    await sessionTreeProvider.loadPage(pageNum);
-  });
+  // register("agentlog.loadMoreSessions", async (page: unknown) => {
+  //   const pageNum = typeof page === "number" ? page : 2;
+  //   await sessionTreeProvider.loadPage(pageNum);
+  // });
 
   register("agentlog.viewSessionDetail", async (sessionOrId: unknown) => {
     let sessionId: string;
@@ -1242,37 +1244,32 @@ function registerCommands(
     await SessionDetailPanel.open(sessionId, context, outputChannel);
   });
 
-  register("agentlog.deleteSession", async (item: unknown) => {
-    let sessionId: string | undefined;
-
-    if (item instanceof SessionItem) {
-      sessionId = item.session.id;
-    }
-
-    if (!sessionId) {
-      vscode.window.showErrorMessage("无法解析要删除的会话 ID");
-      return;
-    }
-
-    const confirm = await vscode.window.showWarningMessage(
-      "确定要删除此会话记录吗？此操作不可撤销。",
-      { modal: true },
-      "确认删除",
-    );
-
-    if (confirm !== "确认删除") return;
-
-    try {
-      const client = getBackendClient();
-      await client.deleteSession(sessionId);
-      sessionTreeProvider.refresh();
-      vscode.window.showInformationMessage("✅ 会话记录已删除");
-    } catch (err) {
-      vscode.window.showErrorMessage(
-        `删除失败：${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
-  });
+  // Session 视图已废弃，删除会话功能已禁用
+  // register("agentlog.deleteSession", async (item: unknown) => {
+  //   let sessionId: string | undefined;
+  //   if (item instanceof SessionItem) {
+  //     sessionId = item.session.id;
+  //   }
+  //   if (!sessionId) {
+  //     vscode.window.showErrorMessage("无法解析要删除的会话 ID");
+  //     return;
+  //   }
+  //   const confirm = await vscode.window.showWarningMessage(
+  //     "确定要删除此会话记录吗？此操作不可撤销。",
+  //     { modal: true },
+  //     "确认删除",
+  //   );
+  //   if (confirm !== "确认删除") return;
+  //   try {
+  //     const client = getBackendClient();
+  //     await client.deleteSession(sessionId);
+  //     vscode.window.showInformationMessage("✅ 会话记录已删除");
+  //   } catch (err) {
+  //     vscode.window.showErrorMessage(
+  //       `删除失败：${err instanceof Error ? err.message : String(err)}`,
+  //     );
+  //   }
+  // });
 
   // ── 上下文复活（Resume Context）──────────
 
@@ -1419,7 +1416,6 @@ function registerCommands(
       const workspacePath = resolveWorkspacePath();
       await client.bindCommit([sessionId], commitHash.trim(), workspacePath);
 
-      sessionTreeProvider.refresh();
       commitBindingsProvider.refresh();
 
       vscode.window.showInformationMessage(
@@ -1455,7 +1451,6 @@ function registerCommands(
     try {
       const client = getBackendClient();
       await client.unbindSession(sessionId);
-      sessionTreeProvider.refresh();
       commitBindingsProvider.refresh();
       vscode.window.showInformationMessage("✅ 已解除所有 Commit 绑定");
     } catch (err) {
@@ -2058,24 +2053,17 @@ async function exportInteractive(
 // ─────────────────────────────────────────────
 
 function registerTreeViews(): void {
-  sessionTreeProvider = new SessionTreeProvider();
+  // Session 视图已废弃（2026-04-04）
+  // 只保留 Commit Bindings 视图
   commitBindingsProvider = new CommitBindingsTreeProvider();
 
   disposables.push(
     vscode.window.registerTreeDataProvider(
-      "agentlog.sessionList",
-      sessionTreeProvider,
-    ),
-    vscode.window.registerTreeDataProvider(
       "agentlog.commitBindings",
       commitBindingsProvider,
     ),
-    sessionTreeProvider,
     commitBindingsProvider,
   );
-
-  // 启动会话列表的定时刷新
-  sessionTreeProvider.startAutoRefresh();
 }
 
 // ─────────────────────────────────────────────
@@ -2123,7 +2111,6 @@ function registerConfigWatcher(context: vscode.ExtensionContext): void {
       initBackendClient(newConfig);
 
       // 刷新视图
-      sessionTreeProvider?.refresh();
       commitBindingsProvider?.refresh();
 
       // 更新状态栏
