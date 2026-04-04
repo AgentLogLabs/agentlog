@@ -242,6 +242,27 @@ interface SearchTracesResult {
 }
 
 /**
+ * 获取 trace 的状态。
+ * @returns null if trace 不存在
+ */
+async function getTraceStatus(traceId: string): Promise<string | null> {
+  const url = `${BACKEND_BASE}/api/traces/${encodeURIComponent(traceId)}`;
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      return null;
+    }
+    const json = await resp.json() as { success: boolean; data?: { status: string } };
+    if (!json.success || !json.data) {
+      return null;
+    }
+    return json.data.status;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 搜索 traces 和 spans（内部使用 spans 表搜索）
  */
 async function searchTracesAndSpans(params: {
@@ -1052,6 +1073,43 @@ async function main(): Promise<void> {
         // ── 新的 Span 架构：直接创建 Span ───────────────────────────────
         // 优先使用 session_id 作为 trace_id（向后兼容）
         let traceId = sessionId ?? process.env.AGENTLOG_TRACE_ID ?? null;
+
+        // 检查现有 trace 的状态，决定是继续还是 fork
+        if (traceId) {
+          const status = await getTraceStatus(traceId);
+          if (status === "completed" || status === "failed") {
+            // Trace 已结束，自动 fork 新 trace
+            const parentTraceId = traceId;
+            try {
+              const forkResult = await postTrace({
+                taskGoal: `Continued from ${parentTraceId}`,
+                parentTraceId,
+              });
+              traceId = forkResult.id;
+              process.env.AGENTLOG_TRACE_ID = traceId;
+
+              // 写入 git config
+              try {
+                if (await isGitRepo(workspacePath)) {
+                  await setGitConfig(workspacePath, "agentlog.traceId", traceId);
+                }
+              } catch (gitErr) {
+                // ignore
+              }
+
+              process.stderr.write(`[agentlog-mcp] log_turn: Trace ${parentTraceId} 已${status}，自动 Fork 新 trace ${traceId}\n`);
+            } catch (err) {
+              process.stderr.write(`[agentlog-mcp] log_turn: 自动 Fork 失败: ${err}，继续使用原 trace\n`);
+            }
+          } else if (status === null) {
+            // Trace 不存在，创建新 trace
+            process.stderr.write(`[agentlog-mcp] log_turn: Trace ${traceId} 不存在，创建新 trace\n`);
+            traceId = null;
+          } else {
+            // status === "running" or "paused"，继续使用同一 trace
+            process.stderr.write(`[agentlog-mcp] log_turn: 继续使用 trace ${traceId} (status=${status})\n`);
+          }
+        }
 
         // 如果没有 trace_id，创建新 trace
         if (!traceId) {
