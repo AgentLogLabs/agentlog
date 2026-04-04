@@ -16,6 +16,7 @@ import {
   getSpansByTraceId,
   deleteTrace,
   buildSpanTree,
+  createTrace,
 } from "../services/traceService.js";
 
 interface TraceParams {
@@ -28,7 +29,39 @@ interface QueryParams {
   pageSize?: string;
 }
 
+interface CreateTraceBody {
+  taskGoal?: string;
+}
+
 async function tracesRoutes(app: FastifyInstance): Promise<void> {
+  /**
+   * POST /api/traces
+   * 创建新的 Trace
+   */
+  app.post<{ Body: CreateTraceBody }>(
+    "/",
+    {
+      schema: {
+        body: {
+          type: "object",
+          properties: {
+            taskGoal: { type: "string" },
+          },
+        },
+      },
+    },
+    async (req: FastifyRequest<{ Body: CreateTraceBody }>, reply: FastifyReply) => {
+      const { taskGoal } = req.body;
+
+      const trace = createTrace({ taskGoal: taskGoal ?? "Untitled Trace" });
+
+      return reply.status(201).send({
+        success: true,
+        data: trace,
+      });
+    }
+  );
+
   /**
    * GET /api/traces
    * 查询 trace 列表
