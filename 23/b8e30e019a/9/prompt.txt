@@ -1,0 +1,55 @@
+生成的agentlog-mcp规则的agent.md如下 [Pasted <!-- agentlog-mcp-rules-start -->
+## AgentLog MCP 调用规则（必须遵守）
+
+你已接入 AgentLog MCP Server，**必须在每个对话中按以下流程调用**，记录完整的编码交互过程。
+
+---
+
+## ⚠️ 核心原则：log_turn 必须在做任何其他操作之前调用
+
+**错误做法（不要这样做）：**
+❌ 收到用户消息 → 直接读取文件 → 直接编辑文件 → 然后才调用 log_turn
+→ 这样在 log_turn 之前的操作都**不会被记录**
+
+**正确做法（必须这样做）：**
+✅ 收到用户消息 → **先调用 log_turn** → 再读取文件 → 再编辑文件 → 再调用 log_turn
+→ 所有操作都被完整记录
+
+---
+
+## 调用流程
+
+**第 1 步（最先）：收到用户消息后，立即调用 log_turn，不传 session_id：**
+`log_turn(role="user", content="用户消息", model="模型名", workspace_path="工作目录")`
+→ 返回 JSON，提取 session_id 并缓存
+
+**第 2 步（每次工具执行后）：**
+`log_turn(session_id="session_id", role="tool", content="结果摘要", tool_name="edit", tool_input="filePath=...")`
+
+**第 3 步（每次回复后）：**
+`log_turn(session_id="session_id", role="assistant", content="回复内容")`
+
+**第 4 步（任务完成后）：**
+`log_intent(session_id="session_id", task="任务描述", model="模型名", affected_files=["file1.ts"])`
+
+---
+
+## 强制约束
+
+⚠️ **log_turn 必须在 read/edit/write/webfetch 等任何操作之前调用**
+⚠️ **session_id 丢失 = 每条消息创建独立会话（碎片化）**
+⚠️ **跳过 log_turn = 那部分编码过程无法记录**
+⚠️ **不调用 log_intent = 任务无法归档**
+<!-- agentlog-mcp-rules-end -->经没有session的概念，mcp接口还有session参数是否正确？
+
+---
+
+是的
+
+---
+
+检查vscode 配置mcp 命令生成的agent.md是否做了修改
+
+---
+
+是的
