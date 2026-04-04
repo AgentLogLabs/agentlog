@@ -1,0 +1,22 @@
+在github远程分支上的mcp 有以下方法，本地似乎没有了，请检查：[Pasted ~10 lines] 1. query_historical_interaction（改了内部实现）
+// 精确查询：用 session_id 参数 → 调用 GET /api/traces/:id
+// 列表查询：用 keyword → 调用 GET /api/traces/search
+✅ 现在查 traces/spans 表，不再查 sessions 表
+
+2. query_traces（新增工具）
+// 新工具，支持 keyword 语义搜索
+// 调用 GET /api/traces/search
+
+代码已验证： /home/hobo/Projects/agentlog/packages/backend/src/mcp.ts 第 862-920 行
+
+---
+
+是的
+
+---
+
+检查远程的phase1-tickets分支是否有这两个方法
+
+---
+
+是的

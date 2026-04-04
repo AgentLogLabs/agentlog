@@ -1,16 +1,16 @@
 {
   "cli_version": "0.5.1",
   "checkpoint_id": "1fdde5b815e8",
+  "session_id": "ses_2a7202a44ffeHX7BxvL7ijJLBc",
   "strategy": "manual-commit",
+  "created_at": "2026-04-04T14:33:25.133078Z",
   "branch": "phase1-tickets",
   "checkpoints_count": 3,
   "files_touched": [
     "README.md",
     "docs/PHASE1-INTERACTIVE-TEST.md",
-    "docs/TRACE_TEST_CASES.md",
     "package.json",
     "packages/backend/package.json",
-    "packages/backend/scripts/seed-trace-data.ts",
     "packages/backend/src/db/database.ts",
     "packages/backend/src/index.ts",
     "packages/backend/src/mcp.ts",
@@ -24,7 +24,6 @@
     "packages/vscode-extension/package.json",
     "packages/vscode-extension/src/client/backendClient.ts",
     "packages/vscode-extension/src/extension.ts",
-    "packages/vscode-extension/src/opencode-plugins/agentlog-auto/index.js",
     "packages/vscode-extension/src/providers/sessionTreeProvider.ts",
     "packages/vscode-extension/src/providers/sessionWebviewProvider.ts",
     "packages/vscode-extension/src/providers/traceTreeProvider.ts",
@@ -34,25 +33,26 @@
     "skills/agentlog-auto/package.json",
     "skills/agentlog-auto/src/index.ts"
   ],
-  "sessions": [
-    {
-      "metadata": "/1f/dde5b815e8/0/metadata.json",
-      "transcript": "/1f/dde5b815e8/0/full.jsonl",
-      "content_hash": "/1f/dde5b815e8/0/content_hash.txt",
-      "prompt": ""
-    },
-    {
-      "metadata": "/1f/dde5b815e8/1/metadata.json",
-      "transcript": "/1f/dde5b815e8/1/full.jsonl",
-      "content_hash": "/1f/dde5b815e8/1/content_hash.txt",
-      "prompt": "/1f/dde5b815e8/1/prompt.txt"
-    }
-  ],
+  "agent": "OpenCode",
+  "model": "MiniMax-M2.7",
+  "turn_id": "afce795e99e8",
   "token_usage": {
     "input_tokens": 5422,
     "cache_creation_tokens": 5343,
     "cache_read_tokens": 100109,
     "output_tokens": 881,
     "api_call_count": 6
+  },
+  "session_metrics": {
+    "turn_count": 3
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-04T14:33:25.109958Z",
+    "agent_lines": 1567,
+    "human_added": 732,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 2299,
+    "agent_percentage": 68.16006959547629
   }
 }
