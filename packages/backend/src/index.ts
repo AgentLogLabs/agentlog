@@ -17,6 +17,8 @@ import commitsRouter from "./routes/commits";
 import { exportRoutes } from "./routes/export";
 import hooksRoutes from "./routes/hooks";
 import spansRoutes from "./routes/spans";
+import gitHooksRoutes from "./routes/gitHooks";
+import tracesRoutes from "./routes/traces";
 import { getDatabase, closeDatabase } from "./db/database";
 import {
   addSseClient,
@@ -189,6 +191,12 @@ async function start(): Promise<void> {
 
   /** 高频 Span 数据接收（探针专用） */
   await app.register(spansRoutes, { prefix: "/api" });
+
+  /** Git Hook 路由（post-commit 回调等） */
+  await app.register(gitHooksRoutes, { prefix: "/api/hooks" });
+
+  /** Trace API（UC-002 summary, UC-003 diff） */
+  await app.register(tracesRoutes, { prefix: "/api/traces" });
 
   /** MCP SSE 端点（供外部 IDE 接入） */
   app.get("/mcp/sse", async (req, reply) => {
