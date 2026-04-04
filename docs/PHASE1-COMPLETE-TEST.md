@@ -581,74 +581,96 @@ curl http://localhost:7892/health
 
 ---
 
-### TC-HO-004：传递到 OpenClaw Agent 继续编辑
+### TC-HO-004：传递到 OpenClaw Agent 继续编辑（方案B：语义查询）
 
-**目的**：验证 traceId 传递到 OpenClaw Agent，OpenClaw 能看到完整上下文并继续工作
+**目的**：验证 OpenClaw Agent 通过语义查询获取 traceId 并继续工作
 
-**关键理解**：
+**关键理解（方案B）**：
 - **Step 3**：OpenClaw Agent（运行在 Gateway/云端）接收任务
-- OpenClaw Agent 通过 `AGENTLOG_TRACE_ID` 环境变量或 MCP 工具传入 traceId
-- OpenClaw TelemetryProbe 继续记录 Agent 内部活动
+- OpenClaw Agent **不依赖手动传递 traceId**，而是通过语义查询自动获取
+- 用户在飞书说"继续之前的任务"时，Agent 自动调用 `query_historical_interaction` 搜索
 - 最终 span 树包含：**OpenCode Agent** + **VS Code Human** + **OpenClaw Agent**
+
+**方案B 实现流程**：
+
+```
+用户（飞书）：继续完善之前的斐波那契函数
+       ↓
+OpenClaw Agent 收到消息
+       ↓
+检测到"继续"意图 → 调用 query_historical_interaction
+       ↓
+Agent 分析返回结果 → 选择对应的 trace
+       ↓
+获取完整上下文 → 继续完成剩余任务
+```
 
 **前置条件**：
 - TC-HO-003 已完成
-- OpenClaw Agent 已配置 AgentLog TelemetryProbe
+- OpenClaw Agent 已配置 AgentLog MCP 工具
+- `query_historical_interaction` 工具支持 keyword 搜索
 
 **测试步骤**：
 
-1. **确认当前 traceId 的完整性**
+1. **确认当前 trace 的内容**
    ```bash
-   TRACE_ID="<traceId from TC-HO-003>"
-   curl -s "http://localhost:7892/api/traces/$TRACE_ID/summary" | python3 -c "
+   # 先获取一个已存在的 trace
+   curl -s http://localhost:7892/api/traces?pageSize=3 | python3 -c "
    import sys, json
    d = json.load(sys.stdin)
-   s = d.get('data', {}).get('statistics', {})
-   print('=== Current Trace State ===')
-   print('TraceId:', '$TRACE_ID')
-   print('Total Spans:', s.get('totalSpans'))
-   print('🤖 Agent Spans (OpenCode):', s.get('agentSpans'))
-   print('👤 Human Spans (VS Code):', s.get('humanSpans'))
+   traces = d.get('data', [])
+   for t in traces[-3:]:
+       print('Trace:', t['id'], '|', t['taskGoal'][:40])
    "
    ```
 
-2. **传递 traceId 到 OpenClaw Agent**
+2. **用户在飞书发送语义消息**
    
-   启动 OpenClaw Agent 时传入 traceId：
-   ```bash
-   # 方式A：通过环境变量
-   export AGENTLOG_TRACE_ID="$TRACE_ID"
-   openclaw agent --task "基于人类修复的上下文，继续完成剩余任务"
-   
-   # 方式B：通过 MCP 工具
-   # 使用 log_intent 工具并指定 trace_id 参数
+   假设上一步获取的 trace 包含"斐波那契函数"任务，用户在飞书发送：
+   ```
+   @OpenClaw 继续完善之前的斐波那契函数
    ```
 
-3. **OpenClaw Agent 执行任务**
+3. **OpenClaw Agent 执行语义搜索**
    
-   OpenClaw Agent 接收任务后：
-   - 查询 traceId=T-001 获取完整上下文
-   - 理解人类在 VS Code 中修复了什么
-   - 继续完成剩余开发任务
+   OpenClaw Agent 内部调用：
+   ```javascript
+   // 检测到"继续"意图，自动执行搜索
+   const results = await query_historical_interaction({
+     keyword: "斐波那契 函数",
+     source: "opencode",  // 限定来自 OpenCode 的 trace
+     page_size: 5,
+     include_transcript: true
+   });
+   
+   // 如果返回多个结果，Agent 选择最相关的一个
+   // 或向用户确认：找到了 X 个相关任务，选哪个？
+   ```
 
-4. **OpenClaw TelemetryProbe 记录活动**
+4. **OpenClaw Agent 获取完整 trace 上下文**
+   
+   根据返回的 trace 信息，Agent 获取完整 span 树：
    ```bash
-   # OpenClaw 内部的 TelemetryProbe 会自动上报 spans
+   TRACE_ID="<搜索返回的 traceId>"
+   curl -s "http://localhost:7892/api/traces/$TRACE_ID/diff" | python3 -c "
+   import sys, json
+   d = json.load(sys.stdin)
+   tree = d.get('data', {}).get('spanTree', [])
+   
+   agent = [s for s in tree if s.get('actorType') == 'agent']
+   human = [s for s in tree if s.get('actorType') == 'human']
+   
+   print('=== Context Retrieved ===')
+   print(f'🤖 OpenCode Agent Spans: {len(agent)}')
+   print(f'👤 Human Override Spans: {len(human)}')
+   "
+   ```
+
+5. **OpenClaw Agent 继续工作 + TelemetryProbe 记录**
+   ```bash
+   # OpenClaw Agent 继续完成任务
+   # TelemetryProbe 自动上报新的 spans
    sleep 10
-   ```
-
-5. **验证 OpenClaw Agent 的 Span 创建**
-   ```bash
-   curl -s "http://localhost:7892/api/traces/$TRACE_ID/summary" | python3 -c "
-   import sys, json
-   d = json.load(sys.stdin)
-   s = d.get('data', {}).get('statistics', {})
-   print()
-   print('=== After OpenClaw Agent ===')
-   print('Total Spans:', s.get('totalSpans'))
-   print('🤖 Agent Spans (Total):', s.get('agentSpans'))
-   print('👤 Human Spans:', s.get('humanSpans'))
-   "
    ```
 
 6. **验证完整 span 树（三方合并）**
@@ -662,33 +684,26 @@ curl http://localhost:7892/health
    human_spans = [s for s in tree if s.get('actorType') == 'human']
    
    print('=== Complete Span Tree (3 Sources) ===')
-   print(f'🤖 OpenCode + OpenClaw Agent Spans: {len(agent_spans)}')
-   print(f'👤 VS Code Human Spans: {len(human_spans)}')
+   print(f'🤖 Agent Spans: {len(agent_spans)}')
+   print(f'👤 Human Spans: {len(human_spans)}')
    print()
    
-   if agent_spans and human_spans:
-       print('✅ Complete traceability: Agent → Human → Agent')
-       print()
-       print('Timeline:')
-       for span in sorted(tree, key=lambda x: x.get('createdAt', '')):
-           actor = span.get('actorType', '?')
-           icon = '🤖' if actor == 'agent' else '👤' if actor == 'human' else '⚙️'
-           name = span.get('actorName', '?')[:30]
-           ts = span.get('createdAt', '?')[:19]
-           print(f'  {icon} [{ts}] {name}')
+   if len(agent_spans) >= 2 and len(human_spans) >= 1:
+       print('✅ Semantic search SUCCESS: Found context across OpenCode + Human + OpenClaw')
    "
    ```
 
 **预期结果**：
-- [ ] OpenClaw Agent 能接收 traceId=T-001
-- [ ] OpenClaw Agent 能看到完整的 Agent+Human span 树
+- [ ] OpenClaw Agent 能通过语义搜索找到对应的 trace
+- [ ] 返回结果包含 OpenCode Agent 和 Human Override 的 span
+- [ ] OpenClaw Agent 能理解之前的工作上下文
 - [ ] TelemetryProbe 创建新的 agent span（OpenClaw 内部活动）
 - [ ] 最终 span 树包含三个来源：OpenCode Agent + VS Code Human + OpenClaw Agent
-- [ ] 时间线上正确展示：OpenCode Agent → VS Code Human → OpenClaw Agent
 
 **⚠️ 关键验证点**：
-- 验证 OpenClaw 支持 `AGENTLOG_TRACE_ID` 环境变量
-- 验证 TelemetryProbe 能将 OpenClaw 内部活动绑定到传入的 traceId
+- 验证 `query_historical_interaction` 支持按任务描述语义搜索
+- 验证搜索结果能关联到 OpenCode Agent 和 Human Override spans
+- 验证 OpenClaw Agent 能正确解读返回的历史上下文
 
 ---
 
