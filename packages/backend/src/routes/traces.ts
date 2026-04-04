@@ -298,6 +298,27 @@ async function tracesRoutes(app: FastifyInstance): Promise<void> {
       // 计算处理时间
       const processingTimeMs = Date.now() - startTime;
 
+      // 统计 Token 用量
+      let totalInputTokens = 0;
+      let totalOutputTokens = 0;
+      let totalCacheCreationTokens = 0;
+      let totalCacheReadTokens = 0;
+
+      for (const span of tree) {
+        const tokenUsage = (span.payload as Record<string, unknown>)?.tokenUsage as {
+          inputTokens?: number;
+          outputTokens?: number;
+          cacheCreationTokens?: number;
+          cacheReadTokens?: number;
+        } | undefined;
+        if (tokenUsage) {
+          totalInputTokens += tokenUsage.inputTokens ?? 0;
+          totalOutputTokens += tokenUsage.outputTokens ?? 0;
+          totalCacheCreationTokens += tokenUsage.cacheCreationTokens ?? 0;
+          totalCacheReadTokens += tokenUsage.cacheReadTokens ?? 0;
+        }
+      }
+
       // 构建响应
       const summary = {
         traceId: trace.id,
@@ -311,6 +332,13 @@ async function tracesRoutes(app: FastifyInstance): Promise<void> {
           agentSpans,
           systemSpans,
           rootSpanCount: rootSpans.length,
+        },
+        tokenUsage: {
+          totalInputTokens,
+          totalOutputTokens,
+          totalCacheCreationTokens,
+          totalCacheReadTokens,
+          totalTokens: totalInputTokens + totalOutputTokens,
         },
         timeline: {
           earliestEvent: earliestTime,
