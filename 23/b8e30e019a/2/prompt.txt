@@ -1,0 +1,5 @@
+现在git commit后，trace没有与commit关联，请根据@docs/PHASE1-COMPLETE-TEST.md 的用例进行分析和修改，我的测试工程在~/Projects/AgentLogTest, 刚刚commit了98d73a6358459230422afc61b4d2c30e05de359c，我认为至少trace 01KNCTSZFQFTT7PJ9DEVFAVKTP应该被关联
+
+---
+
+现在git commit后，trace没有与commit关联，请根据@docs/PHASE1-COMPLETE-TEST.md 的用例进行分析和修改，我的测试工程在~/Projects/AgentLogTest, 刚刚commit了98d73a6358459230422afc61b4d2c30e05de359c，我认为至少trace 01KNCTSZFQFTT7PJ9DEVFAVKTP应该被关联
