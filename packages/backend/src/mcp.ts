@@ -270,6 +270,7 @@ async function searchTracesAndSpans(params: {
   filename?: string;
   commitHash?: string;
   source?: string;
+  workspacePath?: string;
   page?: number;
   pageSize?: number;
 }): Promise<SearchTracesResult> {
@@ -278,6 +279,7 @@ async function searchTracesAndSpans(params: {
   if (params.filename) query.set("keyword", params.filename);
   if (params.commitHash) query.set("commitHash", params.commitHash);
   if (params.source) query.set("source", params.source);
+  if (params.workspacePath) query.set("workspacePath", params.workspacePath);
   query.set("page", String(params.page ?? 1));
   query.set("pageSize", String(Math.min(params.pageSize ?? 20, 100)));
 
@@ -800,6 +802,49 @@ async function main(): Promise<void> {
             required: ["task_goal"],
           },
         },
+
+        {
+          name: "query_traces",
+          description:
+            "查询 Trace 列表（语义检索）。\n\n" +
+            "搜索 traces.task_goal 和 spans.payload 中的内容，\n" +
+            "找到与关键词最匹配的 trace。\n\n" +
+            "【使用场景】\n" +
+            "  - OpenClaw Agent 接手任务时，先搜索相似 trace\n" +
+            "  - 按关键字查找历史 trace\n" +
+            "  - 按工作区过滤 trace\n\n" +
+            "【搜索范围】\n" +
+            "  - traces.task_goal：任务目标\n" +
+            "  - spans.payload：包含 content、tool_name、commit_hash 等\n" +
+            "  - workspace_path：过滤同一项目的 trace",
+          inputSchema: {
+            type: "object" as const,
+            properties: {
+              keyword: {
+                type: "string",
+                description: "搜索关键字（匹配 task_goal 和 span payload）",
+              },
+              workspace_path: {
+                type: "string",
+                description: "工作区路径（过滤同一项目）",
+              },
+              status: {
+                type: "string",
+                enum: ["running", "paused", "completed", "failed"],
+                description: "按状态过滤",
+              },
+              limit: {
+                type: "number",
+                description: "返回数量（默认 10）",
+              },
+              page: {
+                type: "number",
+                description: "页码（默认 1）",
+              },
+            },
+            required: [],
+          },
+        },
       ],
     };
   });
@@ -1107,6 +1152,81 @@ async function main(): Promise<void> {
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         process.stderr.write(`[agentlog-mcp] suggest_trace 失败: ${msg}\n`);
+        return {
+          isError: true,
+          content: [{ type: "text" as const, text: `搜索失败：${msg}` }],
+        };
+      }
+    }
+
+    // ── query_traces ───────────────────────────────────────────────────
+    if (request.params.name === "query_traces") {
+      const args = request.params.arguments ?? {};
+      const keyword = (args.keyword as string | undefined) ?? "";
+      const workspacePath = (args.workspace_path as string | undefined);
+      const status = (args.status as string | undefined);
+      const limit = (args.limit as number | undefined) ?? 10;
+      const page = (args.page as number | undefined) ?? 1;
+
+      try {
+        // 调用后端 API 搜索 traces
+        const params = new URLSearchParams();
+        if (keyword) params.set("keyword", keyword);
+        if (workspacePath) params.set("workspacePath", workspacePath);
+        if (status) params.set("status", status);
+        params.set("page", String(page));
+        params.set("pageSize", String(limit));
+
+        const url = `${BACKEND_BASE}/api/traces/search?${params.toString()}`;
+        process.stderr.write(`[agentlog-mcp] query_traces: GET ${url}\n`);
+
+        const resp = await fetch(url);
+        if (!resp.ok) {
+          const text = await resp.text().catch(() => "");
+          return {
+            isError: true,
+            content: [{ type: "text" as const, text: `搜索失败：HTTP ${resp.status} - ${text}` }],
+          };
+        }
+
+        const json = await resp.json() as { success?: boolean; data?: unknown[]; total?: number; error?: string };
+        if (!json.success) {
+          return {
+            isError: true,
+            content: [{ type: "text" as const, text: `搜索失败：${json.error ?? "unknown"}` }],
+          };
+        }
+
+        const traces = json.data ?? [];
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  success: true,
+                  total: json.total ?? traces.length,
+                  count: traces.length,
+                  page,
+                  traces: traces.map((t) => ({
+                    trace_id: (t as { trace: { id: string; taskGoal: string; status: string; createdAt: string } }).trace?.id,
+                    task_goal: (t as { trace: { id: string; taskGoal: string; status: string; createdAt: string } }).trace?.taskGoal,
+                    status: (t as { trace: { id: string; taskGoal: string; status: string; createdAt: string } }).trace?.status,
+                    created_at: (t as { trace: { id: string; taskGoal: string; status: string; createdAt: string } }).trace?.createdAt,
+                  })),
+                  message: traces.length > 0
+                    ? `找到 ${traces.length} 个匹配的 trace`
+                    : "未找到匹配的 trace",
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        process.stderr.write(`[agentlog-mcp] query_traces 失败: ${msg}\n`);
         return {
           isError: true,
           content: [{ type: "text" as const, text: `搜索失败：${msg}` }],
