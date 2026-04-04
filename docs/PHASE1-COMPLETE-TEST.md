@@ -907,3 +907,190 @@ fi
 | `packages/backend/src/services/gitHookService.ts` | Git Hook 处理 |
 | `packages/backend/src/utils/sseManager.ts` | SSE 管理 |
 | `packages/vscode-extension/src/providers/traceWebviewProvider.ts` | VS Code Trace 视图 |
+
+---
+
+## 📝 附录D：Trace 生命周期设计决策（Phase 1 补充）
+
+### D1. git config traceId 的作用
+
+**问题**：git config 中的 traceId 和数据库中的 traceId 是什么关系？
+
+**答案**：它们是**同一个东西**的两种存储形式。
+
+| 存储位置 | 存储内容 | 作用 |
+|----------|----------|------|
+| **数据库 traces 表** | traceId + task_goal + status | 主要存储，所有查询都基于此 |
+| **git config** | agentlog.traceId = traceId | 辅助存储，供 Git Hook 在人类直接 commit 时读取 |
+
+**git config 写入时机**：
+1. OpenCode Agent 调用 `log_intent` / `log_turn` / `create_trace` 时，MCP 自动写入
+2. 人类在终端直接执行 `git commit`（不通过 MCP）时，Git Hook 从 git config 读取
+
+**流程图**：
+```
+【Agent 通过 MCP 操作】
+OpenCode Agent → MCP log_intent → 写入 DB traces 表
+                                → 写入 .git/config agentlog.traceId
+
+【人类直接 git commit】
+人类 → git commit → Git Hook → 读取 .git/config agentlog.traceId
+                                → 创建 Human span（绑定到同一 traceId）
+```
+
+---
+
+### D2. Trace 结束判断
+
+**问题**：如何判断一个 Trace 是否结束？
+
+**当前方案**：主动 + 被动结合
+
+| 判断方式 | 触发条件 | 说明 |
+|----------|----------|------|
+| **主动结束** | 用户/Agent 调用 `log_intent` | 任务明确完成 |
+| **被动结束** | `log_intent` 时传入 `explicit_status: "completed"` | Agent 任务完成 |
+| **超时结束** | trace 创建后超过 N 天无新 span | 兜底策略 |
+| **永不结束** | 持续活跃的任务 | 通过 git commit 持续关联 |
+
+---
+
+### D3. 新 Trace 启动判断（方案C）
+
+**问题**：一个月前的 trace 想继续，是延续还是继承？
+
+**选择方案C**：
+
+| 方案 | 描述 | 选择 |
+|------|------|------|
+| A | 在原 trace 上延续 | ❌ |
+| B | 继承原 trace，但保持原 trace 不变 | ❌ |
+| **C** | **继承原 trace，获取压缩语义，启动新 trace** | ✅ |
+
+**方案C 流程**：
+```
+1. 用户：想继续一个月前的 trace T-old
+2. Agent：调用 `query_historical_interaction({ keyword: "..." })` 语义搜索
+3. Agent：找到 T-old，分析其压缩语义（task_goal + summary）
+4. Agent：创建新 trace T-new，携带 parent_trace_id = T-old
+5. Agent：在 T-new 上继续工作
+6. 结果：
+   - T-old 保持不变（历史记录）
+   - T-new 继承 T-old 的上下文
+   - 可追溯：T-new.parent_trace_id → T-old
+```
+
+**字段设计**：
+```sql
+ALTER TABLE traces ADD COLUMN parent_trace_id TEXT REFERENCES traces(id);
+ALTER TABLE traces ADD COLUMN inherited_from TEXT;  -- 继承自哪个 trace
+```
+
+---
+
+### D4. OpenClaw Agent 接管流程（修正）
+
+**问题**：OpenClaw Agent 接管后去哪里读取？
+
+**正确理解**：
+- OpenClaw Agent **不在自己的工作目录**工作
+- OpenClaw Agent 需要去**指定代码区**（用户指定的目录）操作
+- 通过 `workspacePath` 参数指定目标目录
+
+**修正后的流程**：
+```
+【Step 1-2】：OpenCode Agent → 人类 VS Code commit（保持不变）
+
+【Step 3】：OpenClaw Agent 接管
+  1. Agent 接收任务 + workspacePath（如 /home/user/project-abc）
+  2. Agent 调 MCP 查询 trace（语义搜索或直接传 traceId）
+  3. Agent 在 workspacePath 目录继续开发
+  4. TelemetryProbe 记录到同一 traceId
+```
+
+---
+
+### D5. 语义检索增强（Phase 1 补充）
+
+**问题**：当前 keyword 搜索基于 SQL LIKE，精度有限
+
+**建议方案**：在 MCP 侧实现语义检索
+
+**实现方式**：
+1. 使用开源 embedding 模型（如 bge-small-zh）
+2. 在创建 trace 时，生成 task_goal 的 embedding 存储
+3. 查询时，计算用户输入的 embedding，做向量相似度搜索
+
+**数据结构**：
+```sql
+ALTER TABLE traces ADD COLUMN task_embedding TEXT;  -- task_goal 的 embedding
+```
+
+**MCP 工具新增**：
+```javascript
+// 语义搜索
+semantic_search({
+  query: "用户描述的任务",  // 如"继续之前的斐波那契函数"
+  limit: 5
+})
+// 返回：最相关的 trace 列表（按语义相似度排序）
+```
+
+---
+
+### D6. Trace 和 Span 关系总结
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Trace 生命周期                              │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  创建 ──────────────────────────────────────────────────────►  │
+│    │                                                           │
+│    ├─ MCP: log_intent / create_trace / log_turn              │
+│    │      → 写入数据库 + 写入 git config                        │
+│    │                                                           │
+│  延续 ──────────────────────────────────────────────────────►  │
+│    │                                                           │
+│    ├─ Agent: 继续在同一个 trace 上创建 span                   │
+│    │      → TelemetryProbe 自动上报                             │
+│    │                                                           │
+│    ├─ Human: git commit（不通过 MCP）                          │
+│    │      → Git Hook 读取 git config → 创建 human span          │
+│    │                                                           │
+│  继承 ──────────────────────────────────────────────────────►  │
+│    │                                                           │
+│    ├─ 创建新 trace T-new                                       │
+│    │      → parent_trace_id = T-old                            │
+│    │      → 携带压缩语义                                        │
+│    │                                                           │
+│  结束 ──────────────────────────────────────────────────────►  │
+│    │                                                           │
+│    └─ log_intent(explicit_status="completed")                  │
+│            → trace.status = "completed"                         │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### D7. 当前实现状态 vs 设计决策
+
+| 功能 | 设计决策 | 当前实现状态 |
+|------|----------|-------------|
+| git config traceId | 存储 traceId 供 Git Hook 读取 | ✅ 已实现 |
+| Trace 结束 | log_intent 时更新 status=completed | ✅ 已实现 |
+| 新 Trace 启动 | 调用 create_trace / log_intent | ✅ 已实现 |
+| 继承（方案C） | parent_trace_id 字段 | ❌ 未实现 |
+| 语义检索 | embedding + 向量搜索 | ❌ 未实现 |
+| OpenClaw workspacePath | 去指定目录操作 | ⚠️ 待确认 |
+
+---
+
+## 📝 附录E：需要 Builder 补充的 Tickets（Phase 1 补充）
+
+| Ticket | 描述 | 优先级 |
+|--------|------|--------|
+| T-E1 | 添加 `parent_trace_id` 字段支持 trace 继承 | P1 |
+| T-E2 | 实现语义检索（embedding + 向量搜索） | P1 |
+| T-E3 | 确认 OpenClaw Agent 的 workspacePath 处理逻辑 | P0 |
