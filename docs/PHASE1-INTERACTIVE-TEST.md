@@ -60,39 +60,54 @@ VS Code 设置中配置：
 **目的**：验证 OpenCode 能正确配置 AgentLog 作为 MCP 工具提供者
 
 **前置条件**：
+- AgentLog Backend 已构建：`cd /home/hobo/Projects/agentlog && pnpm build`
 - AgentLog Backend 运行在 localhost:7892
 - OpenCode 已安装
 
 **测试步骤**：
 
-1. **打开 OpenCode 配置**
+1. **确认 MCP Server 文件位置**
    ```bash
-   # 或在 OpenCode 设置中
+   # MCP Server 位于 backend 包的 dist 目录
+   ls /home/hobo/Projects/agentlog/packages/backend/dist/mcp.js
    ```
 
-2. **配置 AgentLog MCP Server**
-   在 OpenCode 的 MCP 工具配置中添加：
+2. **配置 OpenCode MCP**
+   
+   编辑 `~/.config/opencode/config.json`：
+   
    ```json
    {
      "mcpServers": {
-       "agentlog": {
-         "command": "npx",
-         "args": ["-y", "@agentlog/mcp-server"],
+       "agentlog-mcp": {
+         "command": "node",
+         "args": [
+           "/absolute/path/to/agentlog/packages/backend/dist/mcp.js"
+         ],
          "env": {
-           "AGENTLOG_GATEWAY_URL": "http://localhost:7892"
+           "AGENTLOG_PORT": "7892"
          }
        }
      }
    }
    ```
+   
+   **⚠️ 重要**：
+   - 路径必须是**绝对路径**
+   - 应指向 `packages/backend/dist/mcp.js`，**不是** VS Code extension 路径
+   - VS Code extension 路径（`~/.vscode/extensions/...`）**不适用于 OpenCode**
 
 3. **验证连接**
    - 重启 OpenCode
-   - 检查 MCP 工具列表是否包含 AgentLog 工具
+   - 执行任意任务，观察 Backend 日志是否有 MCP 请求到达
+
+4. **验证 MCP 工具可用**
+   在 OpenCode 中执行任务时，检查 Backend 是否收到 `log_turn` / `log_intent` 调用。
 
 **预期结果**：
-- [ ] AgentLog MCP Server 成功连接
-- [ ] 可看到 `agentlog_*` 系列工具
+- [ ] OpenCode MCP 配置正确加载
+- [ ] Backend 收到来自 OpenCode 的 MCP 请求
+- [ ] `log_turn` / `log_intent` / `query_historical_interaction` 工具可调用
 
 **实际结果**：
 
