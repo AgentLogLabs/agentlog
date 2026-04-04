@@ -283,3 +283,99 @@ export function getFullSpanTree(traceId: string): {
   }
   return { trace, tree: buildSpanTree(traceId) };
 }
+
+/**
+ * 搜索 traces 和 spans。
+ * - keyword: 搜索 task_goal 和 payload 内容
+ * - workspacePath: 过滤特定工作区
+ * - limit: 返回最多 limit 条 trace
+ */
+export function searchTraces(filter: {
+  keyword?: string;
+  workspacePath?: string;
+  commitHash?: string;
+  source?: string;
+  page?: number;
+  pageSize?: number;
+}): { data: Array<{ trace: Trace; spans: Span[] }>; total: number } {
+  const db = getDatabase();
+  const page = filter.page ?? 1;
+  const pageSize = Math.min(filter.pageSize ?? 20, 100);
+  const offset = (page - 1) * pageSize;
+
+  let conditions: string[] = [];
+  let params: Record<string, unknown> = {};
+
+  // keyword 搜索：task_goal 和 payload JSON 内容
+  if (filter.keyword) {
+    // 搜索 task_goal 或 payload 中包含 keyword 的 trace
+    conditions.push(`(
+      traces.task_goal LIKE @keyword 
+      OR EXISTS (
+        SELECT 1 FROM spans 
+        WHERE spans.trace_id = traces.id 
+        AND spans.payload LIKE @keyword
+      )
+    )`);
+    params.keyword = `%${filter.keyword}%`;
+  }
+
+  // workspacePath 过滤
+  if (filter.workspacePath) {
+    conditions.push(`EXISTS (
+      SELECT 1 FROM spans 
+      WHERE spans.trace_id = traces.id 
+      AND spans.payload LIKE @workspacePath
+    )`);
+    params.workspacePath = `%${filter.workspacePath}%`;
+  }
+
+  // commitHash 过滤
+  if (filter.commitHash) {
+    conditions.push(`EXISTS (
+      SELECT 1 FROM spans 
+      WHERE spans.trace_id = traces.id 
+      AND spans.payload LIKE @commitHash
+    )`);
+    params.commitHash = `%${filter.commitHash}%`;
+  }
+
+  // source 过滤
+  if (filter.source) {
+    conditions.push(`EXISTS (
+      SELECT 1 FROM spans 
+      WHERE spans.trace_id = traces.id 
+      AND spans.payload LIKE @source
+    )`);
+    params.source = `%${filter.source}%`;
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  // 查询匹配的 traces
+  const countResult = db.prepare(`
+    SELECT COUNT(DISTINCT traces.id) as total 
+    FROM traces 
+    LEFT JOIN spans ON spans.trace_id = traces.id 
+    ${where}
+  `).get(params) as { total: number };
+
+  const traceRows = db.prepare(`
+    SELECT DISTINCT traces.* 
+    FROM traces 
+    LEFT JOIN spans ON spans.trace_id = traces.id 
+    ${where}
+    ORDER BY traces.created_at DESC
+    LIMIT @limit OFFSET @offset
+  `).all({ ...params, limit: pageSize, offset }) as TraceRow[];
+
+  const traces = traceRows.map(rowToTrace);
+
+  // 查询每个 trace 关联的 spans
+  const results = traces.map((trace) => ({
+    trace,
+    spans: getSpansByTraceId(trace.id),
+  }));
+
+  return { data: results, total: countResult.total };
+}

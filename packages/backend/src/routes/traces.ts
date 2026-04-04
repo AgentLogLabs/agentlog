@@ -18,6 +18,7 @@ import {
   buildSpanTree,
   createTrace,
   updateTrace,
+  searchTraces,
 } from "../services/traceService.js";
 
 interface TraceParams {
@@ -26,6 +27,15 @@ interface TraceParams {
 
 interface QueryParams {
   status?: string;
+  page?: string;
+  pageSize?: string;
+}
+
+interface SearchParams {
+  keyword?: string;
+  workspacePath?: string;
+  commitHash?: string;
+  source?: string;
   page?: string;
   pageSize?: string;
 }
@@ -91,6 +101,47 @@ async function tracesRoutes(app: FastifyInstance): Promise<void> {
       });
 
       return reply.send(result);
+    }
+  );
+
+  /**
+   * GET /api/traces/search
+   * 搜索 traces 和 spans（基于 keyword、workspace、commit_hash）
+   */
+  app.get<{ Querystring: SearchParams }>(
+    "/search",
+    {
+      schema: {
+        querystring: {
+          type: "object",
+          properties: {
+            keyword: { type: "string" },
+            workspacePath: { type: "string" },
+            commitHash: { type: "string" },
+            source: { type: "string" },
+            page: { type: "string" },
+            pageSize: { type: "string" },
+          },
+        },
+      },
+    },
+    async (req: FastifyRequest<{ Querystring: SearchParams }>, reply: FastifyReply) => {
+      const { keyword, workspacePath, commitHash, source, page, pageSize } = req.query;
+
+      const result = searchTraces({
+        keyword,
+        workspacePath,
+        commitHash,
+        source,
+        page: page ? parseInt(page, 10) : 1,
+        pageSize: pageSize ? parseInt(pageSize, 10) : 20,
+      });
+
+      return reply.send({
+        success: true,
+        data: result.data,
+        total: result.total,
+      });
     }
   );
 

@@ -234,6 +234,43 @@ async function patchTrace(
   }
 }
 
+interface SearchTracesResult {
+  success: boolean;
+  data?: Array<{ trace: unknown; spans: unknown[] }>;
+  total?: number;
+  error?: string;
+}
+
+/**
+ * 搜索 traces 和 spans（内部使用 spans 表搜索）
+ */
+async function searchTracesAndSpans(params: {
+  keyword?: string;
+  filename?: string;
+  commitHash?: string;
+  source?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<SearchTracesResult> {
+  const query = new URLSearchParams();
+  if (params.keyword) query.set("keyword", params.keyword);
+  if (params.filename) query.set("keyword", params.filename);
+  if (params.commitHash) query.set("commitHash", params.commitHash);
+  if (params.source) query.set("source", params.source);
+  query.set("page", String(params.page ?? 1));
+  query.set("pageSize", String(Math.min(params.pageSize ?? 20, 100)));
+
+  const url = `${BACKEND_BASE}/api/traces/search?${query.toString()}`;
+  process.stderr.write(`[agentlog-mcp] searchTracesAndSpans: GET ${url}\n`);
+
+  const resp = await fetch(url);
+  if (!resp.ok) {
+    return { success: false, error: `HTTP ${resp.status}` };
+  }
+
+  return resp.json() as Promise<SearchTracesResult>;
+}
+
 /**
  * 向 Backend 追加 transcript 消息到已有会话。
  */
@@ -694,17 +731,35 @@ async function main(): Promise<void> {
       const args = request.params.arguments ?? {};
 
       try {
-        // 精确查询单条会话
-        const sessionId = args.session_id as string | undefined;
-        if (sessionId) {
-          process.stderr.write(`[agentlog-mcp] query_historical_interaction: session_id=${sessionId}\n`);
+        // 精确查询单条 trace（复用 session_id 参数作为 trace_id，向后兼容）
+        const traceId = args.session_id as string | undefined;
+        if (traceId) {
+          process.stderr.write(`[agentlog-mcp] query_historical_interaction: trace_id=${traceId}\n`);
 
-          const result = await fetchSessionById(sessionId);
-          if (!result.success || !result.data) {
+          // 获取 trace 详情
+          const traceUrl = `${BACKEND_BASE}/api/traces/${encodeURIComponent(traceId)}`;
+          const traceResp = await fetch(traceUrl);
+          if (!traceResp.ok) {
             return {
               isError: true,
-              content: [{ type: "text" as const, text: `未找到会话：${sessionId}` }],
+              content: [{ type: "text" as const, text: `未找到 Trace：${traceId}` }],
             };
+          }
+          const traceJson = await traceResp.json() as { success: boolean; data?: unknown; error?: string };
+          if (!traceJson.success || !traceJson.data) {
+            return {
+              isError: true,
+              content: [{ type: "text" as const, text: `未找到 Trace：${traceId}` }],
+            };
+          }
+
+          // 获取该 trace 的所有 spans
+          const spansUrl = `${BACKEND_BASE}/api/traces/${encodeURIComponent(traceId)}/summary`;
+          const spansResp = await fetch(spansUrl);
+          let spans: unknown[] = [];
+          if (spansResp.ok) {
+            const spansJson = await spansResp.json() as { success: boolean; data?: { spanTree?: unknown[] } };
+            spans = spansJson.data?.spanTree ?? [];
           }
 
           return {
@@ -716,7 +771,7 @@ async function main(): Promise<void> {
                     total: 1,
                     page: 1,
                     pageSize: 1,
-                    records: [result.data],
+                    records: [{ trace: traceJson.data, spans }],
                   },
                   null,
                   2,
@@ -726,88 +781,29 @@ async function main(): Promise<void> {
           };
         }
 
-        // 列表查询：构造查询参数
-        const queryParams: Record<string, string> = {};
-
+        // 列表查询：使用 spans 搜索
         const filename = args.filename as string | undefined;
         const keyword = args.keyword as string | undefined;
-        const startDate = args.start_date as string | undefined;
-        const endDate = args.end_date as string | undefined;
         const commitHash = args.commit_hash as string | undefined;
-        const provider = args.provider as string | undefined;
         const source = args.source as string | undefined;
         const page = (args.page as number | undefined) ?? 1;
         const pageSize = Math.min((args.page_size as number | undefined) ?? 20, 100);
-        const includeTranscript = (args.include_transcript as boolean | undefined) ?? false;
 
-        // filename → keyword 补充（affected_files 用 LIKE 模糊匹配，
-        // Backend 现有 API 通过 keyword 覆盖 prompt/response/note，
-        // affected_files 暂通过独立参数 affectedFile 传递）
-        if (keyword) queryParams.keyword = keyword;
-        if (startDate) queryParams.startDate = startDate;
-        if (endDate) queryParams.endDate = endDate;
-        if (provider) queryParams.provider = provider;
-        if (source) queryParams.source = source;
-        if (commitHash) queryParams.commitHash = commitHash;
-        queryParams.page = String(page);
-        queryParams.pageSize = String(pageSize);
+        const result = await searchTracesAndSpans({
+          keyword,
+          filename,
+          commitHash,
+          source,
+          page,
+          pageSize,
+        });
 
-        // commit_hash 过滤：onlyBoundToCommit 仅作布尔标记，具体 hash 需客户端过滤
-        if (commitHash) {
-          queryParams.onlyBoundToCommit = "true";
-          // 增大 pageSize 以确保客户端有足够数据来过滤（最大 100 条/页）
-          queryParams.pageSize = String(Math.min(pageSize * 5, 100));
-        }
-
-        process.stderr.write(
-          `[agentlog-mcp] query_historical_interaction: params=${JSON.stringify(queryParams)}\n`,
-        );
-
-        const result = await fetchSessions(queryParams);
-        if (!result.success || !result.data) {
+        if (!result.success) {
           return {
             isError: true,
-            content: [
-              {
-                type: "text" as const,
-                text: `查询失败：${result.error ?? "Backend 未返回数据"}`,
-              },
-            ],
+            content: [{ type: "text" as const, text: `查询失败：${result.error ?? "unknown"}` }],
           };
         }
-
-        let records = result.data.data as Array<Record<string, unknown>>;
-
-        // 客户端侧：按文件名过滤（affected_files 模糊匹配）
-        if (filename) {
-          const lowerFile = filename.toLowerCase();
-          records = records.filter((s) => {
-            const files = s.affectedFiles;
-            if (!Array.isArray(files)) return false;
-            return (files as string[]).some((f) =>
-              f.toLowerCase().includes(lowerFile),
-            );
-          });
-        }
-
-        // 客户端侧：按 commit_hash 精确过滤
-        if (commitHash) {
-          records = records.filter((s) => {
-            const ch = s.commitHash as string | undefined;
-            return ch != null && ch.startsWith(commitHash);
-          });
-        }
-
-        // 若不需要 transcript，从结果中删除（减少响应体积）
-        if (!includeTranscript) {
-          records = records.map((s) => {
-            const { transcript: _t, ...rest } = s;
-            return rest;
-          });
-        }
-
-        // 若有客户端侧过滤，total 以过滤后结果为准
-        const clientFiltered = !!(filename || commitHash);
 
         return {
           content: [
@@ -815,10 +811,10 @@ async function main(): Promise<void> {
               type: "text" as const,
               text: JSON.stringify(
                 {
-                  total: clientFiltered ? records.length : result.data.total,
-                  page: result.data.page,
-                  pageSize: result.data.pageSize,
-                  records,
+                  total: result.total ?? 0,
+                  page,
+                  pageSize: result.data?.length ?? 0,
+                  records: result.data ?? [],
                 },
                 null,
                 2,
@@ -835,6 +831,7 @@ async function main(): Promise<void> {
         };
       }
     }
+
 
     // ── create_trace ────────────────────────────────────────────────────
     if (request.params.name === "create_trace") {
