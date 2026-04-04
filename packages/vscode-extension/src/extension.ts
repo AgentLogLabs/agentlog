@@ -2146,7 +2146,10 @@ export async function activate(
   // 3. 初始化 BackendClient
   initBackendClient(config);
 
-  // 4. 初始化状态栏
+  // 4. 从 git config 读取 agentlog.traceId 并设置到环境变量
+  await initTraceIdFromGitConfig();
+
+  // 5. 初始化状态栏
   initStatusBar();
   disposables.push(outputChannel, statusBarItem);
 
@@ -2169,6 +2172,13 @@ export async function activate(
 
   // ── 监听配置变更 ────────────────────────────
   registerConfigWatcher(context);
+
+  // ── 监听工作区切换，自动读取 git config traceId ────────────────────
+  disposables.push(
+    vscode.workspace.onDidChangeWorkspaceFolders(async () => {
+      await initTraceIdFromGitConfig();
+    }),
+  );
 
   // ── 注册 @agentlog Chat Participant（通过 Copilot 模型捕获对话）
   try {
@@ -2235,6 +2245,53 @@ function resolveWorkspacePath(): string | undefined {
   }
   const folders = vscode.workspace.workspaceFolders;
   return folders && folders.length > 0 ? folders[0].uri.fsPath : undefined;
+}
+
+/**
+ * 从工作区的 .git/config 读取 agentlog.traceId
+ */
+async function readGitConfigTraceId(workspacePath: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const gitConfigPath = path.join(workspacePath, ".git", "config");
+    // 检查 .git/config 是否存在
+    if (!fs.existsSync(gitConfigPath)) {
+      resolve(null);
+      return;
+    }
+    // 读取 git config
+    cp.exec(
+      `git config --local --get agentlog.traceId`,
+      { cwd: workspacePath, timeout: 5000 },
+      (err, stdout) => {
+        if (err || !stdout.trim()) {
+          resolve(null);
+          return;
+        }
+        const traceId = stdout.trim();
+        resolve(traceId || null);
+      },
+    );
+  });
+}
+
+/**
+ * 初始化 AgentLog Trace ID
+ * 从工作区的 .git/config 读取 agentlog.traceId 并设置到环境变量
+ */
+async function initTraceIdFromGitConfig(): Promise<void> {
+  const folders = vscode.workspace.workspaceFolders;
+  if (!folders || folders.length === 0) return;
+
+  for (const folder of folders) {
+    const workspacePath = folder.uri.fsPath;
+    const traceId = await readGitConfigTraceId(workspacePath);
+    if (traceId) {
+      // 设置到环境变量，供 MCP Server 使用
+      process.env.AGENTLOG_TRACE_ID = traceId;
+      log(`[激活] 从 git config 读取 agentlog.traceId: ${traceId}`);
+      break; // 只处理第一个工作区
+    }
+  }
 }
 
 function toDateStr(iso: string): string {
