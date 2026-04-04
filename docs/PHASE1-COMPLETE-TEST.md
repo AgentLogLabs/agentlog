@@ -452,89 +452,101 @@ curl http://localhost:7892/health
 
 ---
 
-### TC-HO-003：人类切到 VS Code 手工接管并 commit
+### TC-HO-003：人类切到 VS Code 手工接管并 commit（自动化流程）
 
-**目的**：验证 traceId 在 OpenCode Agent → VS Code 人类操作之间保持不丢失
+**目的**：验证 VS Code 打开项目后**自动读取** git config 中的 traceId，无需人工设置
 
-**关键理解**：
-- **Step 1**：OpenCode Agent（装 AgentLog MCP）生成代码，创建 traceId=T-001
-- **Step 2**：人类**退出 OpenCode**，切换到 **VS Code**（也装了 AgentLog 插件）手工编写代码并 commit
-- **Step 3**：traceId=T-001 **继续有效**，VS Code 的 AgentLog 插件继续记录人类的操作
-- 核心验证：**traceId 在跨 IDE 切换时保持不丢失**
+**关键理解（简化设计）**：
+
+```
+OpenCode Agent 操作
+    ↓
+MCP 自动写入 .git/config: agentlog.traceId=<traceId>
+    ↓
+人类切换到 VS Code，打开同一项目
+    ↓
+VS Code AgentLog 插件自动读取 git config 中的 traceId（无需人工干预）
+    ↓
+人类 commit → Git Hook 自动绑定到同一 traceId
+```
+
+**VS Code AgentLog 插件自动读取逻辑**：
+```typescript
+// VS Code 插件启动时自动执行
+async function autoRestoreTraceId() {
+  // 1. 检查当前 git 仓库的 config
+  const traceId = await git.config.get('agentlog.traceId');
+  
+  if (traceId) {
+    // 2. 找到正在进行的 trace，自动关联
+    process.env.AGENTLOG_TRACE_ID = traceId;
+    console.log(`[AgentLog] 已自动恢复 trace: ${traceId}`);
+  }
+}
+```
 
 **前置条件**：
 - TC-HO-002 已完成
 - VS Code 已安装 AgentLog 扩展
 - Git Hook 已安装
+- VS Code AgentLog 插件已实现自动读取 git config
 
 **测试步骤**：
 
-1. **确认 OpenCode Agent 留下的 traceId**
+1. **Step 1: OpenCode Agent 创建 trace 并写入 git config**
+   
    ```bash
-   # 从 OpenCode Agent 任务中获取 traceId
-   # 或查询最新的 trace
-   curl -s http://localhost:7892/api/traces?pageSize=1 | python3 -c "
-   import sys, json
-   d = json.load(sys.stdin)
-   traces = d.get('data', [])
-   if traces:
-       t = traces[-1]
-       print('OpenCode Agent TraceId:', t['id'])
-       print('Status:', t['status'])
-   "
+   cd /path/to/project
+   # OpenCode Agent 调用 MCP
+   # MCP log_intent 后自动写入:
+   # git config agentlog.traceId=<traceId>
+   
+   # 验证写入
+   git config agentlog.traceId
+   # 预期输出: <traceId>
    ```
-   **记录下这个 traceId**
 
-2. **人类切换到 VS Code**
+2. **Step 2: 人类切换到 VS Code（无需任何操作）**
    
    - 退出 OpenCode
    - 打开 VS Code
    - 打开同一个项目目录
+   - **不需要手动设置环境变量**
+   - VS Code AgentLog 插件启动时自动读取 git config
 
-3. **在 VS Code 中设置 traceId（保持连续）**
+3. **验证 VS Code 自动读取**
    
-   在 VS Code 终端中设置环境变量：
-   ```bash
-   export AGENTLOG_TRACE_ID="<traceId from Step 1>"
-   export AGENTLOG_GATEWAY_URL="http://localhost:7892"
-   export AGENTLOG_WORKSPACE_PATH="/path/to/project"
+   在 VS Code 命令面板中执行 `AgentLog: Show Status`：
+   ```
+   输出应显示:
+   - 当前 traceId: <traceId>（从 git config 读取）
+   - 状态: 已关联
    ```
 
-4. **人类手工修复代码**
+4. **人类修复代码并 commit**
    
-   在 VS Code 中直接编辑 `buggy.py`：
+   在 VS Code 中直接编辑文件：
    ```python
-   # 修复前（有 Bug）
    def sum_list(nums):
-       return 0  # Bug!
+       return sum(nums)  # 修复后的正确版本
+   ```
    
-   # 修复后（正确）
-   def sum_list(nums):
-       return sum(nums)  # Fixed!
+   使用 VS Code Source Control 面板 commit：
+   ```
+   1. Stage changes
+   2. Commit message: "fix: correct sum function"
+   3. 点击 Commit
    ```
 
-5. **人类提交（通过 VS Code 终端）**
+5. **验证 Human Override 自动记录**
    
-   在 VS Code 终端中执行：
-   ```bash
-   git add .
-   git commit -m "fix: correct sum function by human in VS Code"
-   ```
-
-6. **等待异步处理**
    ```bash
    sleep 2
-   ```
-
-7. **验证 Human Override Span 创建**
-   
-   ```bash
-   TRACE_ID="<traceId from Step 1>"
    curl -s "http://localhost:7892/api/traces/$TRACE_ID/summary" | python3 -c "
    import sys, json
    d = json.load(sys.stdin)
    s = d.get('data', {}).get('statistics', {})
-   print('=== After Human Override (VS Code) ===')
+   print('=== Human Override 自动记录 ===')
    print('TraceId:', '$TRACE_ID')
    print('Total Spans:', s.get('totalSpans'))
    print('Human Spans:', s.get('humanSpans'))
@@ -542,42 +554,16 @@ curl http://localhost:7892/health
    "
    ```
 
-8. **验证 Human Span 详情**
-   ```bash
-   curl -s "http://localhost:7892/api/traces/$TRACE_ID/diff" | python3 -c "
-   import sys, json
-   d = json.load(sys.stdin)
-   tree = d.get('data', {}).get('spanTree', [])
-   human = [s for s in tree if s.get('actorType') == 'human']
-   agent = [s for s in tree if s.get('actorType') == 'agent']
-   
-   print()
-   print('✅ Complete Context Across IDEs:')
-   print(f'   🤖 Agent Spans (OpenCode): {len(agent)}')
-   print(f'   👤 Human Spans (VS Code): {len(human)}')
-   
-   if human:
-       h = human[-1]
-       print()
-       print('Latest Human Override:')
-       print('   IDE: VS Code')
-       print('   ActorName:', h.get('actorName'))
-       print('   Event:', h.get('payload', {}).get('event'))
-       print('   Commit:', h.get('payload', {}).get('commitHash', 'N/A')[:12])
-   "
-   ```
-
 **预期结果**：
-- [ ] **traceId 在跨 IDE 切换后仍然有效**（T-001 未丢失）
-- [ ] VS Code 中人类 commit 被记录为 actor=human span
-- [ ] span 绑定到同一个 traceId=T-001
-- [ ] payload 包含 commitHash、diff 信息
-- [ ] 完整的 span 树包含 OpenCode Agent spans + VS Code Human spans
+- [ ] **VS Code 打开后自动显示当前 traceId**（无需人工干预）
+- [ ] 人类 commit 后自动创建 actor=human span
+- [ ] span 绑定到 git config 中读取的同一个 traceId
+- [ ] 无需手动设置任何环境变量
 
 **⚠️ 关键验证点**：
-- 验证 VS Code AgentLog 插件支持 `AGENTLOG_TRACE_ID` 环境变量
-- 验证 Git Hook 能接收并传递 traceId
-- 验证 traceId 在 OpenCode → VS Code 切换后不丢失
+- VS Code AgentLog 插件启动时**自动**从 git config 读取 traceId
+- 不需要用户手动 export AGENTLOG_TRACE_ID
+- Git Hook post-commit 时**自动**使用 git config 中的 traceId
 
 ---
 
