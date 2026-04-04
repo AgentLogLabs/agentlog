@@ -401,7 +401,13 @@ const MIGRATIONS: Array<{ version: number; up: MigrationFn }> = [
     version: 8,
     up: (db) => {
       // Trace Fork 支持：新增 parent_trace_id 字段支持 trace 分叉
-      db.exec(`ALTER TABLE traces ADD COLUMN parent_trace_id TEXT`);
+      // 检查列是否已存在（CREATE TABLE 可能已包含，迁移也可能已执行）
+      const existing = db
+        .prepare("PRAGMA table_info(traces)")
+        .all() as { name: string }[];
+      if (!existing.find((col) => col.name === "parent_trace_id")) {
+        db.exec(`ALTER TABLE traces ADD COLUMN parent_trace_id TEXT`);
+      }
     },
   },
 ];
