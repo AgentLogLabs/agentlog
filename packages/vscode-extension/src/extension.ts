@@ -402,7 +402,7 @@ interface McpClientProfile {
   configPath: string;
   /** 配置文件格式 */
   format:
-    | "opencode"   // { mcp: { "agentlog-mcp": { type, command, enabled } } }
+    | "opencode"   // { mcpServers: { "agentlog-mcp": { command, args } } }
     | "mcpServers" // { mcpServers: { "agentlog-mcp": { command, args } } }
     | "cline"      // { mcpServers: { "agentlog-mcp": { command, args, disabled } } }
     | "qoder"      // { mcpServers: { "agentlog-mcp": { type, command, args } } }

@@ -1210,6 +1210,19 @@ async function main(): Promise<void> {
             }
           }
 
+          // 确保有 trace_id：如果环境变量没有，自动创建一个
+          let traceId = process.env.AGENTLOG_TRACE_ID;
+          if (!traceId) {
+            try {
+              const traceResult = await postTrace({ taskGoal: task || "Untitled Trace" });
+              traceId = traceResult.id;
+              process.env.AGENTLOG_TRACE_ID = traceId;
+              process.stderr.write(`[agentlog-mcp] log_intent: 自动创建 Trace ${traceId}\n`);
+            } catch (err) {
+              process.stderr.write(`[agentlog-mcp] log_intent: 自动创建 Trace 失败: ${err}\n`);
+            }
+          }
+
           resultId = await postSession({
             provider,
             model,
@@ -1221,6 +1234,7 @@ async function main(): Promise<void> {
             durationMs: newSessionDurationMs,
             ...(transcript && transcript.length > 0 ? { transcript } : {}),
             ...(tokenUsage ? { tokenUsage } : {}),
+            ...(traceId ? { traceId } : {}),
           });
         }
 
@@ -1229,7 +1243,9 @@ async function main(): Promise<void> {
         const intentResponsePayload: Record<string, unknown> = {
           session_id: resultId,
           status: "ok",
-          message: `任务记录完成（session_id=${resultId}）。会话已归档。`,
+          trace_id: process.env.AGENTLOG_TRACE_ID ?? null,
+          message: `任务记录完成（session_id=${resultId}）。会话已归档。` +
+            (process.env.AGENTLOG_TRACE_ID ? ` 关联到 trace_id=${process.env.AGENTLOG_TRACE_ID}` : ""),
         };
         if (intentWarnings.length > 0) {
           intentResponsePayload.warnings = intentWarnings;
