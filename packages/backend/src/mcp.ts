@@ -932,36 +932,8 @@ async function main(): Promise<void> {
 
         let resultSessionId: string;
 
-        let finalTokenUsage = tokenUsage;
-        if (sessionId && !finalTokenUsage) {
-          // 客户端未提供 token_usage，尝试从现有会话获取并估算增量
-          try {
-            const existingSession = await fetchSessionById(sessionId);
-            if (existingSession.success && existingSession.data) {
-              const sessionData = existingSession.data as any;
-              const currentTokenUsage = sessionData.tokenUsage || { inputTokens: 0, outputTokens: 0 };
-              const updatedTokenUsage = { ...currentTokenUsage };
-              
-              // 估算新消息的 token 数量
-              const contentTokens = estimateTokenCount(turnContent);
-              const reasoningTokens = reasoning ? estimateTokenCount(reasoning) : 0;
-              
-              if (role === "user" || role === "tool") {
-                // 用户消息和工具结果计入输入 tokens
-                updatedTokenUsage.inputTokens = (updatedTokenUsage.inputTokens || 0) + contentTokens;
-              } else if (role === "assistant") {
-                // 助理回复计入输出 tokens
-                updatedTokenUsage.outputTokens = (updatedTokenUsage.outputTokens || 0) + contentTokens + reasoningTokens;
-              }
-              
-              finalTokenUsage = updatedTokenUsage;
-              process.stderr.write(`[agentlog-mcp] token_usage 自动估算：input=${updatedTokenUsage.inputTokens}, output=${updatedTokenUsage.outputTokens}\n`);
-            }
-          } catch (err) {
-            // 获取现有会话失败，继续使用 undefined（保持原值）
-            process.stderr.write(`[agentlog-mcp] 获取现有会话 token_usage 失败，跳过自动估算：${err}\n`);
-          }
-        }
+        // 新的 trace 架构：直接使用客户端传入的 token_usage，不再从 sessions 获取
+        const finalTokenUsage = tokenUsage;
 
         // ── 重复创建检测 ──
         // 如果 Agent 没有传 session_id，但最近刚创建过 session，说明 Agent 可能丢失了 session_id
@@ -1169,171 +1141,46 @@ async function main(): Promise<void> {
         process.stderr.write(`[agentlog-mcp]   provider=${provider}\n`);
         process.stderr.write(`[agentlog-mcp]   source=${source}\n`);
 
-        // ── 调用顺序验证 ──
-        const intentWarnings: string[] = [];
+        // ── 新的 trace 架构 ─────────────────────────────────
+        // session_id 现在作为 trace_id 使用，不再操作 sessions 表
 
-        if (existingSessionId) {
-          const state = sessionTracker.get(existingSessionId);
-          if (state) {
-            if (state.intentCalled) {
-              intentWarnings.push(
-                `⚠️ 此会话已经调用过 log_intent，重复调用将覆盖之前的记录。`
-              );
-            }
-            // 标记 intent 已调用
-            state.intentCalled = true;
-            state.lastActivityAt = Date.now();
-          }
-        } else {
-          // 没有 session_id 调用 log_intent → 可能遗漏了 log_turn 流程
-          if (lastCreatedSessionId) {
-            intentWarnings.push(
-              `⚠️ 调用 log_intent 时未传入 session_id。` +
-              `最近创建的会话是 ${lastCreatedSessionId}，` +
-              `如果这是同一个任务，应传入 session_id="${lastCreatedSessionId}"。` +
-              `未来请按正确顺序调用：log_turn(首次) → log_turn(后续) → log_intent(最后)。`
-            );
-          }
-          if (!transcript || transcript.length === 0) {
-            intentWarnings.push(
-              `⚠️ 既没有 session_id 也没有 transcript，将创建一个仅有任务描述的空会话。` +
-              `建议的完整流程：先用 log_turn 逐条记录对话，最后用 log_intent 归档。`
-            );
+        // 优先使用 existingSessionId 作为 traceId（向后兼容）
+        let traceId = existingSessionId ?? process.env.AGENTLOG_TRACE_ID ?? null;
+
+        // 如果没有 traceId，创建一个新 trace
+        if (!traceId) {
+          try {
+            const traceResult = await postTrace({ taskGoal: task || "Untitled Trace" });
+            traceId = traceResult.id;
+            process.env.AGENTLOG_TRACE_ID = traceId;
+            process.stderr.write(`[agentlog-mcp] log_intent: 自动创建 Trace ${traceId}\n`);
+          } catch (err) {
+            process.stderr.write(`[agentlog-mcp] log_intent: 自动创建 Trace 失败: ${err}\n`);
           }
         }
 
-        if (intentWarnings.length > 0) {
-          process.stderr.write(`[agentlog-mcp] log_intent 警告：${intentWarnings.join(" | ")}\n`);
+        // T-A: 将 traceId 写入 git config
+        if (traceId) {
+          try {
+            if (await isGitRepo(workspacePath)) {
+              await setGitConfig(workspacePath, "agentlog.traceId", traceId);
+              process.stderr.write(`[agentlog-mcp] log_intent: 已写入 git config agentlog.traceId=${traceId}\n`);
+            }
+          } catch (gitErr) {
+            process.stderr.write(`[agentlog-mcp] log_intent: 写入 git config 失败（忽略）: ${gitErr}\n`);
+          }
         }
 
-        let resultId: string;
-
-        if (existingSessionId) {
-          // 已有会话：回写 response/affectedFiles/durationMs，formatted_transcript 和 reasoning_summary 由后端从 transcript 自动生成
-          const intentBody: { response?: string; affectedFiles?: string[]; durationMs?: number } = {};
-          if (task) intentBody.response = task;
-          if (affectedFiles.length > 0) intentBody.affectedFiles = affectedFiles;
-
-          // 耗时计算：优先使用外部传入值，否则从会话创建时间自动推算
-          if (explicitDurationMs && explicitDurationMs > 0) {
-            intentBody.durationMs = Math.round(explicitDurationMs);
-          } else {
-            // 从已有会话的 createdAt 时间戳推算耗时
-            try {
-              const sessionResp = await fetchSessionById(existingSessionId);
-              const sessionData = sessionResp.data as Record<string, unknown> | undefined;
-              const createdAt = sessionData?.createdAt as string | undefined;
-              if (createdAt) {
-                const created = new Date(createdAt).getTime();
-                if (!isNaN(created)) {
-                  intentBody.durationMs = Math.round(Date.now() - created);
-                }
-              }
-            } catch {
-              // 查询失败时跳过自动计算，不影响主流程
-              process.stderr.write(`[agentlog-mcp] 自动计算耗时失败，跳过\n`);
-            }
-          }
-
-          await patchIntent(existingSessionId, intentBody);
-
-          // Auto-fill transcript from database if not provided
-          let finalTranscript = transcript ?? [];
-          if ((!finalTranscript || finalTranscript.length === 0) && existingSessionId) {
-            try {
-              const sessionResp = await fetchSessionById(existingSessionId);
-              const sessionData = sessionResp.data as { transcript?: Array<Record<string, unknown>> } | undefined;
-              if (sessionData?.transcript && sessionData.transcript.length > 0) {
-                finalTranscript = sessionData.transcript.map((t) => ({
-                  role: t.role as "user" | "assistant" | "tool",
-                  content: t.content as string,
-                  ...(t.toolName ? { toolName: t.toolName as string } : {}),
-                  ...(t.toolInput ? { toolInput: JSON.stringify(t.toolInput) } : {}),
-                  ...(t.timestamp ? { timestamp: t.timestamp as string } : {}),
-                }));
-                process.stderr.write(`[agentlog-mcp] log_intent: 自动从数据库填充 transcript (${finalTranscript.length} turns)\n`);
-              }
-            } catch {
-              process.stderr.write(`[agentlog-mcp] log_intent: 自动填充 transcript 失败，继续\n`);
-            }
-          }
-
-          if (finalTranscript && finalTranscript.length > 0) {
-            await patchTranscript(existingSessionId, {
-              turns: finalTranscript,
-              ...(tokenUsage ? { tokenUsage } : {}),
-            });
-          } else if (tokenUsage) {
-            await patchTranscript(existingSessionId, { turns: [], tokenUsage });
-          }
-          resultId = existingSessionId;
-        } else {
-          // ── 方案 A+B：兜底逻辑 ─────────────────────────────────
-          // 没有 session_id 时，用 task 作为 prompt
-          const finalPrompt = task || "Untitled Task";
-
-          // 从 transcript 生成 summary（用于 response 字段）
-          let summary = "";
-          if (transcript && transcript.length > 0) {
-            summary = transcript
-              .filter(t => t.role === "assistant")
-              .map(t => {
-                const content = t.content || "";
-                return content.length > 200 ? content.slice(0, 200) + "..." : content;
-              })
-              .join("; ");
-          }
-
-          // 耗时：优先使用外部传入值，其次从 transcript 首尾时间戳推算
-          let newSessionDurationMs = explicitDurationMs && explicitDurationMs > 0
-            ? Math.round(explicitDurationMs)
-            : 0;
-          if (newSessionDurationMs === 0 && transcript && transcript.length > 0) {
-            const firstTs = transcript[0].timestamp;
-            if (firstTs) {
-              const firstTime = new Date(firstTs).getTime();
-              if (!isNaN(firstTime)) {
-                newSessionDurationMs = Math.round(Date.now() - firstTime);
-              }
-            }
-          }
-
-          // 确保有 trace_id：如果环境变量没有，自动创建一个
-          let traceId = process.env.AGENTLOG_TRACE_ID;
-          if (!traceId) {
-            try {
-              const traceResult = await postTrace({ taskGoal: task || "Untitled Trace" });
-              traceId = traceResult.id;
-              process.env.AGENTLOG_TRACE_ID = traceId;
-              process.stderr.write(`[agentlog-mcp] log_intent: 自动创建 Trace ${traceId}\n`);
-            } catch (err) {
-              process.stderr.write(`[agentlog-mcp] log_intent: 自动创建 Trace 失败: ${err}\n`);
-            }
-          }
-
-          // T-A: 将 trace_id 写入 git config（如果存在 traceId 且在 git 仓库中）
-          if (traceId) {
-            try {
-              if (await isGitRepo(workspacePath)) {
-                await setGitConfig(workspacePath, "agentlog.traceId", traceId);
-                process.stderr.write(`[agentlog-mcp] log_intent: 已写入 git config agentlog.traceId=${traceId}\n`);
-              }
-            } catch (gitErr) {
-              process.stderr.write(`[agentlog-mcp] log_intent: 写入 git config 失败（忽略）: ${gitErr}\n`);
-            }
-          }
-
-          // 新的 trace 架构：只更新 trace 状态为 completed，不再写入 sessions 表
-          if (traceId) {
-            await patchTrace(traceId, {
-              status: "completed",
-              ...(task ? { taskGoal: task } : {}),
-            });
-            process.stderr.write(`[agentlog-mcp] log_intent: 更新 trace ${traceId} 状态为 completed\n`);
-          }
-
-          resultId = traceId ?? "unknown";
+        // 更新 trace 状态为 completed
+        if (traceId) {
+          await patchTrace(traceId, {
+            status: "completed",
+            ...(task ? { taskGoal: task } : {}),
+          });
+          process.stderr.write(`[agentlog-mcp] log_intent: 更新 trace ${traceId} 状态为 completed\n`);
         }
+
+        const resultId = traceId ?? "unknown";
 
         process.stderr.write(`[agentlog-mcp] log_intent 完成 trace_id=${resultId}\n`);
 
@@ -1344,9 +1191,6 @@ async function main(): Promise<void> {
           message: `任务记录完成。Trace ${resultId} 状态已更新为 completed。` +
             (process.env.AGENTLOG_TRACE_ID ? ` 关联到 trace_id=${process.env.AGENTLOG_TRACE_ID}` : ""),
         };
-        if (intentWarnings.length > 0) {
-          intentResponsePayload.warnings = intentWarnings;
-        }
 
         return {
           content: [
