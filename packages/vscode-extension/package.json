@@ -199,6 +199,13 @@
           "type": "tree",
           "icon": "$(git-commit)",
           "contextualTitle": "AgentLog — Commit 绑定"
+        },
+        {
+          "id": "agentlog.traceList",
+          "name": "Trace 列表",
+          "type": "tree",
+          "icon": "$(debug-pause)",
+          "contextualTitle": "AgentLog — Trace 列表"
         }
       ]
     },
