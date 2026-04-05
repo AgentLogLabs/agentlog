@@ -1,0 +1,587 @@
+{
+  "info": {
+    "id": "ses_2a1b7ca71ffeF6ltUcqzkXbO44",
+    "slug": "tidy-lagoon",
+    "projectID": "bf4c3e099400a06715a042f25f06edf8caeff610",
+    "directory": "/Users/hobo/Projects/AgentLog",
+    "title": "New session - 2026-04-05T15:34:43.854Z",
+    "version": "1.3.7",
+    "summary": {
+      "additions": 0,
+      "deletions": 0,
+      "files": 0
+    },
+    "time": {
+      "created": 1775403283854,
+      "updated": 1775403732842
+    }
+  },
+  "messages": [
+    {
+      "info": {
+        "role": "user",
+        "time": {
+          "created": 1775403283875
+        },
+        "summary": {
+          "diffs": []
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "google",
+          "modelID": "gemini-2.5-pro"
+        },
+        "id": "msg_d5e48359d001UkjZ61Oud5KQCc",
+        "sessionID": "ses_2a1b7ca71ffeF6ltUcqzkXbO44"
+      },
+      "parts": [
+        {
+          "type": "text",
+          "text": "请根据当前STAGE1_HANDOFF_STITCHING_DESIGN_V2.md文档说明的功能和当前代码的变化更新readme文档",
+          "id": "prt_d5e48359d0026154fh7T20Yr8w",
+          "sessionID": "ses_2a1b7ca71ffeF6ltUcqzkXbO44",
+          "messageID": "msg_d5e48359d001UkjZ61Oud5KQCc"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1775403283886,
+          "completed": 1775403447839
+        },
+        "parentID": "msg_d5e48359d001UkjZ61Oud5KQCc",
+        "modelID": "gemini-2.5-pro",
+        "providerID": "google",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "cache": {
+            "read": 0,
+            "write": 0
+          }
+        },
+        "error": {
+          "name": "MessageAbortedError",
+          "data": {
+            "message": "Aborted"
+          }
+        },
+        "id": "msg_d5e4835ae0017oUM7yVvSLsQLa",
+        "sessionID": "ses_2a1b7ca71ffeF6ltUcqzkXbO44"
+      },
+      "parts": []
+    },
+    {
+      "info": {
+        "role": "user",
+        "time": {
+          "created": 1775403451519
+        },
+        "summary": {
+          "diffs": []
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "google",
+          "modelID": "gemini-2.5-pro"
+        },
+        "id": "msg_d5e4ac473001npfGe19qIoD182",
+        "sessionID": "ses_2a1b7ca71ffeF6ltUcqzkXbO44"
+      },
+      "parts": [
+        {
+          "type": "text",
+          "text": "请根据当前STAGE1_HANDOFF_STITCHING_DESIGN_V2.md文档说明的功能和当前代码的变化更新readme文档",
+          "id": "prt_d5e4ac474001xeBYoA1bRw8v7U",
+          "sessionID": "ses_2a1b7ca71ffeF6ltUcqzkXbO44",
+          "messageID": "msg_d5e4ac473001npfGe19qIoD182"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1775403451526,
+          "completed": 1775403704832
+        },
+        "parentID": "msg_d5e4ac473001npfGe19qIoD182",
+        "modelID": "gemini-2.5-pro",
+        "providerID": "google",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "cache": {
+            "read": 0,
+            "write": 0
+          }
+        },
+        "error": {
+          "name": "MessageAbortedError",
+          "data": {
+            "message": "Aborted"
+          }
+        },
+        "id": "msg_d5e4ac486001u8e4fsjgYoBB4x",
+        "sessionID": "ses_2a1b7ca71ffeF6ltUcqzkXbO44"
+      },
+      "parts": []
+    },
+    {
+      "info": {
+        "role": "user",
+        "time": {
+          "created": 1775403719160
+        },
+        "summary": {
+          "diffs": []
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "opencode",
+          "modelID": "qwen3.6-plus-free"
+        },
+        "id": "msg_d5e4ed9f00018aGM1wlH2gc1qG",
+        "sessionID": "ses_2a1b7ca71ffeF6ltUcqzkXbO44"
+      },
+      "parts": [
+        {
+          "type": "text",
+          "text": "请根据当前STAGE1_HANDOFF_STITCHING_DESIGN_V2.md文档说明的功能和当前代码的变化更新readme文档",
+          "id": "prt_d5e4ed9f1001hZB9pVaLZjEpor",
+          "sessionID": "ses_2a1b7ca71ffeF6ltUcqzkXbO44",
+          "messageID": "msg_d5e4ed9f00018aGM1wlH2gc1qG"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1775403719171,
+          "completed": 1775403727299
+        },
+        "parentID": "msg_d5e4ed9f00018aGM1wlH2gc1qG",
+        "modelID": "qwen3.6-plus-free",
+        "providerID": "opencode",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 17918,
+          "input": 17717,
+          "output": 201,
+          "reasoning": 30,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "finish": "tool-calls",
+        "id": "msg_d5e4eda03001CTF1xEB7SgY0Gm",
+        "sessionID": "ses_2a1b7ca71ffeF6ltUcqzkXbO44"
+      },
+      "parts": [
+        {
+          "snapshot": "f3be69699382f2fd4b0a0ee75c0e819ecae6c8f1",
+          "type": "step-start",
+          "id": "prt_d5e4ee7a3001XiCX9Oe76g87TY",
+          "sessionID": "ses_2a1b7ca71ffeF6ltUcqzkXbO44",
+          "messageID": "msg_d5e4eda03001CTF1xEB7SgY0Gm"
+        },
+        {
+          "type": "reasoning",
+          "text": "用户要求根据设计文档和代码变化更新 README，我需要先读取设计文档、当前 README 和查看代码变化来了解需要更新的内容。",
+          "time": {
+            "start": 1775403722659,
+            "end": 1775403724092
+          },
+          "id": "prt_d5e4ee7a3003Sh20OJWVzN0O09",
+          "sessionID": "ses_2a1b7ca71ffeF6ltUcqzkXbO44",
+          "messageID": "msg_d5e4eda03001CTF1xEB7SgY0Gm"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "call_d0a2a0b1c10847da8197a6a1",
+          "state": {
+            "status": "error",
+            "input": {
+              "filePath": "/Users/hobo/Projects/AgentLog/STAGE1_HANDOFF_STITCHING_DESIGN_V2.md"
+            },
+            "error": "File not found: /Users/hobo/Projects/AgentLog/STAGE1_HANDOFF_STITCHING_DESIGN_V2.md",
+            "time": {
+              "start": 1775403724701,
+              "end": 1775403724704
+            }
+          },
+          "id": "prt_d5e4eed3e001PuIDn4LiHMznXG",
+          "sessionID": "ses_2a1b7ca71ffeF6ltUcqzkXbO44",
+          "messageID": "msg_d5e4eda03001CTF1xEB7SgY0Gm"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "call_b285bed399454072aa3c2685",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/Users/hobo/Projects/AgentLog/README.md"
+            },
+            "output": "<path>/Users/hobo/Projects/AgentLog/README.md</path>\n<type>file</type>\n<content>1: # AgentLog — AI 编程飞行记录仪\n2: \n3: <img src=\"packages/vscode-extension/assets/logo.png\" width=\"128\" />\n4: \n5: > 一款面向国内主流大模型的 VS Code/Cursor 插件 + 本地轻量后台，自动捕获 AI Agent 交互日志，与 Git Commit 绑定，一键导出周报或 PR 说明。\n6: \n7: [![Version](https://img.shields.io/badge/version-v1.1.0-blue.svg)](https://github.com/AgentLogLabs/agentlog)\n8: [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](./LICENSE)\n9: \n10: ---\n11: \n12: ## 📑 索引\n13: \n14: [核心功能](#核心功能) · [快速开始](#快速开始) · [后台 API](#后台-api-一览) · [数据模型](#数据模型) · [配置项](#配置项) · [Git Worktree](#git-worktree-多-agent-并行支持) · [路线图](#路线图) · [FAQ](#常见问题faq) · [开发贡献](#开发贡献)\n15: \n16: ---\n17: \n18: ## 背景与痛点\n19: \n20: 国内开发者大量使用 Cursor、Cline 或基于 DeepSeek/Qwen API 的本地 Agent。代码虽然写得快，但过几天开发者自己都忘了当时 AI 为什么这么改，出了 Bug 无从下手。\n21: \n22: **AgentLog** 解决的就是这个问题：在你与 AI 交互时，静默地在后台记录一切，并在你 `git commit` 时自动将这些记录与代码变更绑定。\n23: \n24: ---\n25: \n26: ## 核心功能\n27: \n28: | 功能 | 说明 |\n29: |------|------|\n30: | 🎙️ **自动捕获** | 拦截发往 DeepSeek / Qwen / Kimi 等 API 的请求，提取 Prompt + Response |\n31: | 🧠 **推理过程保存** | 专项支持 DeepSeek-R1 的 `<think>` 推理链，完整存储中间思考步骤 |\n32: | 🔗 **Git Commit 绑定** | 通过 post-commit 钩子，自动将每次提交与相关 AI 会话关联 |\n33: | 🌿 **Git Worktree 支持** | 多个 AI Agent 可同时在不同 worktree 上并行工作，各自会话精准绑定到对应 Commit，互不干扰 |\n34: | 📊 **侧边栏面板** | VS Code 侧边栏显示会话列表、Commit 绑定关系、统计数据 |\n35: | 📝 **一键导出** | 支持导出为中文周报、PR/Code Review 说明、JSONL 原始数据、CSV 表格 |\n36: | 🏠 **本地优先** | 所有数据存储在本机 SQLite（`~/.agentlog/agentlog.db`），完全离线可用 |\n37: \n38: ---\n39: \n40: ## 支持的模型与工具\n41: \n42: ### 国内主流模型\n43: \n44: | 模型 | 提供商 | 说明 |\n45: |------|--------|------|\n46: | DeepSeek-V3 / R1 | DeepSeek | 完整支持推理链捕获 |\n47: | 通义千问 Qwen-Max / Plus | 阿里云 DashScope | OpenAI 兼容模式 |\n48: | Kimi / Moonshot | 月之暗面 | OpenAI 兼容模式 |\n49: | 豆包 | 字节跳动 Ark | OpenAI 兼容模式 |\n50: | ChatGLM | 智谱 AI | OpenAI 兼容模式 |\n51: | 本地模型 | Ollama / LM Studio | 本地 HTTP 接口 |\n52: \n53: ### 支持的 AI 编程工具\n54: \n55: - **Cline**（VS Code 插件）\n56: - **Cursor**（IDE 内置 AI）\n57: - **Continue**（VS Code 插件）\n58: - **直接 API 调用**（通过 HTTP 拦截）\n59: \n60: ---\n61: \n62: ## 技术栈\n63: \n64: | 层次 | 技术 |\n65: |------|------|\n66: | Monorepo | pnpm workspaces |\n67: | 语言 | TypeScript 5.x（全栈） |\n68: | 后台框架 | Fastify 4.x |\n69: | 数据库 | SQLite via `better-sqlite3`（WAL 模式） |\n70: | Git 集成 | `simple-git` |\n71: | VS Code API | `@types/vscode ^1.85` |\n72: | 拦截机制 | Node.js `http/https` Monkey-patch |\n73: | ID 生成 | `nanoid` |\n74: \n75: ---\n76: \n77: ## 快速开始\n78: \n79: ```bash\n80: # 克隆并安装依赖\n81: git clone https://github.com/AgentLogLabs/agentlog.git && cd agentlog && pnpm install\n82: \n83: # 构建全部\n84: pnpm build\n85: \n86: # 启动后台开发服务\n87: pnpm dev\n88: \n89: # 在 VS Code 中按 F5 调试扩展\n90: ```\n91: \n92: ---\n93: \n94: ## 后台 API 一览\n95: \n96: 后台默认运行在 `http://localhost:7892`，可通过环境变量 `AGENTLOG_PORT` 覆盖。\n97: \n98: ### 会话接口\n99: \n100: | 方法 | 路径 | 说明 |\n101: |------|------|------|\n102: | `POST` | `/api/sessions` | 上报新会话 |\n103: | `GET` | `/api/sessions` | 分页查询（支持多维过滤） |\n104: | `GET` | `/api/sessions/stats` | 统计数据 |\n105: | `GET` | `/api/sessions/unbound` | 查询未绑定 Commit 的会话 |\n106: | `GET` | `/api/sessions/:id` | 获取单条会话详情 |\n107: | `PATCH` | `/api/sessions/:id/tags` | 更新标签 |\n108: | `PATCH` | `/api/sessions/:id/note` | 更新备注 |\n109: | `PATCH` | `/api/sessions/:id/commit` | 手动绑定/解绑 Commit |\n110: | `DELETE` | `/api/sessions/:id` | 删除会话 |\n111: \n112: ### Commit 绑定接口\n113: \n114: | 方法 | 路径 | 说明 |\n115: |------|------|------|\n116: | `POST` | `/api/commits/hook` | Git post-commit 钩子接收端 |\n117: | `POST` | `/api/commits/bind` | 手动批量绑定 |\n118: | `DELETE` | `/api/commits/unbind/:sessionId` | 解绑 |\n119: | `GET` | `/api/commits` | 列出所有绑定记录 |\n120: | `GET` | `/api/commits/:hash` | 查询指定 Commit 的绑定信息 |\n121: | `GET` | `/api/commits/:hash/sessions` | 获取 Commit 关联的所有会话 |\n122: | `GET` | `/api/commits/:hash/context` | 生成 Commit 的 AI 交互上下文文档（Query 传参） |\n123: | `POST` | `/api/commits/:hash/context` | 生成 Commit 的 AI 交互上下文文档（Body 传参） |\n124: | `GET` | `/api/commits/:hash/explain` | 生成 Commit 的 AI 交互解释摘要（Query 传参） |\n125: | `POST` | `/api/commits/:hash/explain` | 生成 Commit 的 AI 交互解释摘要（Body 传参） |\n126: | `POST` | `/api/commits/hook/install` | 注入 Git 钩子 |\n127: | `DELETE` | `/api/commits/hook/remove` | 移除 Git 钩子 |\n128: \n129: ### 导出接口\n130: \n131: | 方法 | 路径 | 说明 |\n132: |------|------|------|\n133: | `GET` | `/api/export/formats` | 获取支持的导出格式列表 |\n134: | `POST` | `/api/export` | 生成导出内容 |\n135: | `POST` | `/api/export/preview` | 预览（前 50 行） |\n136: \n137: ---\n138: \n139: ## 数据模型\n140: \n141: ### AgentSession（AI 交互会话）\n142: \n143: ```typescript\n144: interface AgentSession {\n145:   id: string;              // nanoid\n146:   createdAt: string;       // ISO 8601\n147:   provider: ModelProvider; // 'deepseek' | 'qwen' | 'kimi' | ...\n148:   model: string;           // 实际模型名，例如 \"deepseek-r1\"\n149:   source: AgentSource;     // 'cline' | 'cursor' | 'continue' | ...\n150:   workspacePath: string;   // 工作区绝对路径（多 worktree 场景下为各 worktree 路径）\n151:   gitRepoRoot?: string;    // Git 仓库根目录（多 worktree 共享，用于跨 worktree 绑定）\n152:   prompt: string;          // 用户输入的完整 Prompt\n153:   reasoning?: string;      // AI 推理过程（DeepSeek-R1 的 <think> 内容）\n154:   response: string;        // AI 最终回复\n155:   commitHash?: string;     // 绑定的 Git Commit SHA\n156:   affectedFiles: string[]; // 涉及的文件列表\n157:   durationMs: number;      // 交互耗时（毫秒）\n158:   tags?: string[];         // 用户标签\n159:   note?: string;           // 用户备注\n160:   metadata?: Record<string, unknown>; // 扩展字段\n161: }\n162: ```\n163: \n164: ### CommitBinding（Commit 绑定）\n165: \n166: ```typescript\n167: interface CommitBinding {\n168:   commitHash: string;      // Git 完整 SHA-1\n169:   sessionIds: string[];    // 关联的会话 ID 列表\n170:   message: string;         // Commit message\n171:   committedAt: string;     // 提交时间\n172:   authorName: string;      // 提交者\n173:   authorEmail: string;\n174:   changedFiles: string[];  // 变更文件列表\n175:   workspacePath: string;\n176: }\n177: ```\n178: \n179: ### Commit 上下文与解释\n180: \n181: 通过 `/api/commits/:hash/context` 和 `/api/commits/:hash/explain` 接口，可以将指定 Commit 关联的所有 AI 交互记录汇总为结构化文档，直接用于新 AI 对话的上下文注入。\n182: \n183: **Context（上下文文档）**支持 Markdown / JSON / XML 三种格式输出，可通过以下选项控制内容：\n184: \n185: | 选项 | 类型 | 默认值 | 说明 |\n186: |------|------|--------|------|\n187: | `format` | `'markdown' \\| 'json' \\| 'xml'` | `'markdown'` | 输出格式 |\n188: | `language` | `'zh' \\| 'en'` | `'zh'` | 输出语言 |\n189: | `includePrompts` | `boolean` | `true` | 是否包含用户 Prompt |\n190: | `includeResponses` | `boolean` | `true` | 是否包含模型 Response |\n191: | `includeReasoning` | `boolean` | `true` | 是否包含推理过程 |\n192: | `includeChangedFiles` | `boolean` | `true` | 是否包含变更文件列表 |\n193: | `maxContentLength` | `number` | `2000` | 单条内容最大字符数（0 = 不截断） |\n194: | `maxSessions` | `number` | `0` | 最多包含的会话数量（0 = 不限制） |\n195: \n196: **Explain（解释摘要）**输出 Markdown 格式，包含总体概述、逐条会话要点（用户意图 / AI 回应 / 是否包含推理）以及涉及文件汇总。\n197: \n198: ---\n199: \n200: ## 配置项\n201: \n202: 在 VS Code 设置（`settings.json`）中，所有配置项以 `agentlog.` 为前缀：\n203: \n204: | 配置项 | 默认值 | 说明 |\n205: |--------|--------|------|\n206: | `backendUrl` | `http://localhost:7892` | 后台服务地址 |\n207: | `autoCapture` | `true` | 是否自动捕获 AI 交互 |\n208: | `captureReasoning` | `true` | 是否捕获推理过程 |\n209: | `autoBindOnCommit` | `true` | commit 时自动绑定最近未绑定的会话 |\n210: | `retentionDays` | `90` | 数据保留天数（0 = 永久） |\n211: | `autoStartBackend` | `true` | VS Code 启动时自动启动后台 |\n212: | `debug` | `false` | 开启调试日志 |\n213: | `exportLanguage` | `zh` | 导出语言（`zh` / `en`） |\n214: | `interceptors.cline` | `true` | 是否捕获 Cline 的请求 |\n215: | `interceptors.cursor` | `true` | 是否捕获 Cursor 的请求 |\n216: \n217: ---\n218: \n219: ## Git Worktree 多 Agent 并行支持\n220: \n221: AgentLog 完整支持 `git worktree` 场景，多个 AI Agent 可以同时在同一仓库的不同 worktree 上独立工作，所有会话记录精准绑定到各自的 Commit，互不干扰。\n222: \n223: ### 工作原理\n224: \n225: ```\n226: 主仓库                     Worktree A               Worktree B\n227: my-repo/                   my-repo-feat-login/       my-repo-fix-bug/\n228:   .git/                      (共享同一 .git)           (共享同一 .git)\n229:   src/                       src/                     src/\n230:     ...                        ...                      ...\n231: \n232: Agent-1 在此工作            Agent-2 在此工作          Agent-3 在此工作\n233: → session.workspacePath     → session.workspacePath   → session.workspacePath\n234:   = \"my-repo\"                 = \"my-repo-feat-login\"    = \"my-repo-fix-bug\"\n235: → session.gitRepoRoot       → session.gitRepoRoot     → session.gitRepoRoot\n236:   = \"my-repo\"                 = \"my-repo\"               = \"my-repo\"\n237: ```\n238: \n239: **关键改进（Schema v4）**：\n240: \n241: 1. **`gitRepoRoot` 字段**：`agent_sessions` 表新增此字段，存储 Git 仓库根目录路径。无论会话发生在哪个 worktree，同一仓库下的所有会话共享相同的 `gitRepoRoot`。\n242: \n243: 2. **动态钩子脚本**：post-commit 钩子不再硬编码工作区路径，改为通过 `git rev-parse --show-toplevel` 在运行时动态获取当前 worktree 的真实路径，一次安装，所有 worktree 均生效。\n244: \n245: 3. **三级匹配策略**：post-commit 触发时，后端按以下顺序查找未绑定会话：\n246:    - **Level 1（精确）**：按当前 worktree 的 `workspace_path` 精确匹配\n247:    - **Level 2（跨 worktree）**：按 `git_repo_root` 匹配同仓库其他 worktree 的会话\n248:    - **Level 3（兜底）**：生成自动摘要 Session（原有逻辑）\n249: \n250: 4. **会话自动推断**：创建 Session 时后端自动通过 `git rev-parse --show-toplevel` 填充 `gitRepoRoot`，Agent 无需手动传入。\n251: \n252: ### 使用方式\n253: \n254: 只需在**任意一个** worktree（通常是主仓库）安装 Git 钩子，所有 worktree 均自动支持：\n255: \n256: ```bash\n257: # 在 VS Code 中执行命令：AgentLog: Install Git Hook\n258: # 或通过 API：\n259: curl -X POST http://localhost:7892/api/commits/hook/install \\\n260:   -H \"Content-Type: application/json\" \\\n261:   -d '{\"workspacePath\": \"/path/to/my-repo\"}'\n262: ```\n263: \n264: ---\n265: \n266: ## 隐私与安全\n267: \n268: - **所有数据均存储在本机**，默认路径 `~/.agentlog/agentlog.db`\n269: - 后台服务仅监听 `127.0.0.1`，不对外网暴露\n270: - CORS 策略仅允许 `localhost` 和 VS Code Webview 来源\n271: - 不收集任何遥测数据，不联网上报\n272: \n273: ---\n274: \n275: ## 路线图\n276: \n277: ### MVP（当前）\n278: \n279: - [x] 基础脚手架（monorepo + 类型定义 + 后台 + 插件）\n280: - [x] SQLite 数据库 + 迁移系统\n281: - [x] REST API（会话 CRUD + 导出 + Commit 绑定）\n282: - [x] HTTP 拦截器（支持流式 SSE 响应）\n283: - [x] VS Code 侧边栏 TreeView\n284: - [x] 会话详情 Webview + 仪表板\n285: - [x] Git post-commit 钩子注入\n286: - [x] 中文周报 / PR 说明导出\n287: \n288: ### 已完成\n289: \n290: - [x] Commit 上下文文档生成（Markdown / JSON / XML）\n291: - [x] Commit AI 交互解释摘要生成\n292: - [x] Context & Explain REST API（GET/POST）\n293: - [x] 中英文国际化支持\n294: - [x] 内容截断 / 会话数量限制等精细控制选项\n295: - [x] **Git Worktree 多 Agent 并行支持**（多个 AI Agent 同时在不同 worktree 上工作，各自会话精准绑定，不互相干扰）\n296: \n297: ### 后续计划\n298: \n299: - [x] VS Code 扩展集成：新增「生成 Commit 上下文」「生成 Commit 解释」命令\n300: - [x] 侧边栏 / Webview 中展示上下文文档与解释摘要，支持一键复制\n301: - [ ] 将上下文文档无缝注入新 AI 对话（粘贴到 Cline / Cursor / Continue 对话框）\n302: - [ ] Context & Explain 单元测试与集成测试\n303: - [ ] Webview 仪表板 UI 完善（React + VS Code UI Toolkit）\n304: - [ ] 支持 Cline 扩展的 API 调用深度集成\n305: - [ ] 基于 AI 的会话自动打标签（bugfix / 重构 / 新功能）\n306: - [ ] 数据可视化（按模型 / 按时间的 AI 使用量统计）\n307: - [ ] 支持团队协作（共享导出、代码审查集成）\n308: - [ ] 本地向量化搜索（语义检索历史 Prompt）\n309: \n310: ---\n311: \n312: ## 常见问题（FAQ）\n313: \n314: ### ❓ 为什么 OpenCode/Cursor 显示的 token 数量（例如 58,809）与 AgentLog 记录的 token 数量（例如 685）不一致？\n315: \n316: 这是**统计范围不同**导致的正常现象，两者均正确但反映不同维度的信息：\n317: \n318: | 统计维度 | OpenCode/Cursor 显示 | AgentLog 记录 |\n319: |----------|---------------------|---------------|\n320: | **统计范围** | 整个上下文窗口 **所有内容** | 仅 **用户消息 + 助理回复** |\n321: | **包含内容** | 系统提示 + 历史消息 + 工具结果 + 文件内容 + 模型输入输出 | 模型输入输出（API 返回的 `usage` 数据） |\n322: | **典型值** | 数万 tokens | 数百 tokens |\n323: \n324: #### 📊 详细解释\n325: \n326: **OpenCode/Cursor 的 ~58,809 tokens 包含**：\n327: 1. **系统提示**：AGENTS.md、项目文档、指令等（约 7,283 tokens）\n328: 2. **工具调用结果**：读取的文件内容、命令输出、代码片段等（约 50,000 tokens）\n329: 3. **历史消息**：所有 user/assistant/tool 消息的完整文本（约 1,421 tokens）\n330: 4. **当前模型输入**：上述所有内容的聚合上下文\n331: \n332: **AgentLog 的 ~685 tokens 仅包含**：\n333: - `input_tokens`：模型实际消耗的输入 token（约 285）\n334: - `output_tokens`：模型实际生成的输出 token（约 400）\n335: - 符合 MCP 协议 `token_usage` 字段的定义\n336: \n337: #### 🎯 核心结论\n338: \n339: 1. **OpenCode/Cursor 显示的是「上下文窗口总负载」**：反映 AI 处理的实际上下文大小和工作复杂度。\n340: 2. **AgentLog 记录的是「模型实际消耗」**：反映模型 API 的成本和资源消耗。\n341: 3. **两者互补**：前者帮助评估上下文复杂度，后者帮助核算 API 成本。\n342: \n343: #### 🔧 建议\n344: \n345: - **无需担心**：这是预期行为，并非数据缺失或错误。\n346: - **统一统计**：如需统一，可在 `log_turn(role='tool')` 中传入工具内容的实际 token 数。\n347: - **界面区分**：建议在界面中明确标注「上下文 tokens」vs「模型 tokens」。\n348: \n349: ### ❓ 为什么 token_usage 字段有时不更新？如何解决？\n350: \n351: **问题**：OpenCode/Cursor 等 MCP 客户端有时未在 `log_turn` 调用中传入 `token_usage` 参数，导致会话的 token 消耗统计停滞。\n352: \n353: **原因**：\n354: - MCP 协议要求 `token_usage` 为累计值，需每次调用时传入\n355: - 客户端实现可能遗漏该参数，尤其当工具调用频繁时\n356: - 若不传入，AgentLog 后端保持原有 `token_usage` 不变\n357: \n358: **解决方案**：\n359: 1. **客户端改进**：确保每次 `log_turn` 调用都传入累计 `token_usage`\n360: 2. **服务端估算（已实现）**：AgentLog MCP 服务器 v0.4.0+ 在未收到 `token_usage` 时会自动估算：\n361:    - 从现有会话读取当前 `token_usage`\n362:    - 按 4 字符 ≈ 1 token 估算新消息的 token 数\n363:    - 用户/工具消息计入 `inputTokens`，助理消息计入 `outputTokens`\n364:    - 更新后写回会话\n365: 3. **手动补全**：对已有会话运行脚本补全 token 统计\n366: \n367: **验证方法**：\n368: ```bash\n369: # 检查会话的 token_usage 是否自动更新\n370: curl -s http://localhost:7892/api/sessions/你的会话ID | jq '.data.tokenUsage'\n371: ```\n372: \n373: **注意事项**：\n374: - 自动估算基于字符数，与模型实际消耗可能有 ±20% 误差\n375: - 如需精确统计，仍需客户端传入准确的 `token_usage`\n376: - 重启 OpenCode/Cursor 后 MCP 服务器重新加载，新逻辑生效\n377: \n378: ---\n379: \n380: ## 开发贡献\n381: \n382: ### 环境要求\n383: \n384: - Node.js >= 18\n385: - pnpm >= 9\n386: \n387: ### 快速开始\n388: \n389: ```bash\n390: # 克隆仓库\n391: git clone https://github.com/AgentLogLabs/agentlog.git\n392: cd agentlog\n393: \n394: # 安装依赖\n395: pnpm install\n396: \n397: # 构建全部（按顺序：shared → backend → vscode-extension）\n398: pnpm build\n399: \n400: # 启动后台开发服务（热重载）\n401: pnpm dev\n402: ```\n403: \n404: ### 分包构建\n405: \n406: ```bash\n407: pnpm build:shared   # 必须先构建（其他包依赖共享类型）\n408: pnpm build:backend  # 构建后端服务\n409: pnpm build:ext      # 构建 VS Code 扩展\n410: ```\n411: \n412: ### 开发调试\n413: \n414: ```bash\n415: # 后端热重载开发\n416: pnpm dev\n417: \n418: # 后端 MCP 服务器开发（tsx watch）\n419: cd packages/backend && pnpm dev:mcp\n420: \n421: # 在 VS Code 中调试扩展\n422: # 1. 用 VS Code 打开项目根目录\n423: # 2. 按 F5 启动扩展调试（Extension Development Host）\n424: ```\n425: \n426: ### 代码检查\n427: \n428: ```bash\n429: # 类型检查（所有包）\n430: pnpm lint\n431: \n432: # 后端单独检查\n433: cd packages/backend && pnpm lint\n434: \n435: # 扩展单独检查\n436: cd packages/vscode-extension && pnpm lint\n437: ```\n438: \n439: ### 测试\n440: \n441: ```bash\n442: # 后端集成测试\n443: cd packages/backend && pnpm test\n444: ```\n445: \n446: ### Docker 部署\n447: \n448: ```bash\n449: # 构建镜像\n450: pnpm docker:build\n451: \n452: # 运行容器\n453: pnpm docker:run\n454: \n455: # 查看日志\n456: pnpm docker:logs\n457: \n458: # Docker Compose\n459: pnpm docker:compose:up\n460: pnpm docker:compose:logs\n461: pnpm docker:compose:down\n462: ```\n463: \n464: ### 清理\n465: \n466: ```bash\n467: # 清理所有 dist 和 node_modules\n468: pnpm clean\n469: ```\n470: \n471: ---\n472: \n473: ## 社区交流 / Community\n474: \n475: 欢迎加入 AgentLog 微信社区，与开发者和其他用户交流心得。\n476: \n477: <img src=\"docs/assert/AgentLog-wechat-QR.png\" width=\"200\" alt=\"AgentLog WeChat QR Code\" />\n478: \n479: ---\n480: \n481: ## License\n482: \n483: Apache 2.0 © AgentLog Contributors\n\n(End of file - total 483 lines)\n</content>",
+            "metadata": {
+              "preview": "# AgentLog — AI 编程飞行记录仪\n\n<img src=\"packages/vscode-extension/assets/logo.png\" width=\"128\" />\n\n> 一款面向国内主流大模型的 VS Code/Cursor 插件 + 本地轻量后台，自动捕获 AI Agent 交互日志，与 Git Commit 绑定，一键导出周报或 PR 说明。\n\n[![Version](https://img.shields.io/badge/version-v1.1.0-blue.svg)](https://github.com/AgentLogLabs/agentlog)\n[![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](./LICENSE)\n\n---\n\n## 📑 索引\n\n[核心功能](#核心功能) · [快速开始](#快速开始) · [后台 API](#后台-api-一览) · [数据模型](#数据模型) · [配置项](#配置项) · [Git Worktree](#git-worktree-多-agent-并行支持) · [路线图](#路线图) · [FAQ](#常见问题faq) · [开发贡献](#开发贡献)\n\n---\n\n## 背景与痛点\n\n国内开发者大量使用 Cursor、Cline 或基于 DeepSeek/Qwen API 的本地 Agent。代码虽然写得快，但过几天开发者自己都忘了当时 AI 为什么这么改，出了 Bug 无从下手。",
+              "truncated": false,
+              "loaded": []
+            },
+            "title": "README.md",
+            "time": {
+              "start": 1775403725230,
+              "end": 1775403725249
+            }
+          },
+          "id": "prt_d5e4ef108001G6uygLHYAYNw9R",
+          "sessionID": "ses_2a1b7ca71ffeF6ltUcqzkXbO44",
+          "messageID": "msg_d5e4eda03001CTF1xEB7SgY0Gm"
+        },
+        {
+          "type": "tool",
+          "tool": "bash",
+          "callID": "call_683fd38135034c49a80a7443",
+          "state": {
+            "status": "completed",
+            "input": {
+              "command": "git status",
+              "description": "Check current git status"
+            },
+            "output": "On branch phase1-tickets\nYour branch is behind 'origin/phase1-tickets' by 1 commit, and can be fast-forwarded.\n  (use \"git pull\" to update your local branch)\n\nnothing to commit, working tree clean\n",
+            "metadata": {
+              "output": "On branch phase1-tickets\nYour branch is behind 'origin/phase1-tickets' by 1 commit, and can be fast-forwarded.\n  (use \"git pull\" to update your local branch)\n\nnothing to commit, working tree clean\n",
+              "exit": 0,
+              "description": "Check current git status",
+              "truncated": false
+            },
+            "title": "Check current git status",
+            "time": {
+              "start": 1775403726075,
+              "end": 1775403726124
+            }
+          },
+          "id": "prt_d5e4ef4140015mAihVT4r0aC5L",
+          "sessionID": "ses_2a1b7ca71ffeF6ltUcqzkXbO44",
+          "messageID": "msg_d5e4eda03001CTF1xEB7SgY0Gm"
+        },
+        {
+          "type": "tool",
+          "tool": "bash",
+          "callID": "call_80866605d0b245a9af8c5e67",
+          "state": {
+            "status": "completed",
+            "input": {
+              "command": "git diff --name-only",
+              "description": "List changed files"
+            },
+            "output": "",
+            "metadata": {
+              "output": "",
+              "exit": 0,
+              "description": "List changed files",
+              "truncated": false
+            },
+            "title": "List changed files",
+            "time": {
+              "start": 1775403727218,
+              "end": 1775403727242
+            }
+          },
+          "id": "prt_d5e4ef58d001G89nSfAuCdQwYq",
+          "sessionID": "ses_2a1b7ca71ffeF6ltUcqzkXbO44",
+          "messageID": "msg_d5e4eda03001CTF1xEB7SgY0Gm"
+        },
+        {
+          "reason": "tool-calls",
+          "snapshot": "f3be69699382f2fd4b0a0ee75c0e819ecae6c8f1",
+          "type": "step-finish",
+          "tokens": {
+            "total": 17918,
+            "input": 17717,
+            "output": 201,
+            "reasoning": 30,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_d5e4ef98c001itVmiM1X5Za46U",
+          "sessionID": "ses_2a1b7ca71ffeF6ltUcqzkXbO44",
+          "messageID": "msg_d5e4eda03001CTF1xEB7SgY0Gm"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1775403727301,
+          "completed": 1775403732822
+        },
+        "parentID": "msg_d5e4ed9f00018aGM1wlH2gc1qG",
+        "modelID": "qwen3.6-plus-free",
+        "providerID": "opencode",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 25377,
+          "input": 25232,
+          "output": 145,
+          "reasoning": 44,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "finish": "tool-calls",
+        "id": "msg_d5e4ef9c50012Wyw2YZJBnCz6e",
+        "sessionID": "ses_2a1b7ca71ffeF6ltUcqzkXbO44"
+      },
+      "parts": [
+        {
+          "snapshot": "f3be69699382f2fd4b0a0ee75c0e819ecae6c8f1",
+          "type": "step-start",
+          "id": "prt_d5e4f05d2001HGwOCkMzB15qQx",
+          "sessionID": "ses_2a1b7ca71ffeF6ltUcqzkXbO44",
+          "messageID": "msg_d5e4ef9c50012Wyw2YZJBnCz6e"
+        },
+        {
+          "type": "reasoning",
+          "text": "The user wants me to update the README based on the STAGE1_HANDOFF_STITCHING_DESIGN_V2.md document and current code changes. Let me first find the design document and check the current code changes.",
+          "time": {
+            "start": 1775403730387,
+            "end": 1775403730600
+          },
+          "id": "prt_d5e4f05d3001VQ2spqz4QtWfK5",
+          "sessionID": "ses_2a1b7ca71ffeF6ltUcqzkXbO44",
+          "messageID": "msg_d5e4ef9c50012Wyw2YZJBnCz6e"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "call_519d6da0ffe9458fad623af3",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "**/*STAGE1*HANDOFF*"
+            },
+            "output": "/Users/hobo/Projects/AgentLog/docs/STAGE1_HANDOFF_STITCHING_DESIGN_V2.md",
+            "metadata": {
+              "count": 1,
+              "truncated": false
+            },
+            "title": "",
+            "time": {
+              "start": 1775403730963,
+              "end": 1775403730993
+            }
+          },
+          "id": "prt_d5e4f06ab0016NdGPIrHrvWM2h",
+          "sessionID": "ses_2a1b7ca71ffeF6ltUcqzkXbO44",
+          "messageID": "msg_d5e4ef9c50012Wyw2YZJBnCz6e"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "call_ecbd0a5b52a943e5be9ac241",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "**/*handoff*design*"
+            },
+            "output": "No files found",
+            "metadata": {
+              "count": 0,
+              "truncated": false
+            },
+            "title": "",
+            "time": {
+              "start": 1775403731564,
+              "end": 1775403731586
+            }
+          },
+          "id": "prt_d5e4f08bd001FJrfdjmqeP4fdO",
+          "sessionID": "ses_2a1b7ca71ffeF6ltUcqzkXbO44",
+          "messageID": "msg_d5e4ef9c50012Wyw2YZJBnCz6e"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "call_167b34a14a754fa69fa57c0c",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "**/*STITCHING*"
+            },
+            "output": "/Users/hobo/Projects/AgentLog/docs/STAGE1_HANDOFF_STITCHING_DESIGN_V2.md\n/Users/hobo/Projects/AgentLog/docs/IMPLEMENTATION_PLAN_HANDOFF_STITCHING.md",
+            "metadata": {
+              "count": 2,
+              "truncated": false
+            },
+            "title": "",
+            "time": {
+              "start": 1775403732619,
+              "end": 1775403732641
+            }
+          },
+          "id": "prt_d5e4f0a9b001a94HW7Oyl7U7ku",
+          "sessionID": "ses_2a1b7ca71ffeF6ltUcqzkXbO44",
+          "messageID": "msg_d5e4ef9c50012Wyw2YZJBnCz6e"
+        },
+        {
+          "reason": "tool-calls",
+          "snapshot": "f3be69699382f2fd4b0a0ee75c0e819ecae6c8f1",
+          "type": "step-finish",
+          "tokens": {
+            "total": 25377,
+            "input": 25232,
+            "output": 145,
+            "reasoning": 44,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_d5e4f0f16001gZpNQgH7nj9K8d",
+          "sessionID": "ses_2a1b7ca71ffeF6ltUcqzkXbO44",
+          "messageID": "msg_d5e4ef9c50012Wyw2YZJBnCz6e"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1775403732823,
+          "completed": 1775403738382
+        },
+        "parentID": "msg_d5e4ed9f00018aGM1wlH2gc1qG",
+        "modelID": "qwen3.6-plus-free",
+        "providerID": "opencode",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "cache": {
+            "read": 0,
+            "write": 0
+          }
+        },
+        "error": {
+          "name": "MessageAbortedError",
+          "data": {
+            "message": "Aborted"
+          }
+        },
+        "id": "msg_d5e4f0f57001HZ1SDpP1QRz1oh",
+        "sessionID": "ses_2a1b7ca71ffeF6ltUcqzkXbO44"
+      },
+      "parts": [
+        {
+          "snapshot": "f3be69699382f2fd4b0a0ee75c0e819ecae6c8f1",
+          "type": "step-start",
+          "id": "prt_d5e4f1b39001ZUJuICTGWSO73k",
+          "sessionID": "ses_2a1b7ca71ffeF6ltUcqzkXbO44",
+          "messageID": "msg_d5e4f0f57001HZ1SDpP1QRz1oh"
+        },
+        {
+          "type": "reasoning",
+          "text": "Let me read the design document and check the current code changes.",
+          "time": {
+            "start": 1775403735866,
+            "end": 1775403735866
+          },
+          "id": "prt_d5e4f1b3a001eyTRwn3nnVU4LK",
+          "sessionID": "ses_2a1b7ca71ffeF6ltUcqzkXbO44",
+          "messageID": "msg_d5e4f0f57001HZ1SDpP1QRz1oh"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "call_42d9082d1be34986870be74f",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/Users/hobo/Projects/AgentLog/docs/STAGE1_HANDOFF_STITCHING_DESIGN_V2.md"
+            },
+            "output": "<path>/Users/hobo/Projects/AgentLog/docs/STAGE1_HANDOFF_STITCHING_DESIGN_V2.md</path>\n<type>file</type>\n<content>1: # Stage 1 - 断点接管与人机混合接力赛 (Handoff & Stitching)\n2: \n3: ## 场景目标\n4: \n5: 解决痛点：AI Agent 报错卡死，人类接手时\"一脸懵逼\"，只能去翻长达几千行的聊天记录，且修复后 Git Commit 割裂。\n6: \n7: 场景标签：单物理节点、人机混合协作、上下文缝合\n8: \n9: ---\n10: \n11: ## 场景过程\n12: \n13: 场景一：断点接管与人机混合接力赛 (Handoff & Stitching)\n14: 解决痛点：AI Agent 报错卡死，人类接手时“一脸懵逼”，只能去翻长达几千行的聊天记录，且修复后 Git Commit 割裂。\n15: 场景标签：单物理节点、人机混合协作、上下文缝合\n16: 🎬 场景还原：\n17: 自动驾驶碰壁：周五下午，开发者启动了 OpenClaw 的 Builder Agent 负责重构支付网关。Agent 跑了 20 分钟，改了 15 个文件，但在对接第三方 Stripe 接口时遇到死锁报错，尝试 3 次修复失败后，主动抛出异常（Panic）。\n18: 生成 Trace Ticket：此时，AgentLog 自动介入。它没有机械地记录错误，而是生成了一个包含了当前内存快照、变更 Diff、连续推理过程的 Ticket (Span ID: 101)，归属在这个重构任务的 Trace ID: A-999 下。\n19: 人类携重武器入场：开发者收到通知，打开 VS Code/Cursor（外部工具）。通过 AgentLog 插件，一键点击 \"Resume Ticket #101\"。AgentLog 瞬间将之前 Builder Agent 的核心决策逻辑和死锁原因，作为 Context 注入到 Cursor 的对话框中。\n20: 修复与无缝缝合：开发者在 Cursor 中与 AI 协同，花了 5 分钟手动修复了死锁问题，并执行 git commit -m \"fix: resolve stripe deadlock\"。\n21: 黑匣子归档：AgentLog 的 Git Hook 触发。系统自动将 Span ID 101 (Agent的努力与失败) + Span ID 102 (人类与Cursor的修复过程) + 最终的 Git Commit Hash 完美缝合在 Trace ID A-999 的时间线上。\n22: 💡 产品价值：实现了真正的“上下文不掉线”。代码有出处，接盘无痛苦。\n23: \n24: ---\n25: \n26: ## 核心流程概览\n27: \n28: 完整链路涉及三个角色：\n29: 1. AgentSwarm Agent（OpenClaw Builder）\n30: 2. 人类（通过VS Code/OpenCode/Cursor等工具）\n31: 3. AgentSwarm Agent（继续完成工作）\n32: \n33: **注解：这里说的AgentSwarm 当前的实现是Openclaw下部署的多个Agent组成测系统**\n34: \n35: ---\n36: \n37: ## sessions.json 完整格式\n38: \n39: 文件位置：`.git/agentlog/sessions.json`\n40: \n41: ### 完整JSON内容\n42: \n43: ```json\n44: {\n45:   \"pending\": {\n46:     \"A-999\": {\n47:       \"createdAt\": \"2026-04-05T09:50:00Z\",\n48:       \"targetAgent\": \"opencode\"\n49:     },\n50:     \"B-888\": {\n51:       \"createdAt\": \"2026-04-05T10:00:00Z\",\n52:       \"targetAgent\": \"cursor\"\n53:     }\n54:   },\n55:   \"active\": {\n56:     \"session-uuid-1\": {\n57:       \"traceId\": \"A-999\",\n58:       \"agentType\": \"opencode\",\n59:       \"status\": \"active\",\n60:       \"startedAt\": \"2026-04-05T10:00:00Z\",\n61:       \"worktree\": \"/path/to/main\"\n62:     }\n63:   }\n64: }\n65: ```\n66: \n67: ### 字段说明\n68: \n69: | 字段 | 说明 |\n70: |------|------|\n71: | `pending` | 待认领的Trace，key为TraceId |\n72: | `pending[].targetAgent` | 目标Agent类型(opencode/cursor/claude-code等) |\n73: | `pending[].createdAt` | 创建时间 |\n74: | `active` | 当前活跃的Session，key为SessionUuid |\n75: | `active[].traceId` | 该Session正在处理的Trace |\n76: | `active[].agentType` | Agent类型 |\n77: | `active[].status` | 状态(always active) |\n78: | `active[].worktree` | Git worktree路径 |\n79: \n80: ---\n81: \n82: ## VS Code UI 设计\n83: \n84: ### 右键菜单设计\n85: \n86: ```\n87: 右键 Trace A-999 → Resume with...\n88: ├── 🤖 OpenCode\n89: ├── 🎯 Cursor\n90: ├── 🧠 Claude Code\n91: └── 📋 Other Agent...\n92: ```\n93: \n94: ### 选择后写入的 sessions.json\n95: \n96: ```json\n97: {\n98:   \"pending\": {\n99:     \"A-999\": {\n100:       \"targetAgent\": \"opencode\",\n101:       \"createdAt\": \"2026-04-05T10:00:00Z\"\n102:     }\n103:   }\n104: }\n105: ```\n106: \n107: ### 各 Agent 的行为\n108: \n109: | Agent类型 | 启动时检查 | 认领条件 |\n110: |-----------|-----------|----------|\n111: | OpenCode | 读取 `pending[].targetAgent` | === opencode |\n112: | Cursor | 读取 `pending[].targetAgent` | === cursor |\n113: | Claude Code | 读取 `pending[].targetAgent` | === claude-code |\n114: \n115: **设计原则**：每种 Agent 只关心自己类型的 pending 项，互不干扰，具备良好扩展性。\n116: \n117: ---\n118: \n119: ## Error Span 完整格式\n120: \n121: 当Agent遇到错误时，生成的Error Span包含以下payload：\n122: \n123: ```json\n124: {\n125:   \"id\": \"span-101\",\n126:   \"traceId\": \"A-999\",\n127:   \"parentSpanId\": null,\n128:   \"actorType\": \"error\",\n129:   \"actorName\": \"Builder-Agent\",\n130:   \"payload\": {\n131:     \"errorType\": \"DeadlockError\",\n132:     \"stackTrace\": \"at StripeClient.connect (...)\",\n133:     \"memorySnapshot\": {\n134:       \"workspacePath\": \"/path/to/project\",\n135:       \"currentFiles\": [\"src/stripe.ts\", \"src/payment.ts\"],\n136:       \"gitStatus\": \"modified\"\n137:     },\n138:     \"diff\": {\n139:       \"changedFiles\": [\"src/stripe.ts\", \"src/payment.ts\"],\n140:       \"additions\": 150,\n141:       \"deletions\": 30\n142:     },\n143:     \"reasoningChain\": [\n144:       {\"step\": 1, \"thought\": \"分析Stripe API...\", \"action\": \"修改stripe.ts\"},\n145:       {\"step\": 2, \"thought\": \"检测到死锁...\", \"action\": \"尝试修复#1\"},\n146:       {\"step\": 3, \"thought\": \"修复失败...\", \"action\": \"尝试修复#2\"},\n147:       {\"step\": 4, \"thought\": \"再次失败...\", \"action\": \"尝试修复#3\"},\n148:       {\"step\": 5, \"thought\": \"三次失败...\", \"action\": \"抛出Panic\"}\n149:     ]\n150:   },\n151:   \"createdAt\": \"2026-04-05T10:30:00Z\"\n152: }\n153: ```\n154: \n155: ### Error Span 字段说明\n156: \n157: | 字段 | 说明 |\n158: |------|------|\n159: | `actorType: \"error\"` | 标识这是一个错误Span |\n160: | `payload.errorType` | 错误类型（如DeadlockError） |\n161: | `payload.stackTrace` | 堆栈信息 |\n162: | `payload.memorySnapshot` | 内存快照（workspacePath、当前文件） |\n163: | `payload.diff` | 变更文件列表及统计 |\n164: | `payload.reasoningChain` | 连续推理过程 |\n165: \n166: ---\n167: \n168: ## Git Hook post-commit 脚本\n169: \n170: ```bash\n171: #!/bin/bash\n172: # .git/hooks/post-commit\n173: # AgentLog 自动绑定脚本\n174: \n175: AGENTLOG_DIR=\".git/agentlog\"\n176: SESSIONS_FILE=\"$AGENTLOG_DIR/sessions.json\"\n177: TRACE_ID=\"\"\n178: SESSION_ID=\"\"\n179: \n180: # 1. 优先读取 sessions.json 中的 active session\n181: if [ -f \"$SESSIONS_FILE\" ]; then\n182:   ACTIVE=$(jq -r \".active[] | select(.status==\\\"active\\\")\" \"$SESSIONS_FILE\" 2>/dev/null)\n183:   if [ -n \"$ACTIVE\" ]; then\n184:     SESSION_ID=$(echo \"$ACTIVE\" | jq -r '.sessionId')\n185:     TRACE_ID=$(echo \"$ACTIVE\" | jq -r '.traceId')\n186:     # 清理 sessions.json\n187:     jq \"del(.active[\\\"$SESSION_ID\\\"])\" \"$SESSIONS_FILE\" > \"$SESSIONS_FILE.tmp\"\n188:     mv \"$SESSIONS_FILE.tmp\" \"$SESSIONS_FILE\"\n189:   fi\n190: fi\n191: \n192: # 2. 如果没有active session，读取 git config\n193: if [ -z \"$TRACE_ID\" ]; then\n194:   TRACE_ID=$(git config agentlog.traceId)\n195: fi\n196: \n197: # 3. 如果还是没有，创建 human-direct Trace\n198: if [ -z \"$TRACE_ID\" ]; then\n199:   TRACE_ID=\"human-direct-$(date +%s)\"\n200: fi\n201: \n202: # 4. 调用 API 绑定 commit\n203: curl -s -X POST \"$AGENTLOG_GATEWAY/api/commit-bind\" \\\n204:   -d \"{\\\"traceId\\\": \\\"$TRACE_ID\\\", \\\"commitHash\\\": \\\"$GIT_COMMIT_HASH\\\"}\" > /dev/null\n205: ```\n206: \n207: ---\n208: \n209: ## OpenCode 启动时读取 sessions.json\n210: \n211: ```typescript\n212: // MCP Client 初始化时检查并认领 Trace\n213: async function checkAndClaimTrace() {\n214:   const sessionsFile = path.join(process.cwd(), '.git/agentlog/sessions.json');\n215:   if (!fs.existsSync(sessionsFile)) return;\n216: \n217:   const sessions = JSON.parse(fs.readFileSync(sessionsFile, 'utf-8'));\n218:   const agentType = detectAgentType(); // opencode / cursor / claude-code\n219: \n220:   for (const [traceId, pending] of Object.entries(sessions.pending)) {\n221:     if (pending.targetAgent === agentType) {\n222:       // 认领该 Trace\n223:       delete sessions.pending[traceId];\n224:       sessions.active[generateSessionId()] = {\n225:         traceId,\n226:         agentType,\n227:         status: 'active',\n228:         startedAt: new Date().toISOString()\n229:       };\n230:       fs.writeFileSync(sessionsFile, JSON.stringify(sessions, null, 2));\n231:       process.env.AGENTLOG_TRACE_ID = traceId;\n232:       break;\n233:     }\n234:   }\n235: }\n236: ```\n237: \n238: ---\n239: \n240: ## AgentSwarm Agent 接收 Trace ID\n241: \n242: ```typescript\n243: // 消息处理函数\n244: async function handleMessage(message: string) {\n245:   let traceId: string | null = null;\n246: \n247:   // 方式1: 直接提取 Trace ID\n248:   const match = message.match(/Trace[:\\s]+([A-Z0-9]+)/i);\n249:   if (match) {\n250:     traceId = match[1];\n251:   } else {\n252:     // 方式2: 语义搜索\n253:     const results = await query_historical_interaction({\n254:       keyword: message,\n255:       status: 'in_progress',\n256:       page_size: 5\n257:     });\n258:     if (results.data.length > 0) {\n259:       traceId = results.data[0].trace.id;\n260:     }\n261:   }\n262: \n263:   if (traceId) {\n264:     execSync(`git config agentlog.traceId \"\\${traceId}\"`);\n265:     process.env.AGENTLOG_TRACE_ID = traceId;\n266:   }\n267: }\n268: ```\n269: \n270: ---\n271: \n272: ## Trace 状态机\n273: \n274: ```\n275: ┌──────────────┐\n276: │   running    │\n277: └──────┬───────┘\n278:        │\n279:            Error / 认领 ↓\n280:        │\n281: ┌──────▼───────┐\n282: │pending_handoff│\n283: └──────┬───────┘\n284:        │\n285:        │ commit + 选择\"完成\" → completed\n286:        │ commit + 选择\"继续修改\" → in_progress\n287:        ↓\n288: ┌──────────────┐\n289: │ in_progress  │\n290: └──────┬───────┘\n291:        │\n292:        commit ↓\n293:        ↓\n294: ┌──────────────┐\n295: │  completed   │\n296: └──────────────┘\n297: ```\n298: \n299: ### 状态说明\n300: \n301: | 状态 | 说明 |\n302: |------|------|\n303: | `running` | 进行中 |\n304: | `pending_handoff` | 等待交接(Agent出错或等待认领) |\n305: | `in_progress` | 进行中(人类选择继续修改) |\n306: | `completed` | 已完成 |\n307: \n308: ---\n309: \n310: \n311: \n312: ## 设计决策总结\n313: \n314: | 决策 | 选择 | 理由 |\n315: |------|------|------|\n316: | Trace 管理 | `.git/agentlog/sessions.json` | 利用Git工作树特性，支持多worktree |\n317: | Session 模式 | 单一Trace | 简化实现 |\n318: | 多Agent支持 | targetAgent字段 | 良好扩展性 |\n319: | 纯人类commit | 记录（human-direct） | 审计功能需要 |\n320: | 任务完成判断 | 人类决定 | commit后由人类选择 |\n321: | Agent获取Trace | 直接ID + 语义查询 | 灵活适应不同场景 |\n322: \n323: ---\n324: \n325: *文档创建时间：2026-04-05*\n326: *目标：让 AgentLog 成为 Agent 编程时代的基础工具*\n\n(End of file - total 326 lines)\n</content>",
+            "metadata": {
+              "preview": "# Stage 1 - 断点接管与人机混合接力赛 (Handoff & Stitching)\n\n## 场景目标\n\n解决痛点：AI Agent 报错卡死，人类接手时\"一脸懵逼\"，只能去翻长达几千行的聊天记录，且修复后 Git Commit 割裂。\n\n场景标签：单物理节点、人机混合协作、上下文缝合\n\n---\n\n## 场景过程\n\n场景一：断点接管与人机混合接力赛 (Handoff & Stitching)\n解决痛点：AI Agent 报错卡死，人类接手时“一脸懵逼”，只能去翻长达几千行的聊天记录，且修复后 Git Commit 割裂。\n场景标签：单物理节点、人机混合协作、上下文缝合\n🎬 场景还原：\n自动驾驶碰壁：周五下午，开发者启动了 OpenClaw 的 Builder Agent 负责重构支付网关。Agent 跑了 20 分钟，改了 15 个文件，但在对接第三方 Stripe 接口时遇到死锁报错，尝试 3 次修复失败后，主动抛出异常（Panic）。\n生成 Trace Ticket：此时，AgentLog 自动介入。它没有机械地记录错误，而是生成了一个包含了当前内存快照、变更 Diff、连续推理过程的 Ticket (Span ID: 101)，归属在这个重构任务的 Trace ID: A-999 下。\n人类携重武器入场：开发者收到通知，打开 VS Code/Cursor（外部工具）。通过 AgentLog 插件，一键点击 \"Resume Ticket #101\"。AgentLog 瞬间将之前 Builder Agent 的核心决策逻辑和死锁原因，作为 Context 注入到 Cursor 的对话框中。\n修复与无缝缝合：开发者在 Cursor 中与 AI 协同，花了 5 分钟手动修复了死锁问题，并执行 git commit -m \"fix: resolve stripe deadlock\"。",
+              "truncated": false,
+              "loaded": []
+            },
+            "title": "docs/STAGE1_HANDOFF_STITCHING_DESIGN_V2.md",
+            "time": {
+              "start": 1775403735983,
+              "end": 1775403735992
+            }
+          },
+          "id": "prt_d5e4f1b3b002dKoUnyltjDym6e",
+          "sessionID": "ses_2a1b7ca71ffeF6ltUcqzkXbO44",
+          "messageID": "msg_d5e4f0f57001HZ1SDpP1QRz1oh"
+        },
+        {
+          "type": "tool",
+          "tool": "bash",
+          "callID": "call_2314dad21c80459b8e2870c4",
+          "state": {
+            "status": "error",
+            "input": {},
+            "raw": "",
+            "error": "Tool execution aborted",
+            "time": {
+              "start": 1775403738381,
+              "end": 1775403738381
+            }
+          },
+          "id": "prt_d5e4f1bb1001UTHHXzbs6qGmft",
+          "sessionID": "ses_2a1b7ca71ffeF6ltUcqzkXbO44",
+          "messageID": "msg_d5e4f0f57001HZ1SDpP1QRz1oh"
+        }
+      ]
+    }
+  ]
+}
