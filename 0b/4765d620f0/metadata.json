@@ -1,0 +1,35 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "0b4765d620f0",
+  "strategy": "manual-commit",
+  "branch": "consolidated-phase1",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "AGENTS.md",
+    "docs/STAGE1_NONCODE_TASK_DESIGN.md",
+    "packages/backend/src/index.ts",
+    "packages/backend/src/mcp.ts",
+    "packages/backend/src/routes/handoff.ts",
+    "packages/backend/src/services/sessionsJsonService.ts",
+    "packages/openclaw-agent/src/index.ts",
+    "packages/shared/src/types.ts",
+    "packages/vscode-extension/src/extension.ts",
+    "packages/vscode-extension/src/opencode-plugins/agentlog-auto/index.js",
+    "skills/agentlog-auto/src/index.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0b/4765d620f0/0/metadata.json",
+      "transcript": "/0b/4765d620f0/0/full.jsonl",
+      "content_hash": "/0b/4765d620f0/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 0,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 0,
+    "output_tokens": 0,
+    "api_call_count": 0
+  }
+}
