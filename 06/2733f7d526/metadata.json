@@ -70,6 +70,12 @@
       "transcript": "/06/2733f7d526/8/full.jsonl",
       "content_hash": "/06/2733f7d526/8/content_hash.txt",
       "prompt": "/06/2733f7d526/8/prompt.txt"
+    },
+    {
+      "metadata": "/06/2733f7d526/9/metadata.json",
+      "transcript": "/06/2733f7d526/9/full.jsonl",
+      "content_hash": "/06/2733f7d526/9/content_hash.txt",
+      "prompt": ""
     }
   ],
   "token_usage": {

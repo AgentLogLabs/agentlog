@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "062733f7d526",
+  "session_id": "ses_2a2986912ffeAXy7vJ7x4BHMuh",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-05T12:34:57.158787Z",
+  "branch": "phase1-tickets",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "packages/backend/src/routes/gitHooks.ts",
+    "packages/backend/src/services/gitHookService.ts",
+    "packages/vscode-extension/src/client/backendClient.ts",
+    "packages/vscode-extension/src/providers/traceWebviewProvider.ts",
+    "packages/backend/src/routes/commits.ts",
+    "packages/backend/src/services/logService.ts",
+    "packages/vscode-extension/package.json",
+    "packages/vscode-extension/src/extension.ts",
+    "packages/vscode-extension/src/opencode-plugins/agentlog-auto/index.js",
+    "packages/vscode-extension/src/providers/sessionTreeProvider.ts"
+  ],
+  "agent": "OpenCode",
+  "model": "MiniMax-M2.7",
+  "turn_id": "125296a0061a",
+  "initial_attribution": {
+    "calculated_at": "2026-04-05T12:34:57.157984Z",
+    "agent_lines": 572,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 572,
+    "agent_percentage": 100
+  }
+}
