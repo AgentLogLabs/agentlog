@@ -1,0 +1,1 @@
+In /Users/hobo/Projects/AgentLog, find the backend route handler for pausing a trace (POST /api/traces/:id/pause). Look at the route definition and the service/database logic it calls. Return the relevant code with file paths and line numbers.
