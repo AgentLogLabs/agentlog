@@ -1,0 +1,23 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "295c476ed285",
+  "strategy": "manual-commit",
+  "branch": "phase1-tickets",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "README.md",
+    "package.json",
+    "packages/backend/package.json",
+    "packages/shared/package.json",
+    "packages/vscode-extension/package.json",
+    "packages/vscode-extension/src/extension.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/29/5c476ed285/0/metadata.json",
+      "transcript": "/29/5c476ed285/0/full.jsonl",
+      "content_hash": "/29/5c476ed285/0/content_hash.txt",
+      "prompt": ""
+    }
+  ]
+}
