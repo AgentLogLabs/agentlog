@@ -31,6 +31,7 @@ interface TraceParams {
 interface UpdateTraceBody {
   taskGoal?: string;
   status?: TraceStatus;
+  affectedFiles?: string[];
 }
 
 interface QueryParams {
@@ -478,6 +479,7 @@ async function tracesRoutes(app: FastifyInstance): Promise<void> {
           properties: {
             taskGoal: { type: "string" },
             status: { type: "string", enum: ["running", "completed", "failed", "paused"] },
+            affectedFiles: { type: "array", items: { type: "string" } },
           },
         },
       },

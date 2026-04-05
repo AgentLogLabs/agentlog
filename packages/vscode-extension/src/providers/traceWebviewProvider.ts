@@ -580,7 +580,7 @@ function fmtTokens(n) {
 }
 
 function statusLabel(s) {
-  return { running:'运行中', completed:'已完成', failed:'失败', paused:'已暂停' }[s] || s;
+  return { running:'进行中', in_progress:'继续修改', pending_handoff:'等待接力', completed:'已完成', failed:'失败', paused:'已暂停' }[s] || s;
 }
 
 function statusBadgeClass(s) {

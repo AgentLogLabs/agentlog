@@ -92,9 +92,9 @@ function groupByDate(traces: TraceSummary[]): Map<string, TraceSummary[]> {
 
 function statusLabel(status: string): string {
   switch (status) {
-    case "running": return "运行中";
-    case "pending_handoff": return "等待交接";
-    case "in_progress": return "进行中";
+    case "running": return "进行中";
+    case "pending_handoff": return "等待接力";
+    case "in_progress": return "继续修改";
     case "paused": return "已暂停";
     case "completed": return "已完成";
     case "failed": return "失败";

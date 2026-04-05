@@ -20,6 +20,7 @@ export interface Trace {
   taskGoal: string;
   status: TraceStatus;
   workspacePath: string | null;
+  affectedFiles: string[];
   createdAt: string;
   updatedAt: string;
   hasCommit: boolean;
@@ -36,6 +37,7 @@ export interface CreateTraceRequest {
 export interface UpdateTraceRequest {
   taskGoal?: string;
   status?: TraceStatus;
+  affectedFiles?: string[];
 }
 
 export type ActorType = 'human' | 'agent' | 'system';
@@ -113,6 +115,7 @@ function rowToTrace(row: TraceRow): Trace {
     taskGoal: row.task_goal,
     status: row.status as TraceStatus,
     workspacePath: row.workspace_path ?? null,
+    affectedFiles: fromJson<string[]>((row as unknown as { affected_files?: string }).affected_files ?? '[]', []),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     hasCommit: false,
@@ -143,14 +146,15 @@ export function createTrace(req: CreateTraceRequest): Trace {
   const parentTraceId = req.parentTraceId ?? null;
 
   db.prepare(`
-    INSERT INTO traces (id, parent_trace_id, task_goal, status, workspace_path, created_at, updated_at)
-    VALUES (@id, @parent_trace_id, @task_goal, @status, @workspace_path, @created_at, @updated_at)
+    INSERT INTO traces (id, parent_trace_id, task_goal, status, workspace_path, affected_files, created_at, updated_at)
+    VALUES (@id, @parent_trace_id, @task_goal, @status, @workspace_path, @affected_files, @created_at, @updated_at)
   `).run({
     id,
     parent_trace_id: parentTraceId,
     task_goal: req.taskGoal,
     status,
     workspace_path: req.workspacePath ?? null,
+    affected_files: '[]',
     created_at: now,
     updated_at: now,
   });
@@ -179,13 +183,19 @@ export function updateTrace(id: string, req: UpdateTraceRequest): Trace | null {
   const taskGoal = req.taskGoal ?? existing.taskGoal;
   const status = req.status ?? existing.status;
 
+  // Merge affected_files: union of existing and new, deduplicated
+  const mergedFiles = req.affectedFiles !== undefined
+    ? [...new Set([...existing.affectedFiles, ...req.affectedFiles])]
+    : existing.affectedFiles;
+
   db.prepare(`
-    UPDATE traces SET task_goal = @task_goal, status = @status, updated_at = @updated_at
+    UPDATE traces SET task_goal = @task_goal, status = @status, affected_files = @affected_files, updated_at = @updated_at
     WHERE id = @id
   `).run({
     id,
     task_goal: taskGoal,
     status,
+    affected_files: toJson(mergedFiles),
     updated_at: now,
   });
 

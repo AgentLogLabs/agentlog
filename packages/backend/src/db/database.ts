@@ -33,7 +33,7 @@ function resolveDbPath(): string {
  * 当前 Schema 版本。
  * 每次变更 DDL 时递增，迁移系统据此判断是否需要升级。
  */
-const SCHEMA_VERSION = 8;
+const SCHEMA_VERSION = 10;
 
 const DDL_SCHEMA_VERSION = `
   CREATE TABLE IF NOT EXISTS schema_version (
@@ -243,8 +243,9 @@ const DDL_USER_OPERATIONS_INDEXES = `
  * traces — 层级化树状流转体系的主 trace 表。
  *
  * 字段说明：
- *  - task_goal : 本次 trace 的任务目标描述
- *  - status     : trace 状态（running|completed|failed|paused）
+ *  - task_goal      : 本次 trace 的任务目标描述
+ *  - status         : trace 状态（running|completed|failed|paused）
+ *  - affected_files : 本次交互改动的文件列表（JSON 数组，路径相对于工作区根目录）
  */
 const DDL_TRACES = `
   CREATE TABLE IF NOT EXISTS traces (
@@ -252,6 +253,7 @@ const DDL_TRACES = `
     parent_trace_id   TEXT,
     task_goal         TEXT    NOT NULL,
     status            TEXT    NOT NULL DEFAULT 'running',
+    affected_files    TEXT    NOT NULL DEFAULT '[]',
     created_at        TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     updated_at        TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
   );
@@ -430,6 +432,18 @@ const MIGRATIONS: Array<{ version: number; up: MigrationFn }> = [
         db.exec(`ALTER TABLE traces ADD COLUMN workspace_path TEXT`);
       }
       db.exec(`CREATE INDEX IF NOT EXISTS idx_traces_workspace_path ON traces (workspace_path)`);
+    },
+  },
+  {
+    version: 10,
+    up: (db) => {
+      // Trace 文件改动列表：新增 affected_files 字段存储本次交互改动的文件路径（JSON 数组）
+      const existing = db
+        .prepare("PRAGMA table_info(traces)")
+        .all() as { name: string }[];
+      if (!existing.find((col) => col.name === "affected_files")) {
+        db.exec(`ALTER TABLE traces ADD COLUMN affected_files TEXT NOT NULL DEFAULT '[]'`);
+      }
     },
   },
 ];
@@ -639,6 +653,7 @@ export type TraceRow = {
   task_goal: string;
   status: string;
   workspace_path: string | null;
+  affected_files: string; // JSON array
   created_at: string;
   updated_at: string;
 };

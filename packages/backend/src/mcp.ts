@@ -242,15 +242,21 @@ async function postSpan(
 async function patchTrace(
   traceId: string,
   status: "running" | "completed" | "failed" | "paused",
+  affectedFiles?: string[],
 ): Promise<void> {
   const url = `${BACKEND_BASE}/api/traces/${traceId}`;
 
   process.stderr.write(`[agentlog-mcp] PATCH ${url}\n`);
 
+  const body: Record<string, unknown> = { status };
+  if (affectedFiles && affectedFiles.length > 0) {
+    body.affectedFiles = affectedFiles;
+  }
+
   const resp = await fetch(url, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status }),
+    body: JSON.stringify(body),
   });
 
   if (!resp.ok) {
@@ -1421,8 +1427,8 @@ async function main(): Promise<void> {
         }
 
         if (traceId) {
-          // 更新 Trace 状态为 completed
-          await patchTrace(traceId, "completed");
+          // 更新 Trace 状态为 completed，同时写入 affected_files
+          await patchTrace(traceId, "completed", affectedFiles.length > 0 ? affectedFiles : undefined);
 
           // 确保环境变量指向当前 trace，供 Git Hook 使用
           process.env.AGENTLOG_TRACE_ID = traceId;

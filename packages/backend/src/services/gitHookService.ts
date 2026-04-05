@@ -11,6 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   getCommitInfo,
+  getCommitDiff,
   getRecentCommits,
   getStagedFiles,
   getModifiedFiles,
@@ -20,7 +21,7 @@ import {
   injectPostCommitHook,
   removePostCommitHook,
 } from "./gitService.js";
-import { createSpan, getTraceById, transitionToInProgress } from "./traceService.js";
+import { createSpan, getTraceById, transitionToInProgress, updateTrace } from "./traceService.js";
 import type { ActorType } from "./traceService.js";
 import {
   getActiveSessionByTraceId,
@@ -148,10 +149,14 @@ export async function handlePostCommitCallback(
   traceId ??= "system";
 
   try {
-    // 获取 commit 详细信息和仓库信息
-    const [commitInfo, repoInfo] = await Promise.all([
+    // 获取 commit 详细信息、仓库信息和完整 diff 内容
+    const [commitInfo, repoInfo, diffContent] = await Promise.all([
       getCommitInfo(workspacePath, commitHash),
       getRepoInfo(workspacePath),
+      getCommitDiff(workspacePath, commitHash).catch((err) => {
+        console.warn(`[GitHook] 获取 diff 内容失败: ${err}`);
+        return "";
+      }),
     ]);
 
     // 检查 trace 状态，如果是 pending_handoff 则转换为 in_progress
@@ -174,7 +179,7 @@ export async function handlePostCommitCallback(
       }
     }
 
-    // 创建 Human Override Span
+    // 创建 Human Override Span（包含完整 diff 内容）
     const span = createSpan({
       traceId,
       parentSpanId: null,
@@ -191,10 +196,21 @@ export async function handlePostCommitCallback(
         authorEmail: commitInfo.authorEmail,
         committedAt: commitInfo.committedAt,
         changedFiles: commitInfo.changedFiles,
+        diff: diffContent || null,
         isHumanOverride: true,
         sessionId,
       },
     });
+
+    // 将本次 commit 变更的文件合并写入 traces.affected_files
+    if (traceId && traceId !== "system" && commitInfo.changedFiles.length > 0) {
+      try {
+        updateTrace(traceId, { affectedFiles: commitInfo.changedFiles });
+        console.log(`[GitHook] 更新 trace ${traceId} affected_files: ${commitInfo.changedFiles.length} 个文件`);
+      } catch (err) {
+        console.warn(`[GitHook] 更新 trace affected_files 失败: ${err}`);
+      }
+    }
 
     console.log(
       `[GitHook] Human Override detected: commit=${commitHash}, files=${commitInfo.changedFiles.length}, span=${span.id}`
