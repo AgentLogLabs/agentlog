@@ -1,0 +1,13 @@
+vscode 树形列表选择trace暂停失败：[400] /api/traces/01KNF28A1KZYFJW5NZPQGXCT3P/pause — Bad Request
+
+---
+
+中文回答
+
+---
+
+我暂停的是 01KNF28A1KZYFJW5NZPQGXCT3P， 状态running
+
+---
+
+是
