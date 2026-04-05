@@ -1,0 +1,1 @@
+In /Users/hobo/Projects/AgentLog, find all code related to "pause" for traces. Look in both the backend (packages/backend) and vscode extension (packages/vscode-extension). I need to see: 1) The backend route handler for PATCH/POST pause endpoint, 2) The VS Code extension code that calls the pause API. Return file paths and line numbers for all relevant code.
