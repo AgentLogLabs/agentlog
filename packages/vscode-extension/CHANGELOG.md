@@ -4,6 +4,26 @@ All notable changes to the "AgentLog — AI 编程行车记录仪" extension wil
 
 Check [Keep a Changelog](https://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.1.0] - 2026-04-04
+
+### Added
+- **Phase 1 架构升级** — 全新 Trace/Span 可观测性标准
+- **T1**: traces/spans 表 + ULID 主键机制（工业级可观测性标准）
+- **T2**: SSE 广播 + MCP 双轨通信层（支持大模型 IDE 持久化连接）
+- **T3**: POST /api/spans 高性能写入接口（高频无阻塞，专供探针）
+- **T4**: OpenClaw Hook 探针（TelemetryProbe，旁路拦截 Agent 原生 Hook）
+- **T5**: Git Hook post-commit 拦截（捕获人类提交流程，关联 AI 会话）
+- **T6**: Trace summary API（`get_trace_summary` MCP 工具）
+- **T7**: Trace diff API（对比两个 Trace 差异）
+- **T8**: SSE 实时刷新 + VS Code 树状视图（探针数据实时推送）
+
+### Changed
+- 底层数据模型重构（废弃 agent_sessions 表）
+- 版本升级至 v1.1.0
+
+### Fixed
+- 修复多 worktree 场景下的会话绑定问题
+
 ## [1.0.1] - 2026-04-01
 
 ### Added

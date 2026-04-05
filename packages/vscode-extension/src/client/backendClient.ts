@@ -118,11 +118,15 @@ export class BackendClient {
         port: url.port || (isHttps ? 443 : 80),
         path: url.pathname + url.search,
         method,
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          ...(bodyStr ? { "Content-Length": Buffer.byteLength(bodyStr) } : {}),
-        },
+          headers: {
+            Accept: "application/json",
+            ...(bodyStr
+              ? {
+                  "Content-Type": "application/json",
+                  "Content-Length": Buffer.byteLength(bodyStr),
+                }
+              : {}),
+          },
         timeout: this.timeoutMs,
       };
 
@@ -450,6 +454,50 @@ export class BackendClient {
   }
 
   /**
+   * 直接将指定 traceIds 绑定到某个 Commit。
+   */
+  async bindTracesToCommit(
+    traceIds: string[],
+    commitHash: string,
+    workspacePath?: string,
+  ): Promise<CommitBinding> {
+    const resp = await this.request<ApiResponse<CommitBinding>>(
+      "POST",
+      `/api/commits/${encodeURIComponent(commitHash)}/bind-traces`,
+      { traceIds, ...(workspacePath ? { workspacePath } : {}) },
+    );
+    if (!resp.success || !resp.data) {
+      throw new BackendApiError(
+        200,
+        `/api/commits/${commitHash}/bind-traces`,
+        resp.error ?? "绑定失败",
+      );
+    }
+    return resp.data;
+  }
+
+  /**
+   * 从指定 Commit 的 trace_ids 中移除一个 trace。
+   */
+  async unbindTraceFromCommit(
+    traceId: string,
+    commitHash: string,
+  ): Promise<CommitBinding> {
+    const resp = await this.request<ApiResponse<CommitBinding>>(
+      "DELETE",
+      `/api/commits/${encodeURIComponent(commitHash)}/traces/${encodeURIComponent(traceId)}`,
+    );
+    if (!resp.success || !resp.data) {
+      throw new BackendApiError(
+        200,
+        `/api/commits/${commitHash}/traces/${traceId}`,
+        resp.error ?? "解绑失败",
+      );
+    }
+    return resp.data;
+  }
+
+  /**
    * 解绑单条会话与 Commit 的关联。
    */
   async unbindSession(sessionId: string): Promise<void> {
@@ -659,6 +707,217 @@ export class BackendClient {
       );
     }
     return resp.data;
+  }
+
+  // ─────────────────────────────────────────────
+  // Trace API
+  // ─────────────────────────────────────────────
+
+  /**
+   * 获取 Trace 列表
+   */
+  async getTraces(params?: {
+    status?: string;
+    page?: number;
+    pageSize?: number;
+    workspacePath?: string;
+  }): Promise<unknown> {
+    const query = buildQueryString(params ?? {});
+    return this.request<unknown>("GET", `/api/traces${query}`);
+  }
+
+  /**
+   * 获取单个 Trace 详情
+   */
+  async getTrace(id: string): Promise<unknown> {
+    const resp = await this.request<ApiResponse<unknown>>(
+      "GET",
+      `/api/traces/${encodeURIComponent(id)}`,
+    );
+    if (!resp.success || !resp.data) {
+      throw new BackendApiError(
+        200,
+        `/api/traces/${id}`,
+        resp.error ?? "Trace 不存在",
+      );
+    }
+    return resp.data;
+  }
+
+  /**
+   * 获取 Trace 摘要（UC-002）
+   */
+  async getTraceSummary(id: string): Promise<unknown> {
+    const resp = await this.request<ApiResponse<unknown>>(
+      "GET",
+      `/api/traces/${encodeURIComponent(id)}/summary`,
+    );
+    if (!resp.success || !resp.data) {
+      throw new BackendApiError(
+        200,
+        `/api/traces/${id}/summary`,
+        resp.error ?? "获取 Trace 摘要失败",
+      );
+    }
+    return resp.data;
+  }
+
+/**
+   * 获取 Trace 的所有 Spans
+   */
+  async getTraceSpans(id: string): Promise<unknown[]> {
+    const resp = await this.request<ApiResponse<unknown[]>>(
+      "GET",
+      `/api/traces/${encodeURIComponent(id)}/spans`,
+    );
+    if (!resp.success || !resp.data) {
+      throw new BackendApiError(
+        200,
+        `/api/traces/${id}/spans`,
+        resp.error ?? "获取 Spans 失败",
+      );
+    }
+    return resp.data;
+  }
+
+  // ─────────────────────────────────────────────
+  // Handoff API (Stage 1 新增)
+  // ─────────────────────────────────────────────
+
+  /**
+   * 获取待认领的 traces
+   */
+  async getPendingTraces(workspacePath: string, agentType?: string): Promise<unknown> {
+    const params: Record<string, string> = { workspacePath };
+    if (agentType) params.agentType = agentType;
+    const query = buildQueryString(params);
+    return this.request<unknown>("GET", `/api/traces/pending${query}`);
+  }
+
+  /**
+   * 创建 pending_handoff trace
+   */
+  async createHandoff(
+    traceId: string,
+    targetAgent: string,
+    workspacePath: string,
+    taskGoal?: string,
+  ): Promise<unknown> {
+    const resp = await this.request<ApiResponse<unknown>>(
+      "POST",
+      `/api/traces/${encodeURIComponent(traceId)}/handoff`,
+      { targetAgent, workspacePath, ...(taskGoal ? { taskGoal } : {}) },
+    );
+    if (!resp.success) {
+      throw new BackendApiError(
+        200,
+        `/api/traces/${traceId}/handoff`,
+        resp.error ?? "创建 handoff 失败",
+      );
+    }
+    return resp.data;
+  }
+
+  /**
+   * Agent 认领 trace
+   */
+  async resumeTrace(
+    traceId: string,
+    agentType: string,
+    workspacePath: string,
+  ): Promise<unknown> {
+    const resp = await this.request<ApiResponse<unknown>>(
+      "POST",
+      `/api/traces/${encodeURIComponent(traceId)}/resume`,
+      { agentType, workspacePath },
+    );
+    if (!resp.success) {
+      throw new BackendApiError(
+        200,
+        `/api/traces/${traceId}/resume`,
+        resp.error ?? "认领 trace 失败",
+      );
+    }
+    return resp.data;
+  }
+
+  /**
+   * 暂停 trace
+   */
+  async pauseTrace(traceId: string): Promise<unknown> {
+    const resp = await this.request<ApiResponse<unknown>>(
+      "POST",
+      `/api/traces/${encodeURIComponent(traceId)}/pause`,
+    );
+    if (!resp.success) {
+      throw new BackendApiError(
+        200,
+        `/api/traces/${traceId}/pause`,
+        resp.error ?? "暂停 trace 失败",
+      );
+    }
+    return resp.data;
+  }
+
+  /**
+   * 从暂停恢复 trace
+   */
+  async resumeFromPause(traceId: string): Promise<unknown> {
+    const resp = await this.request<ApiResponse<unknown>>(
+      "POST",
+      `/api/traces/${encodeURIComponent(traceId)}/resume-from-pause`,
+    );
+    if (!resp.success) {
+      throw new BackendApiError(
+        200,
+        `/api/traces/${traceId}/resume-from-pause`,
+        resp.error ?? "恢复 trace 失败",
+      );
+    }
+    return resp.data;
+  }
+
+  /**
+   * 标记 trace 为完成
+   */
+  async completeTrace(traceId: string): Promise<unknown> {
+    const resp = await this.request<ApiResponse<unknown>>(
+      "POST",
+      `/api/traces/${encodeURIComponent(traceId)}/complete`,
+    );
+    if (!resp.success) {
+      throw new BackendApiError(
+        200,
+        `/api/traces/${traceId}/complete`,
+        resp.error ?? "完成 trace 失败",
+      );
+    }
+    return resp.data;
+  }
+
+  /**
+   * 删除 trace
+   */
+  async deleteTrace(traceId: string): Promise<void> {
+    const resp = await this.request<ApiResponse>(
+      "DELETE",
+      `/api/traces/${encodeURIComponent(traceId)}`,
+    );
+    if (!resp.success) {
+      throw new BackendApiError(
+        200,
+        `/api/traces/${traceId}`,
+        resp.error ?? "删除 trace 失败",
+      );
+    }
+  }
+
+  /**
+   * 获取当前 active session
+   */
+  async getActiveSession(workspacePath: string): Promise<unknown> {
+    const query = buildQueryString({ workspacePath });
+    return this.request<unknown>("GET", `/api/sessions/active${query}`);
   }
 }
 

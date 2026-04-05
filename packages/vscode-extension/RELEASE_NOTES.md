@@ -1,7 +1,7 @@
-# AgentLog v1.0.1 发布说明 | Release Notes
+# AgentLog v1.1.0 发布说明 | Release Notes
 
-> 📅 发布日期：2026-04-01  
-> 🔖 版本：v1.0.1  
+> 📅 发布日期：2026-04-04  
+> 🔖 版本：v1.1.0  
 > 📦 下载地址：https://github.com/AgentLogLabs/agentlog/releases
 
 ---
@@ -18,26 +18,26 @@
 | Linux | VS Code 扩展商店自动适配 |
 
 ### GitHub 直接下载
-如需手动安装，可从 [GitHub Releases](https://github.com/AgentLogLabs/agentlog/releases) 下载对应平台的 VSIX 文件：
-
-| 平台 | 架构 | 下载格式 |
-|------|------|----------|
-| Windows x64 | `x64` | `.vsix` |
-| Windows ARM64 | `arm64` | `.vsix` |
-| macOS x64 | `x64` | `.vsix` |
-| macOS ARM64 (Apple Silicon) | `arm64` | `.vsix` |
-| Linux x64 | `x64` | `.vsix` |
-| Linux ARM64 | `arm64` | `.vsix` |
-
-> 💡 VS Code 会根据你的系统自动选择合适的架构版本
+如需手动安装，可从 [GitHub Releases](https://github.com/AgentLogLabs/agentlog/releases) 下载对应平台的 VSIX 文件。
 
 ---
 
-## ✨ 新功能 | What's New
+## 🚀 Phase 1 新功能 | Phase 1 What's New
 
-### v1.0.1 更新
-- ✅ **插件描述优化**： marketplace 关键字增强，搜索曝光提升
-- ✅ **关键字优化**：DeepSeek、Git、编程助手等关键字全覆盖
+> **重大架构升级** — AgentLog v1.1.0 是 Phase 1 的核心发布，引入了全新的 Trace/Span 可观测性架构。
+
+### ✨ 核心新功能
+
+| Ticket | 功能 | 说明 |
+|--------|------|------|
+| **T1** | traces/spans 表 + ULID 主键 | 工业级可观测性标准，分布式时序特征 |
+| **T2** | SSE 广播 + MCP 双轨通信 | 支持大模型 IDE 持久化连接 |
+| **T3** | POST /api/spans 高性能写入 | 高频无阻塞接口，专供无头探针调用 |
+| **T4** | OpenClaw Hook 探针（TelemetryProbe） | 旁路拦截 Agent 原生 Hook，自动 TraceID 上报 |
+| **T5** | Git Hook post-commit 拦截 | 捕获人类开发者提交流程，关联 AI 会话 |
+| **T6** | Trace summary API | get_trace_summary MCP 工具，返回 Trace 概览 |
+| **T7** | Trace diff API | 对比两个 Trace 的差异 |
+| **T8** | SSE 实时刷新 + VS Code 树状视图 | 探针数据实时推送，UI 即刻刷新 |
 
 ---
 
@@ -49,121 +49,73 @@
 - 支持 Cline、Cursor、Continue 等主流 AI 编程工具
 
 ### 🔗 Git Commit 智能绑定
-- 通过 Git post-commit 钩子自动关联 AI 会话与代码变更
-- 手动绑定/解绑 Commit，灵活控制
-- 侧边栏展示 Commit 绑定关系树
+- 自动关联 AI 会话与 Git 提交记录
+- 一键生成 Commit 上下文文档
+- 支持 Git Worktree 多 worktree 并行追踪
 
-### 📊 可视化面板与导出
-- VS Code 侧边栏面板：会话列表 + Commit 绑定视图
-- 一键导出中文周报、PR/Code Review 说明
-- 支持 JSONL（原始数据）、CSV 表格格式
+### 📊 推理过程保存
+- DeepSeek-R1 完整思维链记录
+- Claude / GPT 等模型的推理过程存档
+- 支持回溯和分析 AI 决策逻辑
 
-### 🧠 Commit 上下文与解释
-- 生成 Commit 的 AI 交互上下文文档（Markdown/JSON/XML）
-- AI 交互解释摘要，快速理解代码变更背景
-- 支持中英文输出
+### 🌐 MCP 协议支持
+- 标准 Model Context Protocol 实现
+- 主动上报模式，无需拦截配置
+- 支持 `log_turn`、`log_interaction` 等标准接口
 
-### 🏠 本地优先架构
-- 所有数据存储在本机 SQLite (`~/.agentlog/agentlog.db`)
-- 完全离线可用，无云端依赖
-- 后台服务仅监听 localhost，保障隐私安全
-
-### 🔌 MCP 服务器集成
-- 内置 MCP 服务器，支持 OpenCode/Cursor 等 AI 客户端自动上报
-- 完整的对话记录、工具调用、Token 统计
-- 会话持久化，支持跨工具连续记录
+### 💾 本地优先
+- SQLite 本地存储，数据完全可控
+- 完全离线可用，不上传任何数据
+- 支持导出 JSONL / CSV / Markdown 格式
 
 ---
 
-## 🛠️ 支持的模型与工具 | Supported Models & Tools
+## 🏗️ 架构升级 | Architecture Upgrade
 
-### 国内主流模型
-- ✅ DeepSeek-V3 / R1（完整推理链支持）
-- ✅ 通义千问 Qwen-Max / Plus（阿里云 DashScope）
-- ✅ Kimi / Moonshot（月之暗面）
-- ✅ 豆包（字节跳动 Ark）
-- ✅ ChatGLM（智谱 AI）
-- ✅ 本地模型（Ollama / LM Studio）
+### Phase 1 双流采集引擎
 
-### AI 编程工具
-- ✅ Cline（VS Code 插件）
-- ✅ Cursor（IDE 内置 AI）
-- ✅ Continue（VS Code 插件）
-- ✅ 直接 API 调用（HTTP 拦截）
+| 流 | 来源 | 采集方式 | Span 类型 |
+|----|------|----------|-----------|
+| **内部流** | OpenClaw / AI Agent | Telemetry Probe 无侵入拦截 | `actor: agent` |
+| **外部流** | 人类开发者 | Git Hook + 编辑器插件 | `actor: human` |
+
+### JIT Context Hydration
+- 跨 Agent 急诊交接：传递 TraceID 即可复水完整上下文
+- 无需传递完整日志
+- 结构化错误栈、输入参数、历史状态即时获取
 
 ---
 
-## 🚀 快速开始 | Quick Start
+## 📝 更新日志 | Changelog
 
-### 前置要求
-- Node.js ≥ 18
-- Git
-- VS Code ≥ 1.93.0 或 Cursor
+### Added
+- **T1**: traces/spans 表 + ULID 主键机制
+- **T2**: SSE 广播 + MCP 双轨通信层
+- **T3**: POST /api/spans 高性能写入接口
+- **T4**: OpenClaw Hook 探针（TelemetryProbe）
+- **T5**: Git Hook post-commit 拦截脚本
+- **T6**: Trace summary API (`get_trace_summary`)
+- **T7**: Trace diff API (`get_trace_diff`)
+- **T8**: SSE 实时刷新 + VS Code 树状视图
 
-### 安装步骤
-1. 在 VS Code 扩展商店搜索 **"AgentLog"** 安装
-2. 扩展会自动启动本地后台服务（端口 7892）
-3. 开始使用 Cline、Cursor 等 AI 工具进行开发
-4. AI 交互自动记录，Git Commit 时自动绑定
-5. 通过侧边栏面板查看记录、导出报告
+### Changed
+- 版本升级至 v1.1.0
+- 底层数据模型重构（废弃 agent_sessions 表）
 
-### 配置选项
-| 配置项 | 默认值 | 说明 |
-|--------|--------|------|
-| `agentlog.backendUrl` | `http://localhost:7892` | 后台服务地址 |
-| `agentlog.autoBindOnCommit` | `true` | Commit 时自动绑定 |
-| `agentlog.retentionDays` | `90` | 数据保留天数（0=永久）|
-| `agentlog.exportLanguage` | `zh` | 导出语言（zh/en）|
-| `agentlog.debug` | `false` | 调试日志 |
+### Fixed
+- 修复多 worktree 场景下的会话绑定问题
 
 ---
 
-## 🔒 隐私与安全 | Privacy & Security
+## 🔮 未来规划 | Roadmap
 
-- 🔐 **完全本地存储**：所有数据存于本机 SQLite，不发送到任何云端
-- 🔐 **本地网络限制**：后台仅监听 127.0.0.1，CORS 限制为 localhost
-- 🔐 **无遥测收集**：不收集任何使用统计数据
-- 🔐 **开源透明**：Apache 2.0 许可证，代码完全开放
+- **Phase 2**: 团队协作增强 + 多 Agent 协调协议
+- **Phase 3**: 云端同步 + 团队共享视图
 
 ---
 
-## 📝 版本历史 | Version History
+## 🐛 问题反馈 | Feedback
 
-| 版本 | 日期 | 主要更新 |
-|------|------|----------|
-| v1.0.1 | 2026-04-01 | marketplace 关键字优化 |
-| v0.1.6 | 2026-03-31 | GitHub feedback 命令、Issue 模板 |
-| v0.1.5 | 2026-03-30 | 多平台架构支持修复 |
-| v0.1.0 | 2026-03-29 | 首次公开发布 |
-
----
-
-## 🐛 已知限制 | Known Limitations
-
-- 需要 Node.js ≥ 18 环境
-- 某些 Node.js 原生模块（如 better-sqlite3）可能需要编译
-- 首次安装需编译后台服务，可能耗时 1-2 分钟
-
----
-
-## 🌟 后续计划 | Roadmap
-
-- VS Code Webview 仪表板 UI 完善（React + VS Code UI Toolkit）
-- 基于 AI 的会话自动打标签（bugfix / 重构 / 新功能）
-- 支持 Cline 扩展的 API 调用深度集成
-- 本地向量化搜索（语义检索历史 Prompt）
-- 团队协作功能（共享导出、代码审查集成）
-
----
-
-## 📞 反馈与支持 | Feedback & Support
-
-- 🐛 GitHub Issues：https://github.com/AgentLogLabs/agentlog/issues
-- 📖 文档：https://github.com/AgentLogLabs/agentlog#readme
-- 🌐 官网：https://agentloglabs.github.io/
-
----
-
-**AgentLog — 让每一次 AI 交互都有迹可循，让每一行代码变更都有上下文可追溯。**
-
-*AgentLog — Making Every AI Interaction Traceable, Every Code Change Understandable.*
+如遇问题或功能建议，欢迎：
+- [提交 Issue](https://github.com/agentloglabs/agentlog/issues)
+- [加入微信群](/docs/intro#微信群)

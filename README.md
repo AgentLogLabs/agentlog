@@ -4,6 +4,15 @@
 
 > 一款面向国内主流大模型的 VS Code/Cursor 插件 + 本地轻量后台，自动捕获 AI Agent 交互日志，与 Git Commit 绑定，一键导出周报或 PR 说明。
 
+[![Version](https://img.shields.io/badge/version-v1.1.0-blue.svg)](https://github.com/AgentLogLabs/agentlog)
+[![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](./LICENSE)
+
+---
+
+## 📑 索引
+
+[核心功能](#核心功能) · [快速开始](#快速开始) · [后台 API](#后台-api-一览) · [数据模型](#数据模型) · [配置项](#配置项) · [Git Worktree](#git-worktree-多-agent-并行支持) · [路线图](#路线图) · [FAQ](#常见问题faq) · [开发贡献](#开发贡献)
+
 ---
 
 ## 背景与痛点

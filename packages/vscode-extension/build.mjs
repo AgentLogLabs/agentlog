@@ -76,4 +76,12 @@ if (watch) {
     copyDir(backendSrc, backendDst);
     console.log('backend dist copied (with node_modules).');
   }
+
+  // 5. 复制 OpenCode 插件到 dist/
+  const opencodePluginsSrc = 'src/opencode-plugins';
+  const opencodePluginsDst = 'dist/opencode-plugins';
+  if (existsSync(opencodePluginsSrc)) {
+    copyDir(opencodePluginsSrc, opencodePluginsDst);
+    console.log('OpenCode plugins copied.');
+  }
 }

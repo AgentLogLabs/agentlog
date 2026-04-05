@@ -61,9 +61,9 @@ let pendingLogs: Array<() => Promise<void>> = [];
 // MCP Client
 // ─────────────────────────────────────────────
 
-async function mcpRequest(tool: string, args: Record<string, unknown>): Promise<{ sessionId?: string; success: boolean; error?: string }> {
+async function mcpRequest(tool: string, args: Record<string, unknown>): Promise<{ success: boolean; error?: string; data?: unknown }> {
   try {
-    const response = await fetch(`${config.mcpUrl}/mcp`, {
+    const response = await fetch(`${config.mcpUrl}/mcp/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -72,7 +72,10 @@ async function mcpRequest(tool: string, args: Record<string, unknown>): Promise<
         method: `tools/call`,
         params: {
           name: tool,
-          arguments: args,
+          arguments: {
+            tool_name: tool,
+            ...args,
+          },
         },
       }),
     });
@@ -82,7 +85,16 @@ async function mcpRequest(tool: string, args: Record<string, unknown>): Promise<
     }
 
     const data = await response.json();
-    return { success: true, sessionId: data.sessionId };
+    // 工具调用返回格式: { content: [{ type: "text", text: "..." }] }
+    if (data.content && data.content[0] && data.content[0].text) {
+      try {
+        const parsed = JSON.parse(data.content[0].text);
+        return { success: !data.isError, data: parsed };
+      } catch {
+        return { success: !data.isError, data: data.content[0].text };
+      }
+    }
+    return { success: true, data };
   } catch (error) {
     console.error('[agentlog-auto] MCP request failed:', error);
     return { success: false, error: String(error) };
@@ -211,7 +223,7 @@ async function tryBindCommit(): Promise<void> {
 // ─────────────────────────────────────────────
 
 /**
- * Session start hook - initialize new session
+ * Session start hook - initialize new session and claim pending trace
  */
 export async function onSessionStart(params: {
   sessionKey: string;
@@ -219,8 +231,24 @@ export async function onSessionStart(params: {
   workspacePath?: string;
 }): Promise<void> {
   const source = detectAgentSource();
-  startSession(params.model, source, params.workspacePath || process.cwd());
+  const workspace = params.workspacePath || process.cwd();
+  startSession(params.model, source, workspace);
   console.log(`[agentlog-auto] Session started for ${params.sessionKey}`);
+
+  // 启动时尝试认领 pending trace
+  const claimResult = await mcpRequest('claim_pending_trace', {
+    workspace_path: workspace,
+  });
+  if (claimResult.success && claimResult.data) {
+    const resultData = claimResult.data as { claimed?: boolean; traceId?: string; message?: string };
+    if (resultData.claimed) {
+      console.log(`[agentlog-auto] Pending trace claimed: ${resultData.traceId} - ${resultData.message}`);
+    } else {
+      console.log(`[agentlog-auto] No pending trace to claim: ${resultData.message}`);
+    }
+  } else if (claimResult.error) {
+    console.log(`[agentlog-auto] Failed to claim pending trace: ${claimResult.error}`);
+  }
 }
 
 /**
@@ -259,10 +287,79 @@ export async function afterToolCall(params: {
 }
 
 /**
+ * Phase 2: Extract reasoning from message content
+ * Supports models with thinking blocks (DeepSeek-R1, Claude extended thinking, etc.)
+ */
+function extractReasoningFromMessages(
+  messages: Array<{ role: string; content: string | Array<unknown> }>,
+): void {
+  if (!currentSession) return;
+
+  for (const msg of messages) {
+    if (msg.role !== 'assistant') continue;
+
+    // Handle string content
+    if (typeof msg.content === 'string') {
+      const reasoning = extractReasoningFromText(msg.content);
+      if (reasoning) {
+        currentSession.reasoning.push(reasoning);
+      }
+      continue;
+    }
+
+    // Handle structured content (thinking blocks, etc.)
+    if (Array.isArray(msg.content)) {
+      for (const block of msg.content) {
+        if (typeof block !== 'object' || block === null) continue;
+        const b = block as Record<string, unknown>;
+        // Thinking block type (Anthropic, OpenAI, etc.)
+        if (b.type === 'thinking' || b.type === 'thought' || b.type === 'reasoning') {
+          const thinking = typeof b.thinking === 'string' ? b.thinking
+            : typeof b.content === 'string' ? b.content
+            : typeof b.text === 'string' ? b.text
+            : JSON.stringify(b);
+          if (thinking) {
+            currentSession.reasoning.push(thinking.slice(0, 4000));
+          }
+        }
+        // Text block that might contain <thinking> tags
+        if (b.type === 'text' && typeof b.text === 'string') {
+          const reasoning = extractReasoningFromText(b.text);
+          if (reasoning) {
+            currentSession.reasoning.push(reasoning);
+          }
+        }
+      }
+    }
+  }
+
+  if (currentSession.reasoning.length > 0) {
+    console.log(`[agentlog-auto] Captured ${currentSession.reasoning.length} reasoning blocks`);
+  }
+}
+
+/**
+ * Extract <thinking>...</thinking> tags from text content
+ */
+function extractReasoningFromText(text: string): string | null {
+  // Match XML-style thinking tags
+  const thinkingMatch = text.match(/<thinking>([\s\S]*?)<\/thinking>/i);
+  if (thinkingMatch && thinkingMatch[1].trim()) {
+    return thinkingMatch[1].trim().slice(0, 4000);
+  }
+  // Match [REASONING]...[/REASONING] tags
+  const reasoningMatch = text.match(/\[REASONING\]([\s\S]*?)\[\/REASONING\]/i);
+  if (reasoningMatch && reasoningMatch[1].trim()) {
+    return reasoningMatch[1].trim().slice(0, 4000);
+  }
+  return null;
+}
+
+/**
  * Agent end hook - finalize and log intent
  */
 export async function onAgentEnd(params: {
-  messages: Array<{ role: string; content: string }>;
+  messages: Array<{ role: string; content: string | Array<unknown> }>;
   usage?: {
     promptTokens?: number;
     completionTokens?: number;
@@ -270,12 +367,20 @@ export async function onAgentEnd(params: {
 }): Promise<void> {
   if (!currentSession) return;
 
+  // Phase 2: Extract reasoning from messages
+  if (config.reasoningCapture) {
+    extractReasoningFromMessages(params.messages);
+  }
+
   // Try to bind the session to recent commit
   await tryBindCommit();
 
   // Generate task summary from messages
   const lastMessage = params.messages[params.messages.length - 1];
-  const task = lastMessage?.content?.slice(0, 200) || 'Agent task completed';
+  const content = typeof lastMessage?.content === 'string'
+    ? lastMessage.content
+    : JSON.stringify(lastMessage?.content ?? '');
+  const task = content.slice(0, 200) || 'Agent task completed';
 
   await logIntent(task, currentSession.model);
 }
@@ -316,7 +421,7 @@ function detectAgentSource(): string {
 
 export const skill = {
   name: 'agentlog-auto',
-  version: '1.0.0',
+  version: '1.1.0',
   hooks: {
     'session:start': onSessionStart,
     'tool:before_call': beforeToolCall,

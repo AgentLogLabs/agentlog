@@ -8,6 +8,9 @@
 // 枚举 / 联合类型
 // ─────────────────────────────────────────────
 
+// 支持的国内主流模型提供商
+// ─────────────────────────────────────────────
+
 /** 支持的国内主流模型提供商 */
 export type ModelProvider =
   | "deepseek" // DeepSeek（含 R1 推理模型）
@@ -44,6 +47,61 @@ export type ExportFormat =
 
 /** 导出语言 */
 export type ExportLanguage = "zh" | "en";
+
+// ─────────────────────────────────────────────
+// Trace Handoff 状态与类型（Stage 1 新增）
+// ─────────────────────────────────────────────
+
+/** Trace 状态机（支持 handoff 场景） */
+export type TraceHandoffStatus = 'running' | 'pending_handoff' | 'in_progress' | 'completed' | 'failed' | 'paused';
+
+/** pending trace 条目 */
+export interface PendingTraceEntry {
+  createdAt: string;
+  targetAgent: 'opencode' | 'cursor' | 'claude-code' | string;
+  taskGoal?: string;
+  worktree?: string;
+}
+
+/** active session 条目 */
+export interface ActiveSessionEntry {
+  sessionId: string;
+  traceId: string;
+  agentType: string;
+  status: 'active';
+  startedAt: string;
+  worktree?: string;
+}
+
+/** sessions.json 完整结构 */
+export interface SessionsJson {
+  pending: Record<string, PendingTraceEntry>;
+  active: Record<string, ActiveSessionEntry>;
+}
+
+/** Error Span payload（增强的错误信息） */
+export interface ErrorSpanPayload {
+  errorType: string;
+  stackTrace?: string;
+  memorySnapshot?: {
+    workspacePath: string;
+    currentFiles: string[];
+    gitStatus: 'clean' | 'modified' | 'staged' | 'untracked';
+  };
+  diff?: {
+    changedFiles: string[];
+    additions: number;
+    deletions: number;
+  };
+  reasoningChain?: ReasoningChainStep[];
+}
+
+/** 推理链步骤 */
+export interface ReasoningChainStep {
+  step: number;
+  thought: string;
+  action: string;
+}
 
 // ─────────────────────────────────────────────
 // Transcript（逐轮对话记录）
@@ -267,6 +325,9 @@ export interface CommitBinding {
 
   /** 变更文件列表（来自 git diff --name-only） */
   changedFiles: string[];
+
+  /** 与此 Commit 关联的 Trace ID 列表（2026-04-04 新增，迁移到 Trace/Span 架构） */
+  traceIds: string[];
 
   /** 所在仓库的工作区根路径 */
   workspacePath: string;
