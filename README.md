@@ -141,12 +141,21 @@ pnpm dev
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
+| `GET` | `/api/traces` | 查询 Trace 列表（支持分页和状态过滤） |
 | `GET` | `/api/traces/pending` | 查询待认领的 Trace 列表 |
+| `GET` | `/api/traces/:id` | 获取单个 Trace 详情 |
+| `GET` | `/api/traces/:id/spans` | 获取 Trace 下所有 Span（时间线） |
+| `GET` | `/api/traces/:id/summary` | 获取 Trace 摘要 |
+| `GET` | `/api/traces/:id/diff` | 获取 Trace 变更文件 Diff |
+| `POST` | `/api/traces` | 创建新 Trace |
+| `PATCH` | `/api/traces/:id` | 更新 Trace（状态或任务目标） |
+| `DELETE` | `/api/traces/:id` | 删除 Trace |
 | `POST` | `/api/traces/:id/handoff` | 创建 Trace 接力（转为 pending_handoff 状态） |
 | `POST` | `/api/traces/:id/resume` | Agent 认领 Trace |
 | `POST` | `/api/traces/:id/pause` | 暂停 Trace |
 | `POST` | `/api/traces/:id/resume-from-pause` | 从暂停恢复 Trace |
 | `POST` | `/api/traces/:id/complete` | 标记 Trace 为完成 |
+| `POST` | `/api/traces/:id/associate-commits` | 批量关联历史 commits 到 Trace |
 | `GET` | `/api/sessions/active` | 获取当前活跃的 Session |
 
 ---
@@ -281,6 +290,10 @@ interface ErrorSpanPayload {
     "A-999": {
       "createdAt": "2026-04-05T09:50:00Z",
       "targetAgent": "opencode"
+    },
+    "B-888": {
+      "createdAt": "2026-04-05T10:00:00Z",
+      "targetAgent": "cursor"
     }
   },
   "active": {
@@ -299,10 +312,77 @@ interface ErrorSpanPayload {
 |------|------|
 | `pending` | 待认领的 Trace，key 为 TraceId |
 | `pending[].targetAgent` | 目标 Agent 类型（opencode/cursor/claude-code 等） |
+| `pending[].createdAt` | 创建时间 |
 | `active` | 当前活跃的 Session，key 为 SessionUuid |
 | `active[].traceId` | 该 Session 正在处理的 Trace |
 | `active[].agentType` | Agent 类型 |
+| `active[].status` | 状态（always active） |
 | `active[].worktree` | Git worktree 路径 |
+
+### Agent 启动时自动认领 Trace
+
+OpenCode/Cursor/Claude Code 等 Agent 启动时，MCP Client 会检查 `.git/agentlog/sessions.json` 并自动认领匹配的 pending trace：
+
+```typescript
+// MCP Client 初始化时检查并认领 Trace
+async function checkAndClaimTrace() {
+  const sessionsFile = path.join(process.cwd(), '.git/agentlog/sessions.json');
+  if (!fs.existsSync(sessionsFile)) return;
+
+  const sessions = JSON.parse(fs.readFileSync(sessionsFile, 'utf-8'));
+  const agentType = detectAgentType(); // opencode / cursor / claude-code
+
+  for (const [traceId, pending] of Object.entries(sessions.pending)) {
+    if (pending.targetAgent === agentType) {
+      // 认领该 Trace
+      delete sessions.pending[traceId];
+      sessions.active[generateSessionId()] = {
+        traceId,
+        agentType,
+        status: 'active',
+        startedAt: new Date().toISOString()
+      };
+      fs.writeFileSync(sessionsFile, JSON.stringify(sessions, null, 2));
+      process.env.AGENTLOG_TRACE_ID = traceId;
+      break;
+    }
+  }
+}
+```
+
+### AgentSwarm Agent 接收 Trace ID
+
+Agent 可通过两种方式获取 Trace ID：
+
+```typescript
+// 消息处理函数
+async function handleMessage(message: string) {
+  let traceId: string | null = null;
+
+  // 方式1: 直接提取 Trace ID
+  const match = message.match(/Trace[:\s]+([A-Z0-9]+)/i);
+  if (match) {
+    traceId = match[1];
+  } else {
+    // 方式2: 语义搜索
+    const results = await query_historical_interaction({
+      keyword: message,
+      status: 'in_progress',
+      page_size: 5
+    });
+    if (results.data.length > 0) {
+      traceId = results.data[0].trace.id;
+    }
+  }
+
+  if (traceId) {
+    execSync(`git config agentlog.traceId "${traceId}"`);
+    process.env.AGENTLOG_TRACE_ID = traceId;
+  }
+}
+```
+
+**设计原则**：每种 Agent 只关心自己类型的 pending 项，互不干扰，具备良好扩展性。
 
 ---
 
@@ -312,11 +392,22 @@ interface ErrorSpanPayload {
 
 ### 场景还原
 
-1. **自动驾驶碰壁**：Agent 跑了 20 分钟，改了 15 个文件，但在对接第三方接口时遇到死锁报错，尝试 3 次修复失败后主动抛出异常。
-2. **生成 Trace Ticket**：AgentLog 自动生成包含内存快照、变更 Diff、连续推理过程的 Error Span，归属在任务的 Trace 时间线下。
-3. **人类携重武器入场**：开发者收到通知，打开 VS Code/Cursor，通过 AgentLog 插件一键点击 "Resume Ticket"。AgentLog 瞬间将之前 Agent 的核心决策逻辑和死锁原因作为 Context 注入到对话框中。
-4. **修复与无缝缝合**：开发者在 Cursor 中与 AI 协同，花了 5 分钟手动修复问题，并执行 `git commit`。
-5. **黑匣子归档**：Git Hook 触发，系统自动将 Error Span（Agent 的努力与失败）+ 人类修复过程 + 最终的 Git Commit Hash 完美缝合在 Trace 时间线上。
+1. **自动驾驶碰壁**：周五下午，开发者启动了 OpenClaw 的 Builder Agent 负责重构支付网关。Agent 跑了 20 分钟，改了 15 个文件，但在对接第三方 Stripe 接口时遇到死锁报错，尝试 3 次修复失败后主动抛出异常（Panic）。
+2. **生成 Trace Ticket**：AgentLog 自动介入，生成了一个包含内存快照、变更 Diff、连续推理过程的 Error Span（Span ID: 101），归属在重构任务的 Trace ID: A-999 下。
+3. **人类携重武器入场**：开发者收到通知，打开 VS Code/Cursor，通过 AgentLog 插件一键点击 "Resume Ticket #101"。AgentLog 瞬间将之前 Builder Agent 的核心决策逻辑和死锁原因作为 Context 注入到对话框中。
+4. **修复与无缝缝合**：开发者在 Cursor 中与 AI 协同，花了 5 分钟手动修复了死锁问题，并执行 `git commit -m "fix: resolve stripe deadlock"`。
+5. **黑匣子归档**：Git Hook 触发，系统自动将 Span ID 101（Agent 的努力与失败）+ Span ID 102（人类与 Cursor 的修复过程）+ 最终的 Git Commit Hash 完美缝合在 Trace ID A-999 的时间线上。
+
+> **产品价值**：实现了真正的"上下文不掉线"。代码有出处，接盘无痛苦。
+
+### 核心流程概览
+
+完整链路涉及三个角色：
+1. AgentSwarm Agent（OpenClaw Builder）
+2. 人类（通过 VS Code/OpenCode/Cursor 等工具）
+3. AgentSwarm Agent（继续完成工作）
+
+> **注解**：AgentSwarm 当前的实现是 OpenClaw 下部署的多个 Agent 组成的系统。
 
 ### Trace 状态机
 
@@ -324,22 +415,28 @@ interface ErrorSpanPayload {
 ┌──────────────┐
 │   running    │
 └──────┬───────┘
-       │ Error / 认领 ↓
+       │
+           Error / 认领 ↓
+       │
 ┌──────▼───────┐
 │pending_handoff│
 └──────┬───────┘
+       │
        │ commit + 选择"完成" → completed
        │ commit + 选择"继续修改" → in_progress
        ↓
 ┌──────────────┐
 │ in_progress  │
 └──────┬───────┘
-       │ commit ↓
+       │
+       commit ↓
        ↓
 ┌──────────────┐
 │  completed   │
 └──────────────┘
 ```
+
+> **用户手动暂停**：`running` / `in_progress` → `paused` → 恢复 → `running`
 
 | 状态 | 说明 |
 |------|------|
@@ -347,8 +444,54 @@ interface ErrorSpanPayload {
 | `pending_handoff` | 等待交接（Agent 出错或等待认领） |
 | `in_progress` | 进行中（人类选择继续修改） |
 | `completed` | 已完成 |
-| `paused` | 已暂停 |
+| `paused` | 已暂停（用户主动暂停，可随时恢复） |
 | `failed` | 失败 |
+
+### Git Hook post-commit 自动绑定
+
+每次 `git commit` 时，AgentLog 通过 post-commit 钩子自动完成以下流程：
+
+1. **读取 sessions.json**：优先获取当前活跃的 Session 及其关联的 Trace
+2. **回退到 git config**：若无 active session，读取 `git config agentlog.traceId`
+3. **兜底创建 human-direct Trace**：若仍未找到，自动生成 `human-direct-{timestamp}`
+4. **调用 API 绑定 commit**：将 commit hash 与 Trace 建立关联
+
+```bash
+#!/bin/bash
+# .git/hooks/post-commit
+# AgentLog 自动绑定脚本
+
+AGENTLOG_DIR=".git/agentlog"
+SESSIONS_FILE="$AGENTLOG_DIR/sessions.json"
+TRACE_ID=""
+SESSION_ID=""
+
+# 1. 优先读取 sessions.json 中的 active session
+if [ -f "$SESSIONS_FILE" ]; then
+  ACTIVE=$(jq -r ".active[] | select(.status==\"active\")" "$SESSIONS_FILE" 2>/dev/null)
+  if [ -n "$ACTIVE" ]; then
+    SESSION_ID=$(echo "$ACTIVE" | jq -r '.sessionId')
+    TRACE_ID=$(echo "$ACTIVE" | jq -r '.traceId')
+    # 清理 sessions.json
+    jq "del(.active[\"$SESSION_ID\"])" "$SESSIONS_FILE" > "$SESSIONS_FILE.tmp"
+    mv "$SESSIONS_FILE.tmp" "$SESSIONS_FILE"
+  fi
+fi
+
+# 2. 如果没有 active session，读取 git config
+if [ -z "$TRACE_ID" ]; then
+  TRACE_ID=$(git config agentlog.traceId)
+fi
+
+# 3. 如果还是没有，创建 human-direct Trace
+if [ -z "$TRACE_ID" ]; then
+  TRACE_ID="human-direct-$(date +%s)"
+fi
+
+# 4. 调用 API 绑定 commit
+curl -s -X POST "$AGENTLOG_GATEWAY/api/commit-bind" \
+  -d "{\"traceId\": \"$TRACE_ID\", \"commitHash\": \"$GIT_COMMIT_HASH\"}" > /dev/null
+```
 
 ### 多 Agent 接力机制
 
@@ -370,6 +513,17 @@ interface ErrorSpanPayload {
 
 **设计原则**：每种 Agent 只关心自己类型的 pending 项，互不干扰，具备良好扩展性。
 
+### 设计决策总结
+
+| 决策 | 选择 | 理由 |
+|------|------|------|
+| Trace 管理 | `.git/agentlog/sessions.json` | 利用 Git 工作树特性，支持多 worktree |
+| Session 模式 | 单一 Trace | 简化实现 |
+| 多 Agent 支持 | targetAgent 字段 | 良好扩展性 |
+| 纯人类 commit | 记录（human-direct） | 审计功能需要 |
+| 任务完成判断 | 人类决定 | commit 后由人类选择 |
+| Agent 获取 Trace | 直接 ID + 语义查询 | 灵活适应不同场景 |
+
 ### VS Code 接力命令
 
 | 命令 | 说明 |
@@ -388,6 +542,51 @@ interface ErrorSpanPayload {
 - 提取 `errorType`、`stackTrace`
 - 自动构建 `reasoningChain`（从历史 Span 中提取推理链）
 - 返回 handoff 提示，建议创建接力任务
+
+### Error Span 完整格式
+
+Agent 遇到错误时生成的 Error Span 包含完整的错误上下文，用于断点接力：
+
+```json
+{
+  "id": "span-101",
+  "traceId": "A-999",
+  "parentSpanId": null,
+  "actorType": "error",
+  "actorName": "Builder-Agent",
+  "payload": {
+    "errorType": "DeadlockError",
+    "stackTrace": "at StripeClient.connect (...)",
+    "memorySnapshot": {
+      "workspacePath": "/path/to/project",
+      "currentFiles": ["src/stripe.ts", "src/payment.ts"],
+      "gitStatus": "modified"
+    },
+    "diff": {
+      "changedFiles": ["src/stripe.ts", "src/payment.ts"],
+      "additions": 150,
+      "deletions": 30
+    },
+    "reasoningChain": [
+      {"step": 1, "thought": "分析Stripe API...", "action": "修改stripe.ts"},
+      {"step": 2, "thought": "检测到死锁...", "action": "尝试修复#1"},
+      {"step": 3, "thought": "修复失败...", "action": "尝试修复#2"},
+      {"step": 4, "thought": "再次失败...", "action": "尝试修复#3"},
+      {"step": 5, "thought": "三次失败...", "action": "抛出Panic"}
+    ]
+  },
+  "createdAt": "2026-04-05T10:30:00Z"
+}
+```
+
+| 字段 | 说明 |
+|------|------|
+| `actorType: "error"` | 标识这是一个错误 Span |
+| `payload.errorType` | 错误类型（如 DeadlockError） |
+| `payload.stackTrace` | 堆栈信息 |
+| `payload.memorySnapshot` | 内存快照（workspacePath、当前文件） |
+| `payload.diff` | 变更文件列表及统计 |
+| `payload.reasoningChain` | 连续推理过程 |
 
 ---
 
