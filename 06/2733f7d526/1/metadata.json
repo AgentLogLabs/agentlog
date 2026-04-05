@@ -1,33 +1,32 @@
 {
   "cli_version": "0.5.1",
   "checkpoint_id": "062733f7d526",
+  "session_id": "ses_2a2706c54ffe7i4Rhkwr34PE0n",
   "strategy": "manual-commit",
+  "created_at": "2026-04-05T12:34:45.177914Z",
   "branch": "phase1-tickets",
   "checkpoints_count": 0,
   "files_touched": [
     "packages/backend/src/routes/commits.ts",
-    "packages/backend/src/routes/gitHooks.ts",
-    "packages/backend/src/services/gitHookService.ts",
     "packages/backend/src/services/logService.ts",
     "packages/vscode-extension/package.json",
-    "packages/vscode-extension/src/client/backendClient.ts",
     "packages/vscode-extension/src/extension.ts",
     "packages/vscode-extension/src/opencode-plugins/agentlog-auto/index.js",
     "packages/vscode-extension/src/providers/sessionTreeProvider.ts",
+    "packages/backend/src/routes/gitHooks.ts",
+    "packages/backend/src/services/gitHookService.ts",
+    "packages/vscode-extension/src/client/backendClient.ts",
     "packages/vscode-extension/src/providers/traceWebviewProvider.ts"
   ],
-  "sessions": [
-    {
-      "metadata": "/06/2733f7d526/0/metadata.json",
-      "transcript": "/06/2733f7d526/0/full.jsonl",
-      "content_hash": "/06/2733f7d526/0/content_hash.txt",
-      "prompt": ""
-    },
-    {
-      "metadata": "/06/2733f7d526/1/metadata.json",
-      "transcript": "/06/2733f7d526/1/full.jsonl",
-      "content_hash": "/06/2733f7d526/1/content_hash.txt",
-      "prompt": ""
-    }
-  ]
+  "agent": "OpenCode",
+  "turn_id": "a0395f05526b",
+  "initial_attribution": {
+    "calculated_at": "2026-04-05T12:34:45.177099Z",
+    "agent_lines": 572,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 572,
+    "agent_percentage": 100
+  }
 }
