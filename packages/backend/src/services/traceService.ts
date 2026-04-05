@@ -22,6 +22,8 @@ export interface Trace {
   workspacePath: string | null;
   createdAt: string;
   updatedAt: string;
+  hasCommit: boolean;
+  commitHash?: string;
 }
 
 export interface CreateTraceRequest {
@@ -113,6 +115,7 @@ function rowToTrace(row: TraceRow): Trace {
     workspacePath: row.workspace_path ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    hasCommit: false,
   };
 }
 
@@ -239,7 +242,35 @@ export function queryTraces(filter: {
     LIMIT @limit OFFSET @offset
   `).all({ ...params, limit: pageSize, offset }) as TraceRow[];
 
-  return { data: rows.map(rowToTrace), total, page, pageSize };
+  const traceIds = rows.map(r => r.id);
+  const commitMap = new Map<string, string>();
+
+  if (traceIds.length > 0) {
+    const placeholders = traceIds.map(() => '?').join(',');
+    const bindings = db.prepare(`
+      SELECT commit_hash, trace_ids FROM commit_bindings
+      WHERE trace_ids != '[]' AND trace_ids != ''
+    `).all() as { commit_hash: string; trace_ids: string }[];
+
+    for (const binding of bindings) {
+      const traceIdsArr: string[] = fromJson(binding.trace_ids, []);
+      for (const tid of traceIdsArr) {
+        if (traceIds.includes(tid) && !commitMap.has(tid)) {
+          commitMap.set(tid, binding.commit_hash);
+        }
+      }
+    }
+  }
+
+  const traces = rows.map(row => {
+    const trace = rowToTrace(row);
+    const commitHash = commitMap.get(row.id);
+    trace.hasCommit = !!commitHash;
+    if (commitHash) trace.commitHash = commitHash;
+    return trace;
+  });
+
+  return { data: traces, total, page, pageSize };
 }
 
 // ─────────────────────────────────────────────

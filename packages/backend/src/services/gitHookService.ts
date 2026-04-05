@@ -17,6 +17,8 @@ import {
   getRepoInfo,
   isGitRepo,
   getGitConfig,
+  injectPostCommitHook,
+  removePostCommitHook,
 } from "./gitService.js";
 import { createSpan, getTraceById, transitionToInProgress } from "./traceService.js";
 import type { ActorType } from "./traceService.js";
@@ -24,6 +26,11 @@ import {
   getActiveSessionByTraceId,
   completeActiveSession,
 } from "./sessionsJsonService.js";
+import {
+  upsertCommitBinding,
+  getSessionsForNewCommit,
+  bindSessionsToCommit,
+} from "./logService.js";
 
 // ─────────────────────────────────────────────
 // 类型定义
@@ -44,78 +51,20 @@ export interface PostCommitCallback {
   traceId?: string;
 }
 
-// ─────────────────────────────────────────────
-// Hook 脚本模板
-// ─────────────────────────────────────────────
-
-const POST_COMMIT_HOOK_TEMPLATE = `#!/bin/bash
-# AgentLog Git Post-Commit Hook
-# 自动生成，请勿手动修改
-
-AGENTLOG_GATEWAY_URL="\${AGENTLOG_GATEWAY_URL:-http://localhost:7892}"
-WORKSPACE_PATH="\${AGENTLOG_WORKSPACE_PATH:-$(pwd)}"
-TRACE_ID="\${AGENTLOG_TRACE_ID:-}"
-COMMIT_HASH="\${GIT_COMMIT_HASH:-$(git rev-parse HEAD 2>/dev/null || echo "")}"
-PARENT_HASH="\${GIT_PARENT_COMMIT_HASH:-$(git rev-parse HEAD^ 2>/dev/null || echo "")}"
-
-if [ -z "$COMMIT_HASH" ]; then
-  exit 0
-fi
-
-# 构建请求体
-REQUEST_BODY="{\\"workspacePath\\":\\"\${WORKSPACE_PATH}\\",\\"commitHash\\":\\"\${COMMIT_HASH}\\",\\"parentCommitHash\\":\\"\${PARENT_HASH}\\"}"
-
-# 如果有 TRACE_ID，添加到请求体
-if [ -n "$TRACE_ID" ]; then
-  REQUEST_BODY="{\\"workspacePath\\":\\"\${WORKSPACE_PATH}\\",\\"commitHash\\":\\"\${COMMIT_HASH}\\",\\"parentCommitHash\\":\\"\${PARENT_HASH}\\",\\"traceId\\":\\"\${TRACE_ID}\\"}"
-fi
-
-# 异步调用 AgentLog 网关，不阻塞 git 流程
-curl -s -X POST "\${AGENTLOG_GATEWAY_URL}/api/hooks/post-commit" \\
-  -H "Content-Type: application/json" \\
-  -d "$REQUEST_BODY" \\
-  > /dev/null 2>&1 &
-
-exit 0
-`;
+// POST_COMMIT_HOOK_TEMPLATE 已废弃，统一使用 gitService.injectPostCommitHook
 
 // ─────────────────────────────────────────────
 // Hook 安装
 // ─────────────────────────────────────────────
 
 /**
- * 在指定工作区安装 Git post-commit 钩子
+ * 在指定工作区安装 Git post-commit 钩子。
+ * 统一委托给 gitService.injectPostCommitHook，使用 /api/commits/hook 端点。
  */
 export async function installGitHook(workspacePath: string): Promise<GitHookInstallResult> {
-  const gitDir = path.join(workspacePath, ".git");
-  const hooksDir = path.join(gitDir, "hooks");
-  const hookPath = path.join(hooksDir, "post-commit");
-
   try {
-    // 验证目录存在
-    if (!fs.existsSync(gitDir)) {
-      return { success: false, error: "不是 Git 仓库" };
-    }
-
-    // 创建 hooks 目录
-    if (!fs.existsSync(hooksDir)) {
-      fs.mkdirSync(hooksDir, { recursive: true });
-    }
-
-    // 检查是否已安装（检查是否包含 AgentLog 标记，大小写不敏感）
-    if (fs.existsSync(hookPath)) {
-      const existing = fs.readFileSync(hookPath, "utf-8");
-      if (existing.toLowerCase().includes("agentlog")) {
-        return { success: true, hookPath };
-      }
-      // 备份原有钩子
-      const backup = `${hookPath}.agentlog.backup`;
-      fs.writeFileSync(backup, existing);
-    }
-
-    // 写入新钩子
-    fs.writeFileSync(hookPath, POST_COMMIT_HOOK_TEMPLATE, { mode: 0o755 });
-
+    await injectPostCommitHook(workspacePath);
+    const hookPath = path.join(workspacePath, ".git", "hooks", "post-commit");
     return { success: true, hookPath };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -124,20 +73,13 @@ export async function installGitHook(workspacePath: string): Promise<GitHookInst
 }
 
 /**
- * 卸载 Git post-commit 钩子
+ * 卸载 Git post-commit 钩子。
+ * 统一委托给 gitService.removePostCommitHook。
  */
 export async function uninstallGitHook(workspacePath: string): Promise<GitHookInstallResult> {
-  const hookPath = path.join(workspacePath, ".git", "hooks", "post-commit");
-
   try {
-    if (fs.existsSync(hookPath)) {
-      const content = fs.readFileSync(hookPath, "utf-8");
-      if (content.toLowerCase().includes("agentlog")) {
-        fs.unlinkSync(hookPath);
-        return { success: true };
-      }
-    }
-    return { success: false, error: "未找到 AgentLog 钩子" };
+    await removePostCommitHook(workspacePath);
+    return { success: true };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return { success: false, error: msg };
@@ -257,6 +199,29 @@ export async function handlePostCommitCallback(
     console.log(
       `[GitHook] Human Override detected: commit=${commitHash}, files=${commitInfo.changedFiles.length}, span=${span.id}`
     );
+
+    // 记录 commit 到 commit_bindings 表，并绑定当前工作区的 sessions
+    try {
+      const sessions = await getSessionsForNewCommit(workspacePath, 20);
+      const sessionIds = sessions.map((s) => s.id);
+      if (sessionIds.length > 0) {
+        bindSessionsToCommit(sessionIds, commitHash);
+      }
+      upsertCommitBinding({
+        commitHash,
+        sessionIds,
+        traceIds: traceId && traceId !== "system" ? [traceId] : [],
+        message: commitInfo.message,
+        committedAt: commitInfo.committedAt,
+        authorName: commitInfo.authorName,
+        authorEmail: commitInfo.authorEmail,
+        changedFiles: commitInfo.changedFiles,
+        workspacePath,
+      });
+      console.log(`[GitHook] Commit binding recorded: ${commitHash.slice(0, 8)}, sessions=${sessionIds.length}, traceId=${traceId}`);
+    } catch (bindErr) {
+      console.warn(`[GitHook] 记录 commit binding 失败: ${bindErr}`);
+    }
 
     return { success: true, spanId: span.id };
   } catch (err) {

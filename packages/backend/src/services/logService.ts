@@ -17,6 +17,7 @@ import type {
   TokenUsage,
   SessionCommit,
 } from '@agentlog/shared';
+import type { CommitBinding } from '@agentlog/shared';
 
 // ─────────────────────────────────────────────
 // 工具函数
@@ -67,6 +68,7 @@ import {
   getDatabase,
   toJson,
   type SessionRow,
+  type CommitRow,
 } from '../db/database';
 
 // ─────────────────────────────────────────────
@@ -742,6 +744,86 @@ export function exportSessionsAsJsonl(
   const allFilter: SessionQueryFilter = { ...filter, page: 1, pageSize: 99999 };
   const { data } = querySessions(allFilter);
   return data.map((s) => JSON.stringify(s)).join('\n');
+}
+
+// ─────────────────────────────────────────────
+// commit_bindings 表操作
+// ─────────────────────────────────────────────
+
+function rowToCommitBinding(row: CommitRow): CommitBinding {
+  return {
+    commitHash: row.commit_hash,
+    sessionIds: fromJson<string[]>(row.session_ids, []),
+    traceIds: fromJson<string[]>(row.trace_ids ?? '[]', []),
+    message: row.message,
+    committedAt: row.committed_at,
+    authorName: row.author_name,
+    authorEmail: row.author_email,
+    changedFiles: fromJson<string[]>(row.changed_files, []),
+    workspacePath: row.workspace_path,
+  };
+}
+
+/**
+ * 插入或更新 commit_bindings 表，合并 sessionIds 和 traceIds（去重）。
+ * 供 commits 路由和 gitHookService 共用。
+ */
+export function upsertCommitBinding(binding: CommitBinding): CommitBinding {
+  const db = getDatabase();
+
+  const boundSessions = db
+    .prepare('SELECT session_id FROM session_commits WHERE commit_hash = ?')
+    .all(binding.commitHash) as Array<{ session_id: string }>;
+  const sessionIdsFromJoin = boundSessions.map((r) => r.session_id);
+
+  const existing = db
+    .prepare('SELECT * FROM commit_bindings WHERE commit_hash = ?')
+    .get(binding.commitHash) as CommitRow | undefined;
+
+  const allSessionIds = [...new Set([...sessionIdsFromJoin, ...binding.sessionIds])];
+  const traceIds = binding.traceIds ?? [];
+
+  if (existing) {
+    const existingTraceIds: string[] = fromJson(existing.trace_ids ?? '[]', []);
+    const allTraceIds = [...new Set([...existingTraceIds, ...traceIds])];
+    db.prepare(
+      `UPDATE commit_bindings
+       SET session_ids = ?, trace_ids = ?, message = ?, committed_at = ?,
+           author_name = ?, author_email = ?, changed_files = ?
+       WHERE commit_hash = ?`,
+    ).run(
+      toJson(allSessionIds),
+      toJson(allTraceIds),
+      binding.message,
+      binding.committedAt,
+      binding.authorName,
+      binding.authorEmail,
+      toJson(binding.changedFiles),
+      binding.commitHash,
+    );
+  } else {
+    db.prepare(
+      `INSERT INTO commit_bindings (
+         commit_hash, session_ids, trace_ids, message, committed_at,
+         author_name, author_email, changed_files, workspace_path
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      binding.commitHash,
+      toJson(allSessionIds),
+      toJson(traceIds),
+      binding.message,
+      binding.committedAt,
+      binding.authorName,
+      binding.authorEmail,
+      toJson(binding.changedFiles),
+      binding.workspacePath,
+    );
+  }
+
+  const updated = db
+    .prepare('SELECT * FROM commit_bindings WHERE commit_hash = ?')
+    .get(binding.commitHash) as CommitRow;
+  return rowToCommitBinding(updated);
 }
 
 // ─────────────────────────────────────────────

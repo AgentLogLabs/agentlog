@@ -16,6 +16,7 @@ import {
   isGitHookInstalled,
   getGitStatusSummary,
 } from "../services/gitHookService.js";
+import { setGitConfig, isGitRepo } from "../services/gitService.js";
 
 interface PostCommitBody {
   workspacePath: string;
@@ -184,6 +185,45 @@ async function gitHooksRoutes(app: FastifyInstance): Promise<void> {
         hookInstalled: installed,
         gitStatus: status,
       });
+    }
+  );
+  /**
+   * POST /api/git/config
+   * 写入 git config 键值（供插件在创建 trace 后设置 agentlog.traceId）
+   */
+  app.post<{ Body: { workspacePath: string; key: string; value: string } }>(
+    "/config",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["workspacePath", "key", "value"],
+          properties: {
+            workspacePath: { type: "string", minLength: 1 },
+            key: { type: "string", minLength: 1 },
+            value: { type: "string", minLength: 1 },
+          },
+        },
+      },
+    },
+    async (
+      req: FastifyRequest<{ Body: { workspacePath: string; key: string; value: string } }>,
+      reply: FastifyReply
+    ) => {
+      const { workspacePath, key, value } = req.body;
+
+      const isRepo = await isGitRepo(workspacePath);
+      if (!isRepo) {
+        return reply.status(400).send({ success: false, error: "不是 Git 仓库" });
+      }
+
+      try {
+        await setGitConfig(workspacePath, key, value);
+        return reply.status(200).send({ success: true });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return reply.status(500).send({ success: false, error: message });
+      }
     }
   );
 }

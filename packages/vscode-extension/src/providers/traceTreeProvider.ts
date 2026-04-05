@@ -24,6 +24,8 @@ export interface TraceSummary {
   status: "running" | "pending_handoff" | "in_progress" | "paused" | "completed" | "failed";
   createdAt: string;
   updatedAt: string;
+  hasCommit: boolean;
+  commitHash?: string;
 }
 
 type TreeNode = TraceDateGroupItem | TraceItem | TraceStatusItem;
@@ -127,7 +129,8 @@ export class TraceItem extends vscode.TreeItem {
       vscode.TreeItemCollapsibleState.None,
     );
 
-    this.description = `${statusLabel(trace.status)} · ${relativeTime(trace.createdAt)}`;
+    const commitTag = trace.hasCommit ? '🔗 已绑定' : '○ 未绑定';
+    this.description = `${commitTag} · ${statusLabel(trace.status)} · ${relativeTime(trace.createdAt)}`;
 
     // Tooltip（MarkdownString）
     const tooltip = new vscode.MarkdownString(undefined, true);

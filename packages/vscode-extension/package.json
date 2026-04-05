@@ -46,6 +46,7 @@
     "onCommand:agentlog.generateCommitExplain",
     "onCommand:agentlog.bindCommit",
     "onCommand:agentlog.unbindCommit",
+    "onCommand:agentlog.unbindTraceFromCommit",
     "onCommand:agentlog.installGitHook",
     "onCommand:agentlog.removeGitHook",
     "onCommand:agentlog.viewSessionDetail",
@@ -62,7 +63,8 @@
     "onCommand:agentlog.createHandoff",
     "onCommand:agentlog.pauseTrace",
     "onCommand:agentlog.resumeFromPause",
-    "onCommand:agentlog.completeTrace"
+    "onCommand:agentlog.completeTrace",
+    "onCommand:agentlog.deleteTrace"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -103,9 +105,14 @@
         "icon": "$(git-commit)"
       },
       {
+        "command": "agentlog.unbindTraceFromCommit",
+        "title": "AgentLog: 从此 Commit 解绑 Trace",
+        "icon": "$(close)"
+      },
+      {
         "command": "agentlog.installGitHook",
         "title": "AgentLog: 安装 Git post-commit 钩子（自动绑定）",
-        "icon": "$(plug)"
+        "icon": "$(git-commit)"
       },
       {
         "command": "agentlog.removeGitHook",
@@ -203,6 +210,11 @@
         "icon": "$(pass)"
       },
       {
+        "command": "agentlog.deleteTrace",
+        "title": "AgentLog: 删除 Trace",
+        "icon": "$(trash)"
+      },
+      {
         "command": "agentlog.openGitHub",
         "title": "AgentLog: 帮助与反馈",
         "icon": "$(feedback)"
@@ -277,6 +289,11 @@
           "group": "navigation"
         },
         {
+          "command": "agentlog.createHandoff",
+          "when": "view == agentlog.traceList",
+          "group": "navigation"
+        },
+        {
           "command": "agentlog.generateCommitContext",
           "when": "view == agentlog.commitBindings",
           "group": "export"
@@ -285,9 +302,19 @@
           "command": "agentlog.generateCommitExplain",
           "when": "view == agentlog.commitBindings",
           "group": "export"
+        },
+        {
+          "command": "agentlog.installGitHook",
+          "when": "view == agentlog.commitBindings",
+          "group": "navigation"
         }
       ],
       "view/item/context": [
+        {
+          "command": "agentlog.unbindTraceFromCommit",
+          "when": "view == agentlog.commitBindings && viewItem == commit-trace-item",
+          "group": "agentlog@1"
+        },
         {
           "command": "agentlog.resumeContext",
           "when": "view == agentlog.commitBindings && viewItem == commit-session",
@@ -305,17 +332,17 @@
         },
         {
           "command": "agentlog.viewTraceDetail",
-          "when": "view == agentlog.traceList && viewItem =~ /trace-/",
+          "when": "view == agentlog.traceList && viewItem =~ /trace-(running|pending-handoff|in-progress|failed|completed|paused)/",
           "group": "inline"
         },
         {
           "command": "agentlog.bindCommit",
-          "when": "view == agentlog.traceList && viewItem =~ /trace-/",
+          "when": "view == agentlog.traceList && viewItem =~ /trace-(running|pending-handoff|in-progress|failed|completed|paused)/",
           "group": "agentlog@1"
         },
         {
           "command": "agentlog.resumeContext",
-          "when": "view == agentlog.traceList && viewItem =~ /trace-/",
+          "when": "view == agentlog.traceList && viewItem =~ /trace-(running|pending-handoff|in-progress|failed|completed|paused)/",
           "group": "agentlog@2"
         },
         {
@@ -352,6 +379,11 @@
           "command": "agentlog.completeTrace",
           "when": "view == agentlog.traceList && viewItem == trace-in-progress",
           "group": "agentlog@5"
+        },
+        {
+          "command": "agentlog.deleteTrace",
+          "when": "view == agentlog.traceList && viewItem =~ /trace-(running|pending-handoff|in-progress|failed|completed|paused)/",
+          "group": "agentlog@6"
         }
       ],
       "commandPalette": [],

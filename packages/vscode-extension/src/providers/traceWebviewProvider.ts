@@ -10,7 +10,9 @@
  */
 
 import * as vscode from "vscode";
+import { execSync } from "child_process";
 import { getBackendClient } from "../client/backendClient";
+import type { CommitBinding } from "@agentlog/shared";
 
 const SUPPORTED_LANGUAGES = ["en", "zh-CN", "zh-TW"];
 const DEFAULT_LANGUAGE = "en";
@@ -50,11 +52,22 @@ type ToWebviewMessage =
 type FromWebviewMessage =
   | { command: "ready" }
   | { command: "queryTrace"; data: { traceId: string } }
-  | { command: "queryTraces" };
+  | { command: "queryTraces" }
+  | { command: "bindTraceToCommit"; data: { traceId: string; commitHash: string; workspacePath: string } }
+  | { command: "unbindTraceFromCommit"; data: { traceId: string; commitHash: string } }
+  | { command: "refreshCommitTree" }
+  | { command: "copyToClipboard"; data: { text: string } };
 
 // ─────────────────────────────────────────────
 // 类型定义
 // ─────────────────────────────────────────────
+
+export interface BoundCommit {
+  commitHash: string;
+  message: string;
+  committedAt: string;
+  authorName: string;
+}
 
 export interface TraceDetail {
   id: string;
@@ -66,6 +79,8 @@ export interface TraceDetail {
   summary: TraceSummary;
   tokenUsage?: TokenUsage;
   timeline?: TimelineInfo;
+  boundCommits?: BoundCommit[];
+  workspacePath?: string;
 }
 
 export interface SpanItem {
@@ -166,6 +181,51 @@ export class TracePanel {
       case "queryTrace":
         this.loadTrace(msg.data.traceId);
         break;
+      case "bindTraceToCommit":
+        this.bindTraceToCommit(msg.data.traceId, msg.data.commitHash, msg.data.workspacePath);
+        break;
+      case "unbindTraceFromCommit":
+        this.unbindTraceFromCommit(msg.data.traceId, msg.data.commitHash);
+        break;
+      case "refreshCommitTree":
+        break;
+      case "copyToClipboard":
+        if (msg.data?.text) {
+          vscode.env.clipboard.writeText(msg.data.text);
+        }
+        break;
+    }
+  }
+
+  private async bindTraceToCommit(traceId: string, commitHash: string, workspacePath: string): Promise<void> {
+    try {
+      const wsPath = workspacePath || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || "";
+      let fullHash = commitHash;
+      if (commitHash.length < 40 && wsPath) {
+        try {
+          fullHash = execSync(`git rev-parse ${commitHash}`, { cwd: wsPath, timeout: 5000 }).toString().trim();
+        } catch {
+          // git 展开失败，保持原 hash
+        }
+      }
+      const client = getBackendClient();
+      await client.bindTracesToCommit([traceId], fullHash, wsPath);
+      await this.loadTrace(traceId);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.postMessage({ type: "error", payload: { message: `绑定失败：${msg}` } });
+    }
+  }
+
+  private async unbindTraceFromCommit(traceId: string, commitHash: string): Promise<void> {
+    try {
+      const client = getBackendClient();
+      await client.unbindTraceFromCommit(traceId, commitHash);
+      await this.loadTrace(traceId);
+      await vscode.commands.executeCommand("agentlog.refreshCommitBindings");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.postMessage({ type: "error", payload: { message: `解绑失败：${msg}` } });
     }
   }
 
@@ -195,9 +255,25 @@ export class TracePanel {
       this.postMessage({ type: "loading", payload: { loading: true } });
 
       const client = getBackendClient();
-      const response = await client.getTraceSummary(traceId);
+      const [response, allCommits] = await Promise.all([
+        client.getTraceSummary(traceId),
+        client.listCommitBindings(1, 200).catch(() => ({ data: [] as CommitBinding[], total: 0, page: 1, pageSize: 200 })),
+      ]);
 
-      this.postMessage({ type: "loadTrace", payload: response as TraceDetail });
+      const summary = response as TraceDetail;
+      const boundCommits: BoundCommit[] = (allCommits.data ?? [])
+        .filter((c) => (c.traceIds ?? []).includes(traceId))
+        .map((c) => ({
+          commitHash: c.commitHash,
+          message: c.message,
+          committedAt: c.committedAt,
+          authorName: c.authorName,
+        }));
+
+      this.postMessage({
+        type: "loadTrace",
+        payload: { ...summary, boundCommits, workspacePath: summary.workspacePath ?? (response as Record<string, unknown>)?.workspacePath as string ?? "" },
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       this.postMessage({ type: "error", payload: { message: msg } });
@@ -333,7 +409,11 @@ body { font-family: var(--vscode-font-family); font-size: var(--vscode-font-size
 .trace-goal { font-size: 16px; font-weight: 600; margin: 0 0 10px 0; }
 .trace-meta-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
 .trace-time-row { font-size: 11px; color: var(--vscode-descriptionForeground); display: flex; gap: 16px; flex-wrap: wrap; }
-.trace-id-row { font-family: monospace; font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 6px; }
+.trace-id-row { font-family: monospace; font-size: 11px; color: var(--vscode-descriptionForeground); margin-top: 6px; display: flex; align-items: center; gap: 6px; }
+.trace-id-value { background: var(--vscode-textPreformat-background); padding: 1px 4px; border-radius: 3px; }
+.btn-trace-id-copy { background: none; border: none; cursor: pointer; padding: 2px 4px; font-size: 12px; opacity: 0.7; transition: opacity 0.15s; }
+.btn-trace-id-copy:hover { opacity: 1; }
+.btn-trace-id-copy.copied { opacity: 1; }
 
 /* ── Badges ── */
 .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; white-space: nowrap; }
@@ -348,6 +428,7 @@ body { font-family: var(--vscode-font-family); font-size: var(--vscode-font-size
 .badge-source-claude-code { background: #c97b3e22; color: #c97b3e; border: 1px solid #c97b3e44; }
 .badge-source-mcp-tool-call { background: #a855f722; color: #c084fc; border: 1px solid #a855f744; }
 .badge-source { background: var(--vscode-badge-background); color: var(--vscode-badge-foreground); }
+.badge-git { background: #f9731622; color: #fb923c; border: 1px solid #f9731644; }
 
 /* ── Stats grid ── */
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 10px; margin-bottom: 16px; }
@@ -374,7 +455,10 @@ body { font-family: var(--vscode-font-family); font-size: var(--vscode-font-size
 .span-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
 .span-toggle { cursor: pointer; user-select: none; font-size: 11px; padding: 1px 5px; border-radius: 3px; background: var(--vscode-badge-background); color: var(--vscode-badge-foreground); flex-shrink: 0; }
 .span-toggle:hover { opacity: 0.8; }
-.span-id { font-family: monospace; font-size: 11px; color: var(--vscode-descriptionForeground); }
+.span-id { font-family: monospace; font-size: 11px; color: var(--vscode-descriptionForeground); display: flex; align-items: center; gap: 4px; }
+.span-id-copy { cursor: pointer; opacity: 0.6; font-size: 10px; padding: 1px 4px; border-radius: 3px; background: var(--vscode-badge-background); color: var(--vscode-badge-foreground); border: none; }
+.span-id-copy:hover { opacity: 1; }
+.span-id-copy.copied { color: #4ec9b0; }
 .span-name { font-weight: 600; font-size: 13px; }
 .span-badges { display: flex; gap: 5px; flex-wrap: wrap; }
 
@@ -404,6 +488,27 @@ body { font-family: var(--vscode-font-family); font-size: var(--vscode-font-size
 
 /* ── Empty ── */
 .empty { text-align: center; padding: 60px; color: var(--vscode-descriptionForeground); }
+
+/* ── Commit 绑定 ── */
+.commit-section { margin-top: 12px; border-top: 1px solid var(--vscode-widget-border); padding-top: 10px; }
+.commit-section-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--vscode-descriptionForeground); margin: 0 0 8px 0; }
+.commit-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.commit-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.commit-hash { font-family: monospace; font-size: 12px; color: var(--vscode-textLink-foreground); flex-shrink: 0; }
+.btn-commit-hash-copy { background: none; border: none; cursor: pointer; padding: 2px 4px; font-size: 11px; opacity: 0.7; transition: opacity 0.15s; flex-shrink: 0; }
+.btn-commit-hash-copy:hover { opacity: 1; }
+.btn-commit-hash-copy.copied { opacity: 1; }
+.commit-msg { flex: 1; color: var(--vscode-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.commit-date { font-size: 11px; color: var(--vscode-descriptionForeground); flex-shrink: 0; }
+.btn-unbind { font-size: 11px; padding: 2px 8px; border-radius: 3px; border: 1px solid var(--vscode-button-secondaryBorder, var(--vscode-widget-border)); background: transparent; color: var(--vscode-errorForeground); cursor: pointer; flex-shrink: 0; }
+.btn-unbind:hover { background: var(--vscode-inputValidation-errorBackground); }
+.commit-bind-row { display: flex; gap: 6px; align-items: center; margin-top: 4px; }
+.commit-input { flex: 1; font-family: monospace; font-size: 12px; padding: 4px 8px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, var(--vscode-widget-border)); border-radius: 3px; outline: none; }
+.commit-input:focus { border-color: var(--vscode-focusBorder); }
+.btn-bind { font-size: 12px; padding: 4px 10px; border-radius: 3px; border: none; background: var(--vscode-button-background); color: var(--vscode-button-foreground); cursor: pointer; flex-shrink: 0; }
+.btn-bind:hover { background: var(--vscode-button-hoverBackground); }
+.btn-bind:disabled, .btn-unbind:disabled { opacity: 0.5; cursor: not-allowed; }
+.commit-empty { font-size: 12px; color: var(--vscode-descriptionForeground); margin-bottom: 8px; }
 </style>
 </head>
 <body>
@@ -418,8 +523,10 @@ let state = { trace: null, loading: false };
 
 window.addEventListener('message', (event) => {
   const msg = event.data;
+  console.log('[AgentLog][Webview] received message from host, type=' + msg.type);
   switch (msg.type) {
     case 'loadTrace':
+      console.log('[AgentLog][Webview] loadTrace received, boundCommits count=' + ((msg.payload.boundCommits || []).length));
       state.trace = msg.payload;
       render();
       break;
@@ -433,6 +540,7 @@ window.addEventListener('message', (event) => {
       if (state.loading) renderLoading();
       break;
     case 'error':
+      console.log('[AgentLog][Webview] error received: ' + msg.payload.message);
       renderError(msg.payload.message);
       break;
   }
@@ -519,6 +627,22 @@ function render() {
 }
 
 function renderHeader(trace) {
+  const traceId = trace.traceId || trace.id || '';
+  const workspacePath = trace.workspacePath || '';
+  const commits = trace.boundCommits || [];
+
+  const commitListHtml = commits.length === 0
+    ? '<div class="commit-empty">暂未绑定任何 Commit</div>'
+    : '<div class="commit-list">' + commits.map(c => \`
+        <div class="commit-row">
+          <span class="commit-hash">🔗 \${esc(c.commitHash.slice(0,8))}</span>
+          <button class="btn-commit-hash-copy" data-commit-hash="\${esc(c.commitHash)}" title="复制 Commit Hash">📋</button>
+          <span class="commit-msg" title="\${esc(c.message)}">\${esc(c.message || '(无说明)')}</span>
+          <span class="commit-date">\${fmtDate(c.committedAt)}</span>
+          <button class="btn-unbind" data-trace-id="\${esc(traceId)}" data-commit-hash="\${esc(c.commitHash)}" title="从此 Commit 解绑">解绑</button>
+        </div>
+      \`).join('') + '</div>';
+
   return \`
     <div class="trace-header">
       <div class="trace-goal">\${esc(trace.taskGoal || '(无任务目标)')}</div>
@@ -530,10 +654,29 @@ function renderHeader(trace) {
         <span>📅 创建：\${fmtTime(trace.createdAt)}</span>
         \${trace.updatedAt && trace.updatedAt !== trace.createdAt ? '<span>🔄 更新：' + fmtTime(trace.updatedAt) + '</span>' : ''}
       </div>
-      <div class="trace-id-row">ID: \${esc(trace.traceId || trace.id || '')}</div>
+      <div class="trace-id-row">TraceID: <code class="trace-id-value">\${esc(traceId)}</code><button class="btn-trace-id-copy" data-trace-id="\${esc(traceId)}" title="复制 Trace ID">📋</button></div>
+      <div class="commit-section">
+        <div class="commit-section-title">Commit 绑定</div>
+        \${commitListHtml}
+        <div class="commit-bind-row">
+          <input id="commitHashInput" class="commit-input" type="text" placeholder="输入 Commit Hash（≥4位）" maxlength="40" />
+          <button class="btn-bind" data-trace-id="\${esc(traceId)}" data-workspace-path="\${esc(workspacePath)}">绑定</button>
+        </div>
+      </div>
     </div>
   \`;
 }
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    const pad = n => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+  } catch { return iso; }
+}
+
+
 
 function renderStatsGrid(stats) {
   if (!stats.totalSpans && stats.totalSpans !== 0) return '';
@@ -661,7 +804,7 @@ function renderSpan(span, allSpans) {
     const truncated = content.length > LIMIT;
     const preview = truncated ? content.slice(0, LIMIT) : content;
     const blockId = spanId + '-content';
-    const label = actorType === 'human' ? '💬 用户输入' : actorType === 'agent' ? '💡 Agent 回复' : '📋 内容';
+    const label = payload.role === 'user' ? '💬 用户输入' : payload.role === 'assistant' ? '💡 Agent 回复' : '📋 内容';
     contentHtml = renderCollapsibleBlock(label, blockId, true,
       '<div class="span-content-text">' + esc(preview) + (truncated ? '<span id="' + blockId + '-more" style="color:var(--vscode-descriptionForeground)">…（已截断 ' + (content.length - LIMIT) + ' 字符）</span>' : '') + '</div>'
       + (truncated ? '<span class="expand-link" data-full-id="' + blockId + '" data-full="' + esc(content) + '">展开全文</span>' : '')
@@ -708,7 +851,7 @@ function renderSpan(span, allSpans) {
       <div class="span-header">
         \${toggleHtml}
         <div class="span-name">\${esc(span.actorName || actorType)}</div>
-        <div class="span-id">\${esc(span.id.slice(0, 8))}…</div>
+        <div class="span-id" title="\${esc(span.id)}">\${esc(span.id.slice(0, 8))}… <button class="span-id-copy" data-span-id="\${esc(span.id)}" title="复制 Span ID">📋</button></div>
         <div class="span-badges">\${badges}</div>
       </div>
       <div class="span-meta-row">\${metaParts.join('')}</div>
@@ -747,6 +890,9 @@ function renderSpanFlat(span) {
   let badges = '';
   if (model) badges += '<span class="badge badge-model">🧠 ' + esc(model) + '</span>';
   if (source) badges += '<span class="' + sourceBadgeClass(source) + '">📌 ' + esc(source) + '</span>';
+  if (span.actorName === 'git:human-override' && payload.commitHash) {
+    badges += '<span class="badge badge-git">#' + esc(payload.commitHash.slice(0, 8)) + '</span>';
+  }
 
   let metaParts = [];
   metaParts.push('<span class="span-meta-item">' + actorLabel + '</span>');
@@ -774,7 +920,7 @@ function renderSpanFlat(span) {
     const truncated = content.length > LIMIT;
     const preview = truncated ? content.slice(0, LIMIT) : content;
     const blockId = spanId + '-content';
-    const label = actorType === 'human' ? '💬 用户输入' : actorType === 'agent' ? '💡 Agent 回复' : '📋 内容';
+    const label = payload.role === 'user' ? '💬 用户输入' : payload.role === 'assistant' ? '💡 Agent 回复' : '📋 内容';
     contentHtml = renderCollapsibleBlock(label, blockId, true,
       '<div class="span-content-text">' + esc(preview) + (truncated ? '<span id="' + blockId + '-more" style="color:var(--vscode-descriptionForeground)">…（已截断 ' + (content.length - LIMIT) + ' 字符）</span>' : '') + '</div>'
       + (truncated ? '<span class="expand-link" data-full-id="' + blockId + '" data-full="' + esc(content) + '">展开全文</span>' : '')
@@ -818,7 +964,7 @@ function renderSpanFlat(span) {
     <div class="span-item \${typeClass}">
       <div class="span-header">
         <div class="span-name">\${esc(span.actorName || actorType)}</div>
-        <div class="span-id">\${esc(span.id.slice(0, 8))}…</div>
+        <div class="span-id" title="\${esc(span.id)}">\${esc(span.id.slice(0, 8))}… <button class="span-id-copy" data-span-id="\${esc(span.id)}" title="复制 Span ID">📋</button></div>
         <div class="span-badges">\${badges}</div>
       </div>
       <div class="span-meta-row">\${metaParts.join('')}</div>
@@ -893,6 +1039,80 @@ function setupEventListeners() {
           if (textBox) textBox.innerHTML = '<div class="span-content-text">' + esc(fullText) + '</div>';
         }
         expandLink.remove();
+      }
+    }
+
+    // 解绑 Commit
+    const unbindBtn = e.target.closest('.btn-unbind');
+    if (unbindBtn) {
+      const traceId = unbindBtn.dataset.traceId;
+      const commitHash = unbindBtn.dataset.commitHash;
+      console.log('[AgentLog][Webview] btn-unbind clicked, traceId=' + traceId + ', commitHash=' + commitHash);
+      if (traceId && commitHash) {
+        document.querySelectorAll('.btn-unbind').forEach(b => b.disabled = true);
+        vscode.postMessage({ command: 'unbindTraceFromCommit', data: { traceId, commitHash } });
+      }
+    }
+
+    // 绑定 Commit
+    const bindBtn = e.target.closest('.btn-bind');
+    if (bindBtn) {
+      const traceId = bindBtn.dataset.traceId;
+      const workspacePath = bindBtn.dataset.workspacePath || '';
+      const input = document.getElementById('commitHashInput');
+      const hash = input ? input.value.trim() : '';
+      console.log('[AgentLog][Webview] btn-bind clicked, traceId=' + traceId + ', hash=' + hash);
+      if (!hash || hash.length < 4) {
+        if (input) input.style.borderColor = 'var(--vscode-inputValidation-errorBorder)';
+        return;
+      }
+      bindBtn.disabled = true;
+      bindBtn.textContent = '绑定中...';
+      vscode.postMessage({ command: 'bindTraceToCommit', data: { traceId, commitHash: hash, workspacePath } });
+    }
+
+    // 复制 Span ID
+    const copyBtn = e.target.closest('.span-id-copy');
+    if (copyBtn) {
+      const spanId = copyBtn.dataset.spanId;
+      if (spanId) {
+        vscode.postMessage({ command: 'copyToClipboard', data: { text: spanId } });
+        copyBtn.classList.add('copied');
+        copyBtn.textContent = '✓';
+        setTimeout(() => {
+          copyBtn.classList.remove('copied');
+          copyBtn.textContent = '📋';
+        }, 1500);
+      }
+    }
+
+    // 复制 Trace ID
+    const traceIdCopyBtn = e.target.closest('.btn-trace-id-copy');
+    if (traceIdCopyBtn) {
+      const traceId = traceIdCopyBtn.dataset.traceId;
+      if (traceId) {
+        vscode.postMessage({ command: 'copyToClipboard', data: { text: traceId } });
+        traceIdCopyBtn.classList.add('copied');
+        traceIdCopyBtn.textContent = '✓';
+        setTimeout(() => {
+          traceIdCopyBtn.classList.remove('copied');
+          traceIdCopyBtn.textContent = '📋';
+        }, 1500);
+      }
+    }
+
+    // 复制 Commit Hash
+    const commitHashCopyBtn = e.target.closest('.btn-commit-hash-copy');
+    if (commitHashCopyBtn) {
+      const commitHash = commitHashCopyBtn.dataset.commitHash;
+      if (commitHash) {
+        vscode.postMessage({ command: 'copyToClipboard', data: { text: commitHash } });
+        commitHashCopyBtn.classList.add('copied');
+        commitHashCopyBtn.textContent = '✓';
+        setTimeout(() => {
+          commitHashCopyBtn.classList.remove('copied');
+          commitHashCopyBtn.textContent = '📋';
+        }, 1500);
       }
     }
   });

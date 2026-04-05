@@ -36,6 +36,7 @@ import {
   getSessionsForNewCommit,
   getSessionsByCommitHash,
   getSessionById,
+  upsertCommitBinding,
 } from "../services/logService";
 import {
   getCommitInfo,
@@ -74,79 +75,6 @@ function rowToCommitBinding(row: CommitRow): CommitBinding {
 // ─────────────────────────────────────────────
 // 数据库操作（commit_bindings 表）
 // ─────────────────────────────────────────────
-
-/**
- * 插入或更新一条 Commit 绑定记录。
- * 若已存在相同 commitHash，则合并 sessionIds（去重）。
- */
-function upsertCommitBinding(binding: CommitBinding): CommitBinding {
-  const db = getDatabase();
-
-  // 从 session_commits 表获取当前 commit 绑定的所有 session_id
-  const boundSessions = db
-    .prepare(
-      "SELECT session_id FROM session_commits WHERE commit_hash = ?",
-    )
-    .all(binding.commitHash) as Array<{ session_id: string }>;
-  const sessionIdsFromJoin = boundSessions.map((row) => row.session_id);
-
-  const existing = db
-    .prepare("SELECT * FROM commit_bindings WHERE commit_hash = ?")
-    .get(binding.commitHash) as CommitRow | undefined;
-
-  // 合并 session_ids：来自 session_commits 表的记录 + 传入的 binding.sessionIds（去重）
-  const allSessionIds = [
-    ...new Set([...sessionIdsFromJoin, ...binding.sessionIds]),
-  ];
-
-  const traceIds = binding.traceIds ?? [];
-
-  if (existing) {
-    const existingTraceIds: string[] = fromJson(existing.trace_ids ?? "[]", []);
-    const allTraceIds = [...new Set([...existingTraceIds, ...traceIds])];
-    db.prepare(
-      `
-      UPDATE commit_bindings
-      SET session_ids = ?, trace_ids = ?, message = ?, committed_at = ?,
-          author_name = ?, author_email = ?, changed_files = ?
-      WHERE commit_hash = ?
-    `,
-    ).run(
-      toJson(allSessionIds),
-      toJson(allTraceIds),
-      binding.message,
-      binding.committedAt,
-      binding.authorName,
-      binding.authorEmail,
-      toJson(binding.changedFiles),
-      binding.commitHash,
-    );
-  } else {
-    db.prepare(
-      `
-      INSERT INTO commit_bindings (
-        commit_hash, session_ids, trace_ids, message, committed_at,
-        author_name, author_email, changed_files, workspace_path
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `,
-    ).run(
-      binding.commitHash,
-      toJson(allSessionIds),
-      toJson(traceIds),
-      binding.message,
-      binding.committedAt,
-      binding.authorName,
-      binding.authorEmail,
-      toJson(binding.changedFiles),
-      binding.workspacePath,
-    );
-  }
-
-  const updated = db
-    .prepare("SELECT * FROM commit_bindings WHERE commit_hash = ?")
-    .get(binding.commitHash) as CommitRow;
-  return rowToCommitBinding(updated);
-}
 
 /** 
  * 从 commit_bindings 中移除某个 sessionId 的关联
@@ -568,6 +496,180 @@ const commitsRouter: FastifyPluginAsync = async (fastify: FastifyInstance) => {
       }
     },
   );
+
+  // ──────────────────────────────────────────
+  // POST /api/commits/:hash/bind-traces
+  // 将 traces 追加绑定到某个 Commit。
+  // 支持两种方式（二选一）：
+  //   - traceIds: string[]   直接指定要绑定的 trace ID 列表
+  //   - fromTraceId: string  绑定该 trace 创建时间之后的所有 traces
+  // ──────────────────────────────────────────
+  fastify.post<{
+    Params: { hash: string };
+    Body: { workspacePath: string; fromTraceId?: string; traceIds?: string[] };
+  }>(
+    "/:hash/bind-traces",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["hash"],
+          properties: { hash: { type: "string", minLength: 4 } },
+        },
+        body: {
+          type: "object",
+          properties: {
+            workspacePath: { type: "string", minLength: 1 },
+            fromTraceId: { type: "string", minLength: 1 },
+            traceIds: { type: "array", items: { type: "string" }, minItems: 1 },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { hash } = request.params;
+      const { workspacePath, fromTraceId, traceIds: directTraceIds } = request.body;
+
+      if (!fromTraceId && (!directTraceIds || directTraceIds.length === 0)) {
+        return reply.code(400).send({
+          success: false,
+          error: "需要提供 fromTraceId 或 traceIds 之一",
+        } satisfies ApiResponse);
+      }
+
+      // 解析要绑定的 traceIds：直接传数组 or 按时间范围查找
+      let traceIds: string[];
+      if (directTraceIds && directTraceIds.length > 0) {
+        // 方式 A：直接指定 traceIds
+        traceIds = directTraceIds;
+        fastify.log.info(
+          `[Commits BindTraces] commit=${hash.slice(0, 8)} 直接绑定 ${traceIds.length} 个 traces`,
+        );
+      } else {
+        // 方式 B：fromTraceId 时间范围
+        const baseTrace = getTraceById(fromTraceId!);
+        if (!baseTrace) {
+          return reply.code(404).send({
+            success: false,
+            error: `基准 Trace 不存在：${fromTraceId}`,
+          } satisfies ApiResponse);
+        }
+        const { data: traces } = queryTraces({
+          workspacePath,
+          startDate: baseTrace.createdAt,
+          pageSize: 9999,
+        });
+        traceIds = traces.map((t) => t.id);
+        fastify.log.info(
+          `[Commits BindTraces] commit=${hash.slice(0, 8)} 找到 ${traceIds.length} 个 traces (从 ${fromTraceId} 开始)`,
+        );
+      }
+
+      try {
+        // 3. 获取 commit 元数据（如果 git repo 可用）
+        let commitMeta = {
+          message: "",
+          committedAt: new Date().toISOString(),
+          authorName: "",
+          authorEmail: "",
+          changedFiles: [] as string[],
+        };
+        if (await isGitRepo(workspacePath)) {
+          try {
+            const info = await getCommitInfo(workspacePath, hash);
+            commitMeta = {
+              message: info.message,
+              committedAt: info.committedAt,
+              authorName: info.authorName,
+              authorEmail: info.authorEmail,
+              changedFiles: info.changedFiles,
+            };
+          } catch {
+            fastify.log.warn(`[Commits BindTraces] 无法从 git 获取 commit 元数据`);
+          }
+        }
+
+        // 4. upsertCommitBinding（已有记录则追加 traceIds，没有则创建）
+        const binding = upsertCommitBinding({
+          commitHash: hash,
+          sessionIds: [],
+          traceIds,
+          message: commitMeta.message,
+          committedAt: commitMeta.committedAt,
+          authorName: commitMeta.authorName,
+          authorEmail: commitMeta.authorEmail,
+          changedFiles: commitMeta.changedFiles,
+          workspacePath,
+        });
+
+        fastify.log.info(
+          `[Commits BindTraces] commit=${hash.slice(0, 8)} 绑定完成，traceIds=${binding.traceIds.length}`,
+        );
+
+        return reply.code(200).send({
+          success: true,
+          data: binding,
+        } satisfies ApiResponse<CommitBinding>);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return reply.code(500).send({
+          success: false,
+          error: `绑定失败：${message}`,
+        } satisfies ApiResponse);
+      }
+    },
+  );
+
+  // ──────────────────────────────────────────
+  // DELETE /api/commits/:hash/traces/:traceId
+  // 从指定 Commit 的 trace_ids 中移除一个 trace
+  // ──────────────────────────────────────────
+  fastify.delete<{
+    Params: { hash: string; traceId: string };
+  }>("/:hash/traces/:traceId", async (request, reply) => {
+    const { hash, traceId } = request.params;
+
+    const db = getDatabase();
+    const existing = db
+      .prepare("SELECT * FROM commit_bindings WHERE commit_hash = ?")
+      .get(hash) as import("../db/database").CommitRow | undefined;
+
+    if (!existing) {
+      return reply.code(404).send({
+        success: false,
+        error: `未找到 Commit 绑定记录：${hash}`,
+      } satisfies ApiResponse);
+    }
+
+    const currentTraceIds: string[] = fromJson(existing.trace_ids ?? "[]", []);
+    if (!currentTraceIds.includes(traceId)) {
+      return reply.code(404).send({
+        success: false,
+        error: `Trace ${traceId} 未绑定到 Commit ${hash}`,
+      } satisfies ApiResponse);
+    }
+
+    const filtered = currentTraceIds.filter((id) => id !== traceId);
+
+    // 直接 UPDATE trace_ids，不经过 upsertCommitBinding（后者会合并而非替换，导致无法解绑）
+    db.prepare(
+      "UPDATE commit_bindings SET trace_ids = ? WHERE commit_hash = ?",
+    ).run(toJson(filtered), hash);
+
+    const updatedRow = db
+      .prepare("SELECT * FROM commit_bindings WHERE commit_hash = ?")
+      .get(hash) as CommitRow;
+    const binding = rowToCommitBinding(updatedRow);
+
+    fastify.log.info(
+      `[Commits] 已从 commit=${hash.slice(0, 8)} 解绑 trace=${traceId.slice(0, 8)}`,
+    );
+
+    return reply.code(200).send({
+      success: true,
+      data: binding,
+    } satisfies ApiResponse<CommitBinding>);
+  });
 
   // ──────────────────────────────────────────
   // DELETE /api/commits/unbind/:sessionId

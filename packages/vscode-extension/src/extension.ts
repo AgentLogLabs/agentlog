@@ -39,6 +39,7 @@ import {
   CommitBindingsTreeProvider,
   CommitGroupItem,
   CommitSessionItem,
+  CommitTraceItem,
 } from "./providers/sessionTreeProvider";
 import {
   DashboardPanel,
@@ -253,6 +254,8 @@ async function startBackendProcess(
   if (ready) {
     log("[后台] 服务已就绪");
     updateStatusBar("idle");
+    commitBindingsProvider?.refresh();
+    traceTreeProvider?.refresh();
     vscode.window.showInformationMessage("✅ AgentLog 后台服务已启动");
   } else {
     log("[后台] 服务启动超时");
@@ -1404,6 +1407,7 @@ function registerCommands(
   // ── Trace 列表刷新 ─────────────────────────
   register("agentlog.refreshTraceList", async () => {
     traceTreeProvider.refresh();
+    commitBindingsProvider?.refresh();
   });
 
   // Session 视图已废弃，删除会话功能已禁用
@@ -1565,7 +1569,7 @@ function registerCommands(
     try {
       const client = getBackendClient();
       const workspacePath = resolveWorkspacePath();
-      await client.bindCommit([traceId], commitHash.trim(), workspacePath);
+      await client.bindTracesToCommit([traceId], commitHash.trim(), workspacePath);
 
       commitBindingsProvider.refresh();
 
@@ -1607,6 +1611,34 @@ function registerCommands(
     } catch (err) {
       vscode.window.showErrorMessage(
         `解除绑定失败：${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  });
+
+  register("agentlog.unbindTraceFromCommit", async (item: unknown) => {
+    if (!(item instanceof CommitTraceItem)) {
+      vscode.window.showErrorMessage("请在 Commit 列表中右键点击 Trace 条目使用此功能");
+      return;
+    }
+
+    const { trace, commitHash } = item;
+    const confirm = await vscode.window.showWarningMessage(
+      `确定要将 Trace "${trace.taskGoal.slice(0, 40)}" 从 Commit ${commitHash.slice(0, 8)} 解绑吗？`,
+      { modal: true },
+      "确认解绑",
+    );
+    if (confirm !== "确认解绑") return;
+
+    try {
+      const client = getBackendClient();
+      await client.unbindTraceFromCommit(trace.id, commitHash);
+      commitBindingsProvider.refresh();
+      vscode.window.showInformationMessage(
+        `✅ 已将 Trace 从 Commit ${commitHash.slice(0, 8)} 解绑`,
+      );
+    } catch (err) {
+      vscode.window.showErrorMessage(
+        `解绑失败：${err instanceof Error ? err.message : String(err)}`,
       );
     }
   });
@@ -1775,6 +1807,10 @@ function registerCommands(
 
   register("agentlog.refreshTraceTree", () => {
     traceTreeProvider?.refresh();
+  });
+
+  register("agentlog.refreshCommitBindings", () => {
+    commitBindingsProvider?.refresh();
   });
 
   register("agentlog.exportWeeklyReport", async () => {
@@ -2209,6 +2245,38 @@ function registerCommands(
     } catch (err) {
       vscode.window.showErrorMessage(
         `完成失败：${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  });
+
+  register("agentlog.deleteTrace", async (item: unknown) => {
+    let traceId: string | undefined;
+
+    if (item instanceof TraceItem) {
+      traceId = item.trace.id;
+    }
+
+    if (!traceId) {
+      vscode.window.showErrorMessage("无法解析 Trace ID");
+      return;
+    }
+
+    const confirm = await vscode.window.showWarningMessage(
+      `确定要删除此 Trace 吗？此操作不可撤销。`,
+      { modal: true },
+      "删除",
+    );
+
+    if (confirm !== "删除") return;
+
+    try {
+      const client = getBackendClient();
+      await client.deleteTrace(traceId);
+      traceTreeProvider.refresh();
+      vscode.window.showInformationMessage("✅ Trace 已删除");
+    } catch (err) {
+      vscode.window.showErrorMessage(
+        `删除失败：${err instanceof Error ? err.message : String(err)}`,
       );
     }
   });

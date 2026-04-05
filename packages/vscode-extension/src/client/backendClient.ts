@@ -450,6 +450,50 @@ export class BackendClient {
   }
 
   /**
+   * 直接将指定 traceIds 绑定到某个 Commit。
+   */
+  async bindTracesToCommit(
+    traceIds: string[],
+    commitHash: string,
+    workspacePath?: string,
+  ): Promise<CommitBinding> {
+    const resp = await this.request<ApiResponse<CommitBinding>>(
+      "POST",
+      `/api/commits/${encodeURIComponent(commitHash)}/bind-traces`,
+      { traceIds, ...(workspacePath ? { workspacePath } : {}) },
+    );
+    if (!resp.success || !resp.data) {
+      throw new BackendApiError(
+        200,
+        `/api/commits/${commitHash}/bind-traces`,
+        resp.error ?? "绑定失败",
+      );
+    }
+    return resp.data;
+  }
+
+  /**
+   * 从指定 Commit 的 trace_ids 中移除一个 trace。
+   */
+  async unbindTraceFromCommit(
+    traceId: string,
+    commitHash: string,
+  ): Promise<CommitBinding> {
+    const resp = await this.request<ApiResponse<CommitBinding>>(
+      "DELETE",
+      `/api/commits/${encodeURIComponent(commitHash)}/traces/${encodeURIComponent(traceId)}`,
+    );
+    if (!resp.success || !resp.data) {
+      throw new BackendApiError(
+        200,
+        `/api/commits/${commitHash}/traces/${traceId}`,
+        resp.error ?? "解绑失败",
+      );
+    }
+    return resp.data;
+  }
+
+  /**
    * 解绑单条会话与 Commit 的关联。
    */
   async unbindSession(sessionId: string): Promise<void> {
@@ -845,6 +889,23 @@ export class BackendClient {
       );
     }
     return resp.data;
+  }
+
+  /**
+   * 删除 trace
+   */
+  async deleteTrace(traceId: string): Promise<void> {
+    const resp = await this.request<ApiResponse>(
+      "DELETE",
+      `/api/traces/${encodeURIComponent(traceId)}`,
+    );
+    if (!resp.success) {
+      throw new BackendApiError(
+        200,
+        `/api/traces/${traceId}`,
+        resp.error ?? "删除 trace 失败",
+      );
+    }
   }
 
   /**

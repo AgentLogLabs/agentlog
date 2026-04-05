@@ -97,6 +97,20 @@ async function apiGet(path) {
 
 // ── Trace / Span 创建 ─────────────────────────────────────────────────────────
 
+// ── 写入 git config agentlog.traceId，供 post-commit hook 绑定 trace ──────────
+async function persistTraceIdToGitConfig(traceId, wsPath) {
+  try {
+    await apiPost("/hooks/config", {
+      workspacePath: wsPath || workspacePath || process.cwd(),
+      key: "agentlog.traceId",
+      value: traceId,
+    });
+  } catch (err) {
+    // 非致命错误，静默忽略
+    console.error(`[agentlog-auto] persistTraceIdToGitConfig error: ${err?.message}`);
+  }
+}
+
 async function createTrace(taskGoal) {
   const result = await apiPost("/traces", {
     taskGoal: taskGoal || "OpenCode Session",
@@ -107,6 +121,7 @@ async function createTrace(taskGoal) {
     currentTraceId = result.data.id;
     currentSpanId = null;
     turnCount = 0;
+    await persistTraceIdToGitConfig(currentTraceId, workspacePath);
     return currentTraceId;
   }
   return null;
@@ -148,6 +163,7 @@ async function claimOrCreateTrace(wsPath) {
           currentTraceId = traceId;
           currentSpanId = null;
           isResumedTrace = true;
+          await persistTraceIdToGitConfig(traceId, ws);
         }
       } else {
         // 2b. 无 pending trace → 创建新 trace

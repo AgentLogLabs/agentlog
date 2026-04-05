@@ -711,13 +711,16 @@ export class CommitSessionItem extends CommitTreeItem {
 export class CommitTraceItem extends CommitTreeItem {
   readonly type = "commit-session" as const;
 
-  constructor(public readonly trace: TraceSummary) {
+  constructor(
+    public readonly trace: TraceSummary,
+    public readonly commitHash: string,
+  ) {
     const goalPreview = trace.taskGoal.replace(/\n/g, " ").slice(0, 45);
     super(
       `${goalPreview}${trace.taskGoal.length > 45 ? "…" : ""}`,
       vscode.TreeItemCollapsibleState.None,
     );
-    this.contextValue = "commit-session";
+    this.contextValue = "commit-trace-item";
     this.description = trace.status;
     this.iconPath = new vscode.ThemeIcon("debug-pause");
     this.command = {
@@ -783,7 +786,7 @@ export class CommitBindingsTreeProvider
 
   async getChildren(element?: CommitTreeItem): Promise<CommitTreeItem[]> {
     if (element instanceof CommitGroupItem) {
-      return element.traces.map((t) => new CommitTraceItem(t));
+      return element.traces.map((t) => new CommitTraceItem(t, element.commitHash));
     }
 
     if (this._loading) {
@@ -859,6 +862,8 @@ export class CommitBindingsTreeProvider
             // 忽略已删除的 trace
           }
         }
+
+        if (traces.length === 0) continue;
 
         groups.push({
           hash: binding.commitHash,
