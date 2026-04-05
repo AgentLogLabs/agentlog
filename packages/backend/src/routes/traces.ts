@@ -310,6 +310,7 @@ async function tracesRoutes(app: FastifyInstance): Promise<void> {
         status: trace.status,
         createdAt: trace.createdAt,
         updatedAt: trace.updatedAt,
+        affectedFiles: trace.affectedFiles,
         spanTree: allSpans,
         statistics: {
           totalSpans,

@@ -75,6 +75,7 @@ export interface TraceDetail {
   status: string;
   createdAt: string;
   updatedAt: string;
+  affectedFiles: string[];
   spanTree: SpanItem[];
   summary: TraceSummary;
   tokenUsage?: TokenUsage;
@@ -509,6 +510,18 @@ body { font-family: var(--vscode-font-family); font-size: var(--vscode-font-size
 .btn-bind:hover { background: var(--vscode-button-hoverBackground); }
 .btn-bind:disabled, .btn-unbind:disabled { opacity: 0.5; cursor: not-allowed; }
 .commit-empty { font-size: 12px; color: var(--vscode-descriptionForeground); margin-bottom: 8px; }
+
+/* ── Affected Files ── */
+.files-section { margin-top: 12px; border-top: 1px solid var(--vscode-widget-border); padding-top: 10px; }
+.files-section-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--vscode-descriptionForeground); margin: 0 0 8px 0; }
+.files-list { display: flex; flex-direction: column; gap: 4px; }
+.file-item { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 3px 6px; background: var(--vscode-editorWidget-background); border-radius: 3px; border: 1px solid var(--vscode-widget-border); }
+.file-icon { flex-shrink: 0; }
+.file-path { flex: 1; font-family: var(--vscode-editor-font-family, monospace); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-copy { background: none; border: none; cursor: pointer; padding: 2px 4px; font-size: 11px; opacity: 0.7; transition: opacity 0.15s; flex-shrink: 0; }
+.file-copy:hover { opacity: 1; }
+.file-copy.copied { opacity: 1; }
+.files-empty { font-size: 12px; color: var(--vscode-descriptionForeground); }
 </style>
 </head>
 <body>
@@ -621,6 +634,7 @@ function render() {
     renderStatsGrid(stats) +
     renderTimelineSection(timeline) +
     renderTokenSection(tokenUsage) +
+    renderAffectedFilesSection(trace.affectedFiles) +
     renderSpansSection(allSpans);
 
   setupEventListeners();
@@ -727,6 +741,43 @@ function renderTokenSection(tokenUsage) {
         <div class="info-card"><div class="info-label">合计</div><div class="info-value">\${fmtTokens(tokenUsage.totalTokens || 0)}</div></div>
         \${tokenUsage.totalCacheCreationTokens ? '<div class="info-card"><div class="info-label">缓存创建</div><div class="info-value">' + fmtTokens(tokenUsage.totalCacheCreationTokens) + '</div></div>' : ''}
         \${tokenUsage.totalCacheReadTokens ? '<div class="info-card"><div class="info-label">缓存命中</div><div class="info-value">' + fmtTokens(tokenUsage.totalCacheReadTokens) + '</div></div>' : ''}
+      </div>
+    </div>
+  \`;
+}
+
+function renderAffectedFilesSection(affectedFiles) {
+  if (!affectedFiles || affectedFiles.length === 0) {
+    return \`
+      <div class="files-section">
+        <div class="files-section-title">涉及文件</div>
+        <div class="files-empty">暂无文件记录</div>
+      </div>
+    \`;
+  }
+  const fileIconMap = {
+    '.ts': '📘', '.tsx': '📘', '.js': '📒', '.jsx': '📒',
+    '.json': '📋', '.md': '📝', '.yaml': '📋', '.yml': '📋',
+    '.css': '🎨', '.scss': '🎨', '.html': '🌐', '.svg': '🖼',
+    '.png': '🖼', '.jpg': '🖼', '.gif': '🖼',
+    '.go': '🔵', '.rs': '🔩', '.py': '🐍', '.java': '☕',
+    '.sh': '⚡', '.bash': '⚡',
+  };
+  const getIcon = (filePath) => {
+    const ext = filePath.match(/\.[^.]+$/)?.[0] || '';
+    return fileIconMap[ext] || '📄';
+  };
+  return \`
+    <div class="files-section">
+      <div class="files-section-title">涉及文件（\${affectedFiles.length} 个）</div>
+      <div class="files-list">
+        \${affectedFiles.map(f => \`
+          <div class="file-item">
+            <span class="file-icon">\${getIcon(f)}</span>
+            <span class="file-path" title="\${esc(f)}">\${esc(f)}</span>
+            <button class="file-copy" data-file-path="\${esc(f)}" title="复制路径">📋</button>
+          </div>
+        \`).join('')}
       </div>
     </div>
   \`;
@@ -1112,6 +1163,21 @@ function setupEventListeners() {
         setTimeout(() => {
           commitHashCopyBtn.classList.remove('copied');
           commitHashCopyBtn.textContent = '📋';
+        }, 1500);
+      }
+    }
+
+    // 复制文件路径
+    const fileCopyBtn = e.target.closest('.file-copy');
+    if (fileCopyBtn) {
+      const filePath = fileCopyBtn.dataset.filePath;
+      if (filePath) {
+        vscode.postMessage({ command: 'copyToClipboard', data: { text: filePath } });
+        fileCopyBtn.classList.add('copied');
+        fileCopyBtn.textContent = '✓';
+        setTimeout(() => {
+          fileCopyBtn.classList.remove('copied');
+          fileCopyBtn.textContent = '📋';
         }, 1500);
       }
     }

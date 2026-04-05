@@ -241,17 +241,20 @@ async function postSpan(
  */
 async function patchTrace(
   traceId: string,
-  status: "running" | "completed" | "failed" | "paused",
+  status?: "running" | "completed" | "failed" | "paused",
   affectedFiles?: string[],
 ): Promise<void> {
   const url = `${BACKEND_BASE}/api/traces/${traceId}`;
 
   process.stderr.write(`[agentlog-mcp] PATCH ${url}\n`);
 
-  const body: Record<string, unknown> = { status };
+  const body: Record<string, unknown> = {};
+  if (status !== undefined) body.status = status;
   if (affectedFiles && affectedFiles.length > 0) {
     body.affectedFiles = affectedFiles;
   }
+  // 若 body 为空则无需请求
+  if (Object.keys(body).length === 0) return;
 
   const resp = await fetch(url, {
     method: "PATCH",
@@ -1313,6 +1316,37 @@ async function main(): Promise<void> {
         }
 
         process.stderr.write(`[agentlog-mcp] log_turn 写入成功 trace_id=${currentTraceId}, span_id=${spanId}\n`);
+
+        // ── 方案A：role=tool 时提取文件路径，实时更新 traces.affected_files ────
+        if (role === "tool" && toolInput) {
+          try {
+            const ti = typeof toolInput === "string"
+              ? JSON.parse(toolInput)
+              : toolInput as Record<string, unknown>;
+            const extractedFiles: string[] = [];
+            for (const key of ["filePath", "path", "file_path"]) {
+              const val = (ti as Record<string, unknown>)[key];
+              if (typeof val === "string" && val.includes("/")) {
+                extractedFiles.push(val);
+              }
+            }
+            if (extractedFiles.length > 0) {
+              // 获取 workspacePath 以转为相对路径
+              const traceResp = await fetch(`${BACKEND_BASE}/api/traces/${currentTraceId}`);
+              if (traceResp.ok) {
+                const traceJson = await traceResp.json() as { data?: { workspacePath?: string } };
+                const wp = traceJson.data?.workspacePath;
+                const relFiles = extractedFiles.map(p =>
+                  wp && p.startsWith(wp) ? p.slice(wp.length).replace(/^\//, "") : p
+                );
+                await patchTrace(currentTraceId, undefined, relFiles);
+                process.stderr.write(`[agentlog-mcp] tool span 提取文件路径: ${relFiles.join(", ")}\n`);
+              }
+            }
+          } catch (err) {
+            process.stderr.write(`[agentlog-mcp] 提取文件路径失败（非关键）: ${err}\n`);
+          }
+        }
 
         // 返回结构化 JSON
         const responsePayload: Record<string, unknown> = {

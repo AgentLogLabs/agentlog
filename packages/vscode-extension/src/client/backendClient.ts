@@ -118,11 +118,15 @@ export class BackendClient {
         port: url.port || (isHttps ? 443 : 80),
         path: url.pathname + url.search,
         method,
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          ...(bodyStr ? { "Content-Length": Buffer.byteLength(bodyStr) } : {}),
-        },
+          headers: {
+            Accept: "application/json",
+            ...(bodyStr
+              ? {
+                  "Content-Type": "application/json",
+                  "Content-Length": Buffer.byteLength(bodyStr),
+                }
+              : {}),
+          },
         timeout: this.timeoutMs,
       };
 

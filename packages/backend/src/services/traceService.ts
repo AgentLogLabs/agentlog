@@ -287,6 +287,42 @@ export function queryTraces(filter: {
 // Span CRUD
 // ─────────────────────────────────────────────
 
+/**
+ * 从 span payload 中提取被操作的文件路径列表。
+ *
+ * 支持的字段（来自 toolInput）：
+ *   filePath / path / file_path — write/edit/read 等工具
+ *
+ * 路径处理：若 trace 有 workspacePath，则转为相对路径（与 git hook 保持一致）；
+ * 否则保留绝对路径兜底。
+ */
+export function extractFilesFromPayload(
+  payload: Record<string, unknown>,
+  workspacePath?: string | null,
+): string[] {
+  const toolInput = payload.toolInput as Record<string, unknown> | undefined;
+  if (!toolInput) return [];
+
+  const raw = new Set<string>();
+  for (const key of ['filePath', 'path', 'file_path']) {
+    const val = toolInput[key];
+    if (typeof val === 'string' && val.trim()) raw.add(val.trim());
+  }
+
+  const result: string[] = [];
+  for (const p of raw) {
+    // 过滤掉明显不是文件路径的值（如 URL、纯文件名无路径分隔符）
+    if (!p.includes('/') && !p.includes('\\')) continue;
+    if (workspacePath && p.startsWith(workspacePath)) {
+      // 转为相对路径，去掉前缀斜杠
+      result.push(p.slice(workspacePath.length).replace(/^\//, ''));
+    } else {
+      result.push(p);
+    }
+  }
+  return result;
+}
+
 export function createSpan(req: CreateSpanRequest): Span {
   const db = getDatabase();
   const id = ulid();
@@ -309,6 +345,21 @@ export function createSpan(req: CreateSpanRequest): Span {
   if (!created) {
     throw new Error(`[traceService] Span 创建失败，id=${id}`);
   }
+
+  // 方案B：从 tool span payload 自动提取文件路径，合并写入 traces.affected_files
+  if (req.payload) {
+    try {
+      const trace = getTraceById(req.traceId);
+      const files = extractFilesFromPayload(req.payload, trace?.workspacePath);
+      if (files.length > 0) {
+        updateTrace(req.traceId, { affectedFiles: files });
+      }
+    } catch (err) {
+      // 非关键路径，失败不影响 span 写入
+      console.warn(`[traceService] 提取 affected_files 失败: ${err}`);
+    }
+  }
+
   return created;
 }
 
