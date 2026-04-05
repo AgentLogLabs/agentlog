@@ -3,7 +3,7 @@
   "checkpoint_id": "062733f7d526",
   "strategy": "manual-commit",
   "branch": "phase1-tickets",
-  "checkpoints_count": 0,
+  "checkpoints_count": 2,
   "files_touched": [
     "packages/backend/src/routes/commits.ts",
     "packages/backend/src/routes/gitHooks.ts",
@@ -64,6 +64,19 @@
       "transcript": "/06/2733f7d526/7/full.jsonl",
       "content_hash": "/06/2733f7d526/7/content_hash.txt",
       "prompt": ""
+    },
+    {
+      "metadata": "/06/2733f7d526/8/metadata.json",
+      "transcript": "/06/2733f7d526/8/full.jsonl",
+      "content_hash": "/06/2733f7d526/8/content_hash.txt",
+      "prompt": "/06/2733f7d526/8/prompt.txt"
     }
-  ]
+  ],
+  "token_usage": {
+    "input_tokens": 3,
+    "cache_creation_tokens": 28647,
+    "cache_read_tokens": 25521,
+    "output_tokens": 1078,
+    "api_call_count": 2
+  }
 }

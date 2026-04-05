@@ -1,0 +1,5 @@
+提问：现在通过关闭trace，是否可以清理.git/angentlog/session.json的对应trace
+
+---
+
+是的
