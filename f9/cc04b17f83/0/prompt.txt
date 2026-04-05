@@ -1,0 +1,1 @@
+现在修复问题：opencode 对一次会话创建了两个trace，01KNEG7712DQY60DP7QDT3ZZRH 、 01KNEG7714ZEARXA1XSTQBCQQD，应该一个新的session（没有接受trace的session）只能创建一个trace
