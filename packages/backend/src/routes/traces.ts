@@ -19,16 +19,25 @@ import {
   createTrace,
   updateTrace,
   searchTraces,
+  associateCommitsToTrace,
+  type UpdateTraceRequest,
+  type TraceStatus,
 } from "../services/traceService.js";
 
 interface TraceParams {
   id: string;
 }
 
+interface UpdateTraceBody {
+  taskGoal?: string;
+  status?: TraceStatus;
+}
+
 interface QueryParams {
   status?: string;
   page?: string;
   pageSize?: string;
+  workspacePath?: string;
 }
 
 interface SearchParams {
@@ -42,6 +51,15 @@ interface SearchParams {
 
 interface CreateTraceBody {
   taskGoal?: string;
+  workspacePath?: string;
+}
+
+interface AssociateCommitsBody {
+  commits: Array<{
+    commitHash: string;
+    parentCommitHash?: string;
+    workspacePath: string;
+  }>;
 }
 
 async function tracesRoutes(app: FastifyInstance): Promise<void> {
@@ -62,9 +80,9 @@ async function tracesRoutes(app: FastifyInstance): Promise<void> {
       },
     },
     async (req: FastifyRequest<{ Body: CreateTraceBody }>, reply: FastifyReply) => {
-      const { taskGoal } = req.body;
+      const { taskGoal, workspacePath } = req.body;
 
-      const trace = createTrace({ taskGoal: taskGoal ?? "Untitled Trace" });
+      const trace = createTrace({ taskGoal: taskGoal ?? "Untitled Trace", workspacePath });
 
       return reply.status(201).send({
         success: true,
@@ -87,17 +105,19 @@ async function tracesRoutes(app: FastifyInstance): Promise<void> {
             status: { type: "string" },
             page: { type: "string" },
             pageSize: { type: "string" },
+            workspacePath: { type: "string" },
           },
         },
       },
     },
     async (req: FastifyRequest<{ Querystring: QueryParams }>, reply: FastifyReply) => {
-      const { status, page, pageSize } = req.query;
+      const { status, page, pageSize, workspacePath } = req.query;
 
       const result = await queryTraces({
         status: status as "running" | "paused" | "completed" | "failed" | undefined,
         page: page ? parseInt(page, 10) : 1,
         pageSize: pageSize ? parseInt(pageSize, 10) : 20,
+        workspacePath,
       });
 
       return reply.send(result);
@@ -106,7 +126,7 @@ async function tracesRoutes(app: FastifyInstance): Promise<void> {
 
   /**
    * GET /api/traces/search
-   * 搜索 traces 和 spans（基于 keyword、workspace、commit_hash）
+   * 搜索 traces 和 spans
    */
   app.get<{ Querystring: SearchParams }>(
     "/search",
@@ -137,11 +157,7 @@ async function tracesRoutes(app: FastifyInstance): Promise<void> {
         pageSize: pageSize ? parseInt(pageSize, 10) : 20,
       });
 
-      return reply.send({
-        success: true,
-        data: result.data,
-        total: result.total,
-      });
+      return reply.send({ success: true, ...result });
     }
   );
 
@@ -175,53 +191,6 @@ async function tracesRoutes(app: FastifyInstance): Promise<void> {
       return reply.send({
         success: true,
         data: trace,
-      });
-    }
-  );
-
-  /**
-   * PATCH /api/traces/:id
-   * 更新 trace（状态、taskGoal）
-   */
-  app.patch<{ Params: TraceParams; Body: { status?: string; taskGoal?: string } }>(
-    "/:id",
-    {
-      schema: {
-        params: {
-          type: "object",
-          required: ["id"],
-          properties: {
-            id: { type: "string", minLength: 1 },
-          },
-        },
-        body: {
-          type: "object",
-          properties: {
-            status: { type: "string" },
-            taskGoal: { type: "string" },
-          },
-        },
-      },
-    },
-    async (req: FastifyRequest<{ Params: TraceParams; Body: { status?: string; taskGoal?: string } }>, reply: FastifyReply) => {
-      const { id } = req.params;
-      const { status, taskGoal } = req.body;
-
-      const updated = updateTrace(id, {
-        ...(status ? { status: status as "running" | "paused" | "completed" | "failed" } : {}),
-        ...(taskGoal ? { taskGoal } : {}),
-      });
-
-      if (!updated) {
-        return reply.status(404).send({
-          success: false,
-          error: "Trace not found",
-        });
-      }
-
-      return reply.send({
-        success: true,
-        data: updated,
       });
     }
   );
@@ -265,21 +234,24 @@ async function tracesRoutes(app: FastifyInstance): Promise<void> {
 
       const { trace, tree } = traceResult;
 
-      // 统计 span 数量
-      const totalSpans = tree.length;
-      const humanSpans = tree.filter((s) => s.actorType === "human").length;
-      const agentSpans = tree.filter((s) => s.actorType === "agent").length;
-      const systemSpans = tree.filter((s) => s.actorType === "system").length;
+      // 获取扁平 span 列表用于统计
+      const allSpans = getSpansByTraceId(traceId);
+
+      // 统计 span 数量（使用扁平列表）
+      const totalSpans = allSpans.length;
+      const humanSpans = allSpans.filter((s) => s.actorType === "human").length;
+      const agentSpans = allSpans.filter((s) => s.actorType === "agent").length;
+      const systemSpans = allSpans.filter((s) => s.actorType === "system").length;
 
       // 提取根 span（无父节点的 span）
-      const rootSpans = tree.filter((s) => !s.parentSpanId);
+      const rootSpans = allSpans.filter((s) => !s.parentSpanId);
 
       // 计算时间范围
       let earliestTime: string | null = null;
       let latestTime: string | null = null;
       let failedSpan: { actorName: string; payload: Record<string, unknown> } | null = null;
 
-      for (const span of tree) {
+      for (const span of allSpans) {
         const ts = (span.payload as Record<string, unknown>)?.timestamp as string | undefined;
         if (ts) {
           if (!earliestTime || ts < earliestTime) {
@@ -295,29 +267,40 @@ async function tracesRoutes(app: FastifyInstance): Promise<void> {
         }
       }
 
-      // 计算处理时间
-      const processingTimeMs = Date.now() - startTime;
-
-      // 统计 Token 用量
+      // 聚合所有 span 的 tokenUsage
       let totalInputTokens = 0;
       let totalOutputTokens = 0;
       let totalCacheCreationTokens = 0;
       let totalCacheReadTokens = 0;
+      let totalApiCallCount = 0;
 
-      for (const span of tree) {
-        const tokenUsage = (span.payload as Record<string, unknown>)?.tokenUsage as {
-          inputTokens?: number;
-          outputTokens?: number;
-          cacheCreationTokens?: number;
-          cacheReadTokens?: number;
-        } | undefined;
-        if (tokenUsage) {
-          totalInputTokens += tokenUsage.inputTokens ?? 0;
-          totalOutputTokens += tokenUsage.outputTokens ?? 0;
-          totalCacheCreationTokens += tokenUsage.cacheCreationTokens ?? 0;
-          totalCacheReadTokens += tokenUsage.cacheReadTokens ?? 0;
+      for (const span of allSpans) {
+        const tu = (span.payload as Record<string, unknown>)?.tokenUsage as
+          | { inputTokens?: number; outputTokens?: number; cacheCreationTokens?: number; cacheReadTokens?: number; apiCallCount?: number }
+          | undefined;
+        if (tu) {
+          totalInputTokens += tu.inputTokens ?? 0;
+          totalOutputTokens += tu.outputTokens ?? 0;
+          totalCacheCreationTokens += tu.cacheCreationTokens ?? 0;
+          totalCacheReadTokens += tu.cacheReadTokens ?? 0;
+          totalApiCallCount += tu.apiCallCount ?? 0;
         }
       }
+
+      const tokenUsage =
+        totalInputTokens > 0 || totalOutputTokens > 0
+          ? {
+              totalInputTokens,
+              totalOutputTokens,
+              totalTokens: totalInputTokens + totalOutputTokens,
+              ...(totalCacheCreationTokens > 0 ? { totalCacheCreationTokens } : {}),
+              ...(totalCacheReadTokens > 0 ? { totalCacheReadTokens } : {}),
+              ...(totalApiCallCount > 0 ? { totalApiCallCount } : {}),
+            }
+          : undefined;
+
+      // 计算处理时间
+      const processingTimeMs = Date.now() - startTime;
 
       // 构建响应
       const summary = {
@@ -326,19 +309,13 @@ async function tracesRoutes(app: FastifyInstance): Promise<void> {
         status: trace.status,
         createdAt: trace.createdAt,
         updatedAt: trace.updatedAt,
+        spanTree: allSpans,
         statistics: {
           totalSpans,
           humanSpans,
           agentSpans,
           systemSpans,
           rootSpanCount: rootSpans.length,
-        },
-        tokenUsage: {
-          totalInputTokens,
-          totalOutputTokens,
-          totalCacheCreationTokens,
-          totalCacheReadTokens,
-          totalTokens: totalInputTokens + totalOutputTokens,
         },
         timeline: {
           earliestEvent: earliestTime,
@@ -360,6 +337,7 @@ async function tracesRoutes(app: FastifyInstance): Promise<void> {
         performance: {
           processingTimeMs,
         },
+        ...(tokenUsage ? { tokenUsage } : {}),
       };
 
       return reply.send({
@@ -445,6 +423,83 @@ async function tracesRoutes(app: FastifyInstance): Promise<void> {
   );
 
   /**
+   * GET /api/traces/:id/spans
+   * 获取 trace 下的所有 spans
+   */
+  app.get<{ Params: TraceParams }>(
+    "/:id/spans",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: {
+            id: { type: "string", minLength: 1 },
+          },
+        },
+      },
+    },
+    async (req: FastifyRequest<{ Params: TraceParams }>, reply: FastifyReply) => {
+      const trace = await getTraceById(req.params.id);
+
+      if (!trace) {
+        return reply.status(404).send({
+          success: false,
+          error: "Trace not found",
+        });
+      }
+
+      const spans = getSpansByTraceId(req.params.id);
+
+      return reply.send({
+        success: true,
+        data: spans,
+      });
+    }
+  );
+
+  /**
+   * PATCH /api/traces/:id
+   * 更新 trace（状态或任务目标）
+   */
+  app.patch<{ Params: TraceParams; Body: UpdateTraceBody }>(
+    "/:id",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: {
+            id: { type: "string", minLength: 1 },
+          },
+        },
+        body: {
+          type: "object",
+          properties: {
+            taskGoal: { type: "string" },
+            status: { type: "string", enum: ["running", "completed", "failed", "paused"] },
+          },
+        },
+      },
+    },
+    async (req: FastifyRequest<{ Params: TraceParams; Body: UpdateTraceBody }>, reply: FastifyReply) => {
+      const updated = updateTrace(req.params.id, req.body);
+
+      if (!updated) {
+        return reply.status(404).send({
+          success: false,
+          error: "Trace not found",
+        });
+      }
+
+      return reply.send({
+        success: true,
+        data: updated,
+      });
+    }
+  );
+
+  /**
    * DELETE /api/traces/:id
    * 删除 trace
    */
@@ -474,6 +529,68 @@ async function tracesRoutes(app: FastifyInstance): Promise<void> {
       return reply.send({
         success: true,
         message: "Trace deleted",
+      });
+    }
+  );
+
+  /**
+   * POST /api/traces/:id/associate-commits
+   * 批量关联历史 commits 到指定 trace
+   *
+   * 用于解决"先 commit 后装 hook"场景，将已有 commits 补关联到 trace
+   */
+  app.post<{ Params: TraceParams; Body: AssociateCommitsBody }>(
+    "/:id/associate-commits",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: {
+            id: { type: "string", minLength: 1 },
+          },
+        },
+        body: {
+          type: "object",
+          required: ["commits"],
+          properties: {
+            commits: {
+              type: "array",
+              items: {
+                type: "object",
+                required: ["commitHash", "workspacePath"],
+                properties: {
+                  commitHash: { type: "string", minLength: 1 },
+                  parentCommitHash: { type: "string" },
+                  workspacePath: { type: "string", minLength: 1 },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    async (req: FastifyRequest<{ Params: TraceParams; Body: AssociateCommitsBody }>, reply: FastifyReply) => {
+      const traceId = req.params.id;
+      const { commits } = req.body;
+
+      const result = associateCommitsToTrace(traceId, commits);
+
+      if (result.success) {
+        return reply.status(200).send({
+          success: true,
+          data: {
+            traceId,
+            associatedCount: result.spanIds.length,
+            spanIds: result.spanIds,
+          },
+          ...(result.errors.length > 0 ? { warnings: result.errors } : {}),
+        });
+      }
+
+      return reply.status(400).send({
+        success: false,
+        error: result.errors.join("; "),
       });
     }
   );

@@ -36,18 +36,16 @@ import {
   BackendUnreachableError,
 } from "./client/backendClient";
 import {
-  SessionTreeProvider,
   CommitBindingsTreeProvider,
-  SessionItem,
   CommitGroupItem,
   CommitSessionItem,
 } from "./providers/sessionTreeProvider";
 import {
-  SessionDetailPanel,
   DashboardPanel,
 } from "./providers/sessionWebviewProvider";
 import {
   TraceTreeProvider,
+  TraceItem,
 } from "./providers/traceTreeProvider";
 import {
   TracePanel,
@@ -74,9 +72,6 @@ let backendProcess: cp.ChildProcess | null = null;
 
 /** 本地 MCP 服务子进程句柄 */
 let mcpServerProcess: cp.ChildProcess | null = null;
-
-/** 会话列表 TreeView 提供者 */
-let sessionTreeProvider: SessionTreeProvider;
 
 /** Commit 绑定 TreeView 提供者 */
 let commitBindingsProvider: CommitBindingsTreeProvider;
@@ -415,9 +410,9 @@ const MCP_CLIENT_PROFILES: McpClientProfile[] = [
   {
     id: "opencode",
     label: "OpenCode",
-    configPath: "~/.config/opencode/config.json",
+    configPath: "~/.config/opencode/opencode.json",
     format: "opencode",
-    detail: "OpenCode CLI — ~/.config/opencode/config.json",
+    detail: "OpenCode CLI — ~/.config/opencode/opencode.json",
   },
   {
     id: "cursor",
@@ -513,6 +508,7 @@ async function writeMcpEntryToConfig(
   format: McpClientProfile["format"],
   mcpCommand: string,
   mcpArgs: string[],
+  backendUrl: string,
 ): Promise<void> {
   const dir = path.dirname(configFilePath);
   await fs.promises.mkdir(dir, { recursive: true });
@@ -525,19 +521,25 @@ async function writeMcpEntryToConfig(
   }
 
   if (format === "opencode") {
-    // OpenCode uses { mcpServers: { "agentlog-mcp": { command, args } } }
-    if (
-      !configJson.mcpServers ||
-      typeof configJson.mcpServers !== "object" ||
-      Array.isArray(configJson.mcpServers)
-    ) {
-      configJson.mcpServers = {};
+    // OpenCode uses { mcp: { "agentlog": { type, command, environment, enabled } }, plugin: [...] }
+    if (!configJson.mcp || typeof configJson.mcp !== "object" || Array.isArray(configJson.mcp)) {
+      configJson.mcp = {};
     }
-    const servers = configJson.mcpServers as Record<string, unknown>;
-    servers["agentlog-mcp"] = {
-      command: mcpCommand,
-      args: mcpArgs,
+    const servers = configJson.mcp as Record<string, unknown>;
+    servers["agentlog"] = {
+      type: "local",
+      command: [mcpCommand, ...mcpArgs],
+      environment: {
+        AGENTLOG_GATEWAY_URL: backendUrl,
+      },
+      enabled: true,
     };
+    // Add agentlog-auto plugin if not already present
+    const pluginPath = path.join(os.homedir(), ".config", "opencode", "plugins", "agentlog-auto.js");
+    const existingPlugin = configJson.plugin as string[] | undefined;
+    if (!existingPlugin || !existingPlugin.some(p => p.includes("agentlog-auto"))) {
+      configJson.plugin = [...(existingPlugin || []), pluginPath];
+    }
   } else if (format === "mcpServers" || format === "cline") {
     // { mcpServers: { "agentlog-mcp": { command, args, ... } } }
     if (
@@ -623,25 +625,25 @@ function buildAgentRulesBlock(): string {
 
 ## 调用流程
 
-**第 1 步（最先）：收到用户消息后，立即调用 log_turn，不传 session_id：**
+**第 1 步（最先）：收到用户消息后，立即调用 log_turn，不传 trace_id：**
 \`log_turn(role="user", content="用户消息", model="模型名", workspace_path="工作目录")\`
-→ 返回 JSON，提取 session_id 并缓存
+→ 返回 JSON，提取 trace_id 并缓存
 
 **第 2 步（每次工具执行后）：**
-\`log_turn(session_id="session_id", role="tool", content="结果摘要", tool_name="edit", tool_input="filePath=...")\`
+\`log_turn(trace_id="trace_id", role="tool", content="结果摘要", tool_name="edit", tool_input="filePath=...")\`
 
 **第 3 步（每次回复后）：**
-\`log_turn(session_id="session_id", role="assistant", content="回复内容")\`
+\`log_turn(trace_id="trace_id", role="assistant", content="回复内容")\`
 
 **第 4 步（任务完成后）：**
-\`log_intent(session_id="session_id", task="任务描述", model="模型名", affected_files=["file1.ts"])\`
+\`log_intent(trace_id="trace_id", task="任务描述", model="模型名", affected_files=["file1.ts"])\`
 
 ---
 
 ## 强制约束
 
 ⚠️ **log_turn 必须在 read/edit/write/webfetch 等任何操作之前调用**
-⚠️ **session_id 丢失 = 每条消息创建独立会话（碎片化）**
+⚠️ **trace_id 丢失 = 每条消息创建独立 Trace（对话碎片化）**
 ⚠️ **跳过 log_turn = 那部分编码过程无法记录**
 ⚠️ **不调用 log_intent = 任务无法归档**
 ${AGENTS_MD_RULE_END}`;
@@ -784,6 +786,37 @@ async function injectQoderAgentRules(workspaceRoot: string): Promise<void> {
 }
 
 /**
+ * 将 agentlog-auto 插件安装到用户 OpenCode 插件目录。
+ * - 源路径：extension/dist/opencode-plugins/agentlog-auto/index.js
+ * - 目标路径：~/.config/opencode/plugins/agentlog-auto.js
+ * - 若目标已存在，替换旧版本（幂等操作）
+ */
+async function installOpenCodePlugin(context: vscode.ExtensionContext): Promise<void> {
+  const isDevMode = context.extensionMode === vscode.ExtensionMode.Development;
+  const srcPluginPath = isDevMode
+    ? path.join(context.extensionPath, "src", "opencode-plugins", "agentlog-auto", "index.js")
+    : path.join(context.extensionPath, "dist", "opencode-plugins", "agentlog-auto", "index.js");
+  const dstPluginPath = path.join(os.homedir(), ".config", "opencode", "plugins", "agentlog-auto.js");
+
+  log(`[MCP-CFG] 安装 OpenCode 插件: ${srcPluginPath} -> ${dstPluginPath}`);
+
+  const dstPluginDir = path.dirname(dstPluginPath);
+  try {
+    await fs.promises.mkdir(dstPluginDir, { recursive: true });
+  } catch (err) {
+    log(`[MCP-CFG] 创建插件目录失败: ${err instanceof Error ? err.message : String(err)}`);
+    throw err;
+  }
+
+  if (!fs.existsSync(srcPluginPath)) {
+    throw new Error(`插件源文件不存在: ${srcPluginPath}`);
+  }
+
+  await fs.promises.copyFile(srcPluginPath, dstPluginPath);
+  log(`[MCP-CFG] 插件已复制到: ${dstPluginPath}`);
+}
+
+/**
  * QuickPick 向导：引导用户选择 AI 客户端并自动完成 MCP 配置注册。
  */
 async function configureMcpClient(
@@ -797,6 +830,7 @@ async function configureMcpClient(
   // 读取已配置的客户端列表
   const vsConfig = vscode.workspace.getConfiguration("agentlog");
   const configuredClients: string[] = vsConfig.get("mcp.configuredClients", []);
+  const backendUrl: string = vsConfig.get<string>("backendUrl") ?? "http://localhost:7892";
 
   // 构建 QuickPick 条目
   const items: (vscode.QuickPickItem & { profile?: McpClientProfile; isCustom?: boolean })[] = [
@@ -859,15 +893,16 @@ async function configureMcpClient(
   }
 
   try {
-    await writeMcpEntryToConfig(targetPath, format, mcpCommand, mcpArgs);
+    await writeMcpEntryToConfig(targetPath, format, mcpCommand, mcpArgs, backendUrl);
     log(`[MCP-CFG] 已写入配置文件: ${targetPath}`);
 
-    // OpenCode 专项：额外写入全局 AGENTS.md 调用规则
+    // OpenCode 专项：额外写入全局 AGENTS.md 调用规则并安装 auto 插件
     const isOpenCode = picked.profile?.id === "opencode" ||
       (!picked.profile && (targetPath.includes("opencode")));
     const opencodeAgentsMdPath = path.join(os.homedir(), ".config", "opencode", "AGENTS.md");
     if (isOpenCode) {
       await injectOpenCodeAgentRules();
+      await installOpenCodePlugin(context);
     }
 
     // Qoder 专项：额外写入项目级 AGENTS.md 调用规则
@@ -900,7 +935,7 @@ async function configureMcpClient(
     let message: string;
     const actions: string[] = ["查看配置文件"];
     if (isOpenCode) {
-      message = `AgentLog MCP 已配置到 ${clientName}，调用规则已写入全局 AGENTS.md，请重启 OpenCode 生效。`;
+      message = `AgentLog MCP 已配置到 ${clientName}，Auto 插件已安装，调用规则已写入 AGENTS.md，请重启 OpenCode 生效。`;
       actions.push("查看 AGENTS.md");
     } else if (isQoder) {
       message = `AgentLog MCP 已配置到 ${clientName}，调用规则已写入项目 AGENTS.md，请重启 Qoder 生效。`;
@@ -958,22 +993,22 @@ async function verifyMcpConnection(): Promise<void> {
 
   // 2. 检查 OpenCode MCP 配置文件
   results.push("2. 检查 OpenCode MCP 配置文件...");
-  const opencodeConfigPath = path.join(os.homedir(), ".config", "opencode", "config.json");
+  const opencodeConfigPath = path.join(os.homedir(), ".config", "opencode", "opencode.json");
   if (fs.existsSync(opencodeConfigPath)) {
     try {
       const configContent = await fs.promises.readFile(opencodeConfigPath, "utf-8");
       const config = JSON.parse(configContent);
       
-      if (config.mcp?.["agentlog-mcp"]) {
-        results.push("   ✓ OpenCode config.json 包含 agentlog-mcp 条目");
-        const entry = config.mcp["agentlog-mcp"];
+      if (config.mcp?.["agentlog"]) {
+        results.push("   ✓ OpenCode opencode.json 包含 agentlog 条目");
+        const entry = config.mcp["agentlog"];
         results.push(`     类型: ${entry.type || "unknown"}, 启用: ${entry.enabled !== false ? "是" : "否"}`);
         if (entry.command) {
           results.push(`     命令: ${JSON.stringify(entry.command)}`);
         }
       } else {
-        errors.push(`   OpenCode config.json 缺少 agentlog-mcp 条目`);
-        results.push("   ✗ 缺少 agentlog-mcp 条目");
+        errors.push(`   OpenCode opencode.json 缺少 agentlog 条目`);
+        results.push("   ✗ 缺少 agentlog 条目");
       }
     } catch (err) {
       errors.push(`   读取 OpenCode 配置文件失败: ${err instanceof Error ? err.message : String(err)}`);
@@ -1222,26 +1257,14 @@ function registerCommands(
   //   await sessionTreeProvider.loadPage(pageNum);
   // });
 
-  register("agentlog.viewSessionDetail", async (sessionOrId: unknown) => {
-    let sessionId: string;
+  // Session 视图已废弃，viewSessionDetail 命令已禁用
+  // register("agentlog.viewSessionDetail", async (sessionOrId: unknown) => {
+  //   ...
+  // });
 
-    if (sessionOrId instanceof SessionItem) {
-      sessionId = sessionOrId.session.id;
-    } else if (
-      typeof sessionOrId === "object" &&
-      sessionOrId !== null &&
-      "id" in sessionOrId &&
-      typeof (sessionOrId as { id: unknown }).id === "string"
-    ) {
-      sessionId = (sessionOrId as { id: string }).id;
-    } else if (typeof sessionOrId === "string") {
-      sessionId = sessionOrId;
-    } else {
-      vscode.window.showErrorMessage("无法解析会话 ID");
-      return;
-    }
-
-    await SessionDetailPanel.open(sessionId, context, outputChannel);
+  // ── Trace 列表刷新 ─────────────────────────
+  register("agentlog.refreshTraceList", async () => {
+    traceTreeProvider.refresh();
   });
 
   // Session 视图已废弃，删除会话功能已禁用
@@ -1274,75 +1297,64 @@ function registerCommands(
   // ── 上下文复活（Resume Context）──────────
 
   register("agentlog.resumeContext", async (item: unknown) => {
-    // 1. 解析 sessionId —— 可能来自 TreeView 节点（SessionItem / CommitSessionItem）或字符串
-    let sessionId: string | undefined;
+    let traceId: string | undefined;
 
-    if (item instanceof SessionItem) {
-      sessionId = item.session.id;
+    if (item instanceof TraceItem) {
+      traceId = item.trace.id;
     } else if (item instanceof CommitSessionItem) {
-      sessionId = item.session.id;
+      // CommitSessionItem has traceId via session, but for now we handle trace
+      traceId = (item as unknown as { traceId?: string }).traceId;
     } else if (
       typeof item === "object" &&
       item !== null &&
       "id" in item &&
       typeof (item as { id: unknown }).id === "string"
     ) {
-      sessionId = (item as { id: string }).id;
+      traceId = (item as { id: string }).id;
     } else if (typeof item === "string") {
-      sessionId = item;
+      traceId = item;
     }
 
-    if (!sessionId) {
-      sessionId = await vscode.window.showInputBox({
-        prompt: "请输入要复活上下文的会话 ID",
-        placeHolder: "nanoid（例如：V1StGXR8_Z5j）",
+    if (!traceId) {
+      traceId = await vscode.window.showInputBox({
+        prompt: "请输入要复活上下文的 Trace ID",
+        placeHolder: "ULID（例如：01ARZ3NDEKTSV4RRFFQ69G5FAV）",
       });
-      if (!sessionId) return;
+      if (!traceId) return;
     }
 
-    // 2. 从后台获取完整会话数据
+    // 2. 从后台获取完整 Trace 数据
     try {
       const client = getBackendClient();
-      const session = await client.getSession(sessionId);
+      const trace = await client.getTrace(traceId) as { taskGoal: string; status: string };
+      const spans = (await client.getTraceSpans(traceId)) as Array<{ payload: Record<string, unknown> }>;
 
       // 3. 组装上下文 Prompt
       const parts: string[] = [];
 
       parts.push("【历史 AI 上下文复活 — Resume Context】");
       parts.push("");
-      parts.push(`## 原始任务 (Original Task)`);
-      parts.push(session.prompt);
+      parts.push(`## 任务目标 (Task Goal)`);
+      parts.push(trace.taskGoal);
       parts.push("");
 
-      if (session.reasoning) {
-        parts.push(`## 历史推理过程 (Reasoning / Chain-of-Thought)`);
-        parts.push(session.reasoning);
-        parts.push("");
-      }
-
-      parts.push(`## AI 最终响应 (Response)`);
-      parts.push(session.response);
-      parts.push("");
-
-      if (session.affectedFiles && session.affectedFiles.length > 0) {
-        parts.push(`## 涉及文件 (Affected Files)`);
-        for (const f of session.affectedFiles) {
-          parts.push(`- ${f}`);
-        }
-        parts.push("");
-      }
-
-      if (session.transcript && session.transcript.length > 0) {
-        parts.push(`## 逐轮对话记录 (Transcript)`);
-        for (const turn of session.transcript) {
-          const roleLabel =
-            turn.role === "user"
-              ? "User"
-              : turn.role === "assistant"
-                ? "Assistant"
-                : `Tool(${turn.toolName ?? "unknown"})`;
+      if (spans && spans.length > 0) {
+        parts.push(`## 逐轮执行记录 (Spans)`);
+        for (const span of spans) {
+          const payload = span.payload;
+          const role = (payload.role as string) || "unknown";
+          const content = (payload.content as string) || "";
+          const reasoning = (payload.reasoning as string) || "";
+          const toolName = payload.toolName as string | undefined;
+          
+          const roleLabel = role === "user" ? "User" : role === "assistant" ? "Assistant" : `Tool(${toolName ?? "unknown"})`;
           parts.push(`### ${roleLabel}`);
-          parts.push(turn.content);
+          if (content) parts.push(content);
+          if (reasoning) {
+            parts.push("");
+            parts.push("**推理过程:**");
+            parts.push(reasoning);
+          }
           parts.push("");
         }
       }
@@ -1356,13 +1368,13 @@ function registerCommands(
       await vscode.env.clipboard.writeText(contextText);
 
       // 5. 弹出 Toast 提示
-      const promptPreview = session.prompt.replace(/\n/g, " ").slice(0, 40);
+      const promptPreview = trace.taskGoal.replace(/\n/g, " ").slice(0, 40);
       vscode.window.showInformationMessage(
-        `上下文已复制到剪贴板，请粘贴到 Cline / Cursor / Copilot 的聊天框中继续工作。\n会话：${promptPreview}${session.prompt.length > 40 ? "…" : ""}`,
+        `上下文已复制到剪贴板，请粘贴到 Cline / Cursor / Copilot 的聊天框中继续工作。\nTrace：${promptPreview}${trace.taskGoal.length > 40 ? "…" : ""}`,
       );
 
       log(
-        `[resumeContext] 已将会话 ${sessionId} 的上下文复制到剪贴板（${contextText.length} 字符）`,
+        `[resumeContext] 已将该 Trace ${traceId} 的上下文复制到剪贴板（${contextText.length} 字符）`,
       );
     } catch (err) {
       if (err instanceof BackendUnreachableError) {
@@ -1387,19 +1399,19 @@ function registerCommands(
   // ── Commit 绑定 ───────────────────────────
 
   register("agentlog.bindCommit", async (item: unknown) => {
-    let sessionId: string | undefined;
+    let traceId: string | undefined;
 
-    if (item instanceof SessionItem) {
-      sessionId = item.session.id;
+    if (item instanceof TraceItem) {
+      traceId = item.trace.id;
     }
 
-    if (!sessionId) {
+    if (!traceId) {
       // 若无上下文，弹出输入框
-      sessionId = await vscode.window.showInputBox({
-        prompt: "请输入要绑定的会话 ID",
-        placeHolder: "nanoid（例如：V1StGXR8_Z5j）",
+      traceId = await vscode.window.showInputBox({
+        prompt: "请输入要绑定的 Trace ID",
+        placeHolder: "ULID（例如：01ARZ3NDEKTSV4RRFFQ69G5FAV）",
       });
-      if (!sessionId) return;
+      if (!traceId) return;
     }
 
     const commitHash = await vscode.window.showInputBox({
@@ -1414,12 +1426,12 @@ function registerCommands(
     try {
       const client = getBackendClient();
       const workspacePath = resolveWorkspacePath();
-      await client.bindCommit([sessionId], commitHash.trim(), workspacePath);
+      await client.bindCommit([traceId], commitHash.trim(), workspacePath);
 
       commitBindingsProvider.refresh();
 
       vscode.window.showInformationMessage(
-        `✅ 已将会话绑定到 Commit ${commitHash.slice(0, 8)}`,
+        `✅ 已将 Trace 绑定到 Commit ${commitHash.slice(0, 8)}`,
       );
     } catch (err) {
       vscode.window.showErrorMessage(
@@ -1429,19 +1441,19 @@ function registerCommands(
   });
 
   register("agentlog.unbindCommit", async (item: unknown) => {
-    let sessionId: string | undefined;
+    let traceId: string | undefined;
 
-    if (item instanceof SessionItem) {
-      sessionId = item.session.id;
+    if (item instanceof TraceItem) {
+      traceId = item.trace.id;
     }
 
-    if (!sessionId) {
-      vscode.window.showErrorMessage("无法解析要解除绑定的会话 ID");
+    if (!traceId) {
+      vscode.window.showErrorMessage("无法解析要解除绑定的 Trace ID");
       return;
     }
 
     const confirm = await vscode.window.showWarningMessage(
-      `确定要解除此会话的所有 Commit 绑定吗？`,
+      `确定要解除此 Trace 的所有 Commit 绑定吗？`,
       { modal: true },
       "确认解除",
     );
@@ -1450,7 +1462,7 @@ function registerCommands(
 
     try {
       const client = getBackendClient();
-      await client.unbindSession(sessionId);
+      await client.unbindSession(traceId);
       commitBindingsProvider.refresh();
       vscode.window.showInformationMessage("✅ 已解除所有 Commit 绑定");
     } catch (err) {
@@ -2085,7 +2097,13 @@ function registerTraceTreeView(context: vscode.ExtensionContext): void {
 
   // 注册查看 trace 详情的命令
   disposables.push(
-    vscode.commands.registerCommand("agentlog.viewTraceDetail", async (traceId: string) => {
+    vscode.commands.registerCommand("agentlog.viewTraceDetail", async (arg: unknown) => {
+      let traceId: string | undefined;
+      if (arg instanceof TraceItem) {
+        traceId = arg.trace.id;
+      } else if (typeof arg === "string") {
+        traceId = arg;
+      }
       if (!traceId) {
         vscode.window.showErrorMessage("无效的 Trace ID");
         return;
@@ -2157,6 +2175,10 @@ export async function activate(
     const config = readConfig();
     if ((config as any).autoStartBackend ?? true) {
       await startBackendProcess(context, config);
+    } else {
+      // 不自动启动，但检查是否已有运行中的后台
+      const health = await getBackendClient().ping(true);
+      updateStatusBar(health.status === "ok" ? "idle" : "backend-offline");
     }
     await startMcpServerProcess(context);
   }, 1000);
@@ -2187,31 +2209,6 @@ export async function activate(
     log(
       `[激活] Chat Participant 注册失败（VS Code 版本可能不支持 Chat API）：${err instanceof Error ? err.message : String(err)}`,
     );
-  }
-
-  // 9. 按需自动启动后台
-  const autoStart = vscode.workspace
-    .getConfiguration("agentlog")
-    .get<boolean>("autoStartBackend", true);
-
-  if (autoStart) {
-    startBackendProcess(context, config).catch((err) => {
-      log(
-        `[激活] 后台自动启动失败：${err instanceof Error ? err.message : String(err)}`,
-      );
-    });
-  } else {
-    // 不自动启动，但检查是否已有运行中的后台
-    getBackendClient()
-      .ping(true)
-      .then((health) => {
-        if (health.status === "ok") {
-          updateStatusBar("idle");
-        } else {
-          updateStatusBar("backend-offline");
-        }
-      })
-      .catch(() => updateStatusBar("backend-offline"));
   }
 
   // 10. 将所有可 dispose 的资源交给 context 管理

@@ -393,7 +393,7 @@ function detectAgentSource(): string {
 
 export const skill = {
   name: 'agentlog-auto',
-  version: '1.0.0',
+  version: '1.1.0',
   hooks: {
     'session:start': onSessionStart,
     'tool:before_call': beforeToolCall,

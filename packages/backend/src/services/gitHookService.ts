@@ -18,8 +18,12 @@ import {
   isGitRepo,
   getGitConfig,
 } from "./gitService.js";
-import { createSpan, getTraceById } from "./traceService.js";
+import { createSpan, getTraceById, transitionToInProgress } from "./traceService.js";
 import type { ActorType } from "./traceService.js";
+import {
+  getActiveSessionByTraceId,
+  completeActiveSession,
+} from "./sessionsJsonService.js";
 
 // ─────────────────────────────────────────────
 // 类型定义
@@ -98,10 +102,10 @@ export async function installGitHook(workspacePath: string): Promise<GitHookInst
       fs.mkdirSync(hooksDir, { recursive: true });
     }
 
-    // 检查是否已安装（检查是否包含 AgentLog 标记）
+    // 检查是否已安装（检查是否包含 AgentLog 标记，大小写不敏感）
     if (fs.existsSync(hookPath)) {
       const existing = fs.readFileSync(hookPath, "utf-8");
-      if (existing.includes("AgentLog")) {
+      if (existing.toLowerCase().includes("agentlog")) {
         return { success: true, hookPath };
       }
       // 备份原有钩子
@@ -128,7 +132,7 @@ export async function uninstallGitHook(workspacePath: string): Promise<GitHookIn
   try {
     if (fs.existsSync(hookPath)) {
       const content = fs.readFileSync(hookPath, "utf-8");
-      if (content.includes("AgentLog")) {
+      if (content.toLowerCase().includes("agentlog")) {
         fs.unlinkSync(hookPath);
         return { success: true };
       }
@@ -149,7 +153,7 @@ export function isGitHookInstalled(workspacePath: string): boolean {
     return false;
   }
   const content = fs.readFileSync(hookPath, "utf-8");
-  return content.includes("AgentLog");
+  return content.toLowerCase().includes("agentlog");
 }
 
 // ─────────────────────────────────────────────
@@ -161,14 +165,29 @@ export function isGitHookInstalled(workspacePath: string): boolean {
  * 1. 提取 commit 信息
  * 2. 创建 Human Override Span
  * 3. 记录变更文件
+ * 4. 处理 sessions.json 中的 active session
+ * 5. 状态转换：pending_handoff -> in_progress
  */
 export async function handlePostCommitCallback(
   params: PostCommitCallback
 ): Promise<{ success: boolean; spanId?: string; error?: string }> {
   const { workspacePath, commitHash, parentCommitHash, agentId, sessionId, traceId: paramTraceId } = params;
 
-  // 优先级：参数 traceId > 环境变量 > git config > agentId > "system"
+  // 优先级：参数 traceId > 环境变量 > git config > sessions.json active > agentId > "system"
   let traceId = paramTraceId ?? process.env.AGENTLOG_TRACE_ID ?? agentId ?? null;
+
+  // 尝试从 sessions.json 的 active session 获取 traceId
+  if (!traceId) {
+    try {
+      const activeSession = await getActiveSessionByTraceId(workspacePath, traceId ?? "");
+      if (activeSession) {
+        traceId = activeSession.traceId;
+        console.log(`[GitHook] 从 sessions.json active session 获取 traceId: ${traceId}`);
+      }
+    } catch (err) {
+      console.log(`[GitHook] 读取 sessions.json active session 失败: ${err}`);
+    }
+  }
 
   // 如果还没有，尝试从 git config 读取
   if (!traceId) {
@@ -192,6 +211,26 @@ export async function handlePostCommitCallback(
       getCommitInfo(workspacePath, commitHash),
       getRepoInfo(workspacePath),
     ]);
+
+    // 检查 trace 状态，如果是 pending_handoff 则转换为 in_progress
+    const trace = getTraceById(traceId);
+    if (trace && trace.status === "pending_handoff") {
+      transitionToInProgress(traceId);
+      console.log(`[GitHook] Trace ${traceId} 从 pending_handoff 转为 in_progress`);
+    }
+
+    // 如果有 active session，清理它
+    if (traceId) {
+      try {
+        const activeSession = await getActiveSessionByTraceId(workspacePath, traceId);
+        if (activeSession) {
+          await completeActiveSession(workspacePath, activeSession.sessionId);
+          console.log(`[GitHook] 清理 active session: ${activeSession.sessionId}`);
+        }
+      } catch (err) {
+        console.log(`[GitHook] 清理 active session 失败: ${err}`);
+      }
+    }
 
     // 创建 Human Override Span
     const span = createSpan({

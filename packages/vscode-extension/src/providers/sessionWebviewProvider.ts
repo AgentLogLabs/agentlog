@@ -60,6 +60,15 @@ type ToWebviewMessage =
         pageSize: number;
       };
     }
+  | {
+      type: "loadTraces";
+      payload: {
+        traces: unknown[];
+        total: number;
+        page: number;
+        pageSize: number;
+      };
+    }
   | { type: "loadStats"; payload: Record<string, unknown> }
   | { type: "updateSession"; payload: AgentSession }
   | {
@@ -117,6 +126,16 @@ type FromWebviewMessage =
         endDate?: string;
       };
     }
+  | {
+      command: "queryTraces";
+      data: {
+        page: number;
+        pageSize: number;
+        keyword?: string;
+        status?: string;
+      };
+    }
+  | { command: "viewTraceDetail"; data: { traceId: string } }
   | { command: "copyToClipboard"; data: { text: string } }
   | { command: "openInEditor"; data: { content: string; language: string } }
   | { command: "checkBackend" }
@@ -585,45 +604,13 @@ export class DashboardPanel implements vscode.Disposable {
     try {
       const client = getBackendClient();
 
-      // 尝试获取工作区路径，最多重试5次，每次等待100ms
-      let workspacePath: string | undefined;
-      for (let i = 0; i < 5; i++) {
-        workspacePath = this._resolveWorkspacePath();
-        if (workspacePath !== undefined) {
-          break;
-        }
-        if (i < 4) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-      }
+      const tracesResult = await client.getTraces({ pageSize: 50 });
+      const tracesData = tracesResult as { data: unknown[]; total: number; page: number; pageSize: number };
 
-      if (workspacePath === undefined) {
-        this._postMessage({ 
-          type: "error", 
-          payload: { 
-            message: "未检测到工作区。请打开一个文件夹或工作区，然后刷新仪表板。" 
-          } 
-        });
-        return;
-      }
-
-      // 并行加载：会话列表 + 统计数据
-      const [sessionsResult, stats] = await Promise.allSettled([
-        client.querySessions({ page: 1, pageSize: 20, workspacePath }),
-        client.getSessionStats(workspacePath),
-      ]);
-
-      if (sessionsResult.status === "fulfilled") {
-        const { data, total, page, pageSize } = sessionsResult.value;
-        this._postMessage({
-          type: "loadSessions",
-          payload: { sessions: data, total, page, pageSize },
-        });
-      }
-
-      if (stats.status === "fulfilled") {
-        this._postMessage({ type: "loadStats", payload: stats.value });
-      }
+      this._postMessage({
+        type: "loadTraces",
+        payload: { traces: tracesData.data, total: tracesData.total, page: tracesData.page, pageSize: tracesData.pageSize },
+      });
 
       // 更新后台连接状态
       const health = await client.ping();
@@ -736,6 +723,49 @@ export class DashboardPanel implements vscode.Disposable {
               pageSize: result.pageSize,
             },
           });
+          break;
+        }
+
+        case "queryTraces": {
+          const { keyword, status, ...rest } = msg.data;
+          const tracesResult = await client.getTraces({ 
+            status, 
+            page: rest.page, 
+            pageSize: rest.pageSize 
+          });
+          let tracesData = tracesResult as { data: unknown[]; total: number; page: number; pageSize: number };
+
+          if (keyword && keyword.trim()) {
+            const lower = keyword.trim().toLowerCase();
+            const filtered = (tracesData.data as Array<{taskGoal?: string}>).filter(
+              t => t.taskGoal && t.taskGoal.toLowerCase().includes(lower)
+            );
+            tracesData = {
+              ...tracesData,
+              data: filtered,
+              total: filtered.length,
+            };
+          }
+
+          this._postMessage({
+            type: "loadTraces",
+            payload: {
+              traces: tracesData.data,
+              total: tracesData.total,
+              page: tracesData.page,
+              pageSize: tracesData.pageSize,
+            },
+          });
+          break;
+        }
+
+        case "viewTraceDetail": {
+          const { traceId } = msg.data;
+          try {
+            await vscode.commands.executeCommand("agentlog.viewTraceDetail", traceId);
+          } catch (err) {
+            console.error("[Dashboard] 打开 Trace 详情失败:", err);
+          }
           break;
         }
 

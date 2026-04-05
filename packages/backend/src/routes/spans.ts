@@ -10,6 +10,7 @@ interface CreateSpanBody {
   actorName?: string;
   payload?: Record<string, unknown>;
   source?: string;
+  model?: string;
   event?: string;
   toolName?: string;
   toolInput?: Record<string, unknown>;
@@ -36,6 +37,7 @@ async function spansRoutes(app: FastifyInstance): Promise<void> {
             actorName: { type: 'string', minLength: 1 },
             payload: { type: 'object' },
             source: { type: 'string' },
+            model: { type: 'string' },
             event: { type: 'string' },
             toolName: { type: 'string' },
             toolInput: { type: 'object' },
@@ -86,6 +88,15 @@ async function spansRoutes(app: FastifyInstance): Promise<void> {
           actorName: body.actorName,
           payload: body.payload ?? {},
         };
+      }
+
+      const { getTraceById } = await import('../services/traceService');
+      const trace = getTraceById(spanReq.traceId);
+      if (!trace) {
+        return reply.status(404).send({
+          success: false,
+          error: `Trace not found: ${spanReq.traceId}`,
+        });
       }
 
       const span = createSpan(spanReq);

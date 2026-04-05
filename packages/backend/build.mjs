@@ -9,7 +9,7 @@
  */
 
 import * as esbuild from 'esbuild';
-import { copyFileSync, mkdirSync, readdirSync, existsSync } from 'fs';
+import { copyFileSync, mkdirSync, readdirSync, existsSync, readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
@@ -72,6 +72,8 @@ function copyPkg(pkgName) {
 
 // ── 1. esbuild bundle ────────────────────────────────────────────────────────
 
+const { version: APP_VERSION } = JSON.parse(readFileSync(join(__dirname, 'package.json'), 'utf-8'));
+
 const sharedOptions = {
   bundle: true,
   format: 'cjs',
@@ -80,6 +82,9 @@ const sharedOptions = {
   sourcemap: true,
   minify: false,
   logLevel: 'info',
+  define: {
+    __APP_VERSION__: JSON.stringify(APP_VERSION),
+  },
   external: [
     'better-sqlite3',
     'pino',

@@ -16,24 +16,28 @@
 │                    Human Override 完整链路                             │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
-│  1️⃣ [OpenCode Agent]                                                │
+│  1️⃣ [用户设置基准 traceId]                                           │
+│      git config agentlog.traceid T-001                              │
+│      ↓                                                              │
+│  2️⃣ [OpenCode Agent]                                                │
 │      Agent 生成代码 → 有 Bug                                         │
 │      ↓                                                              │
-│      Agent 调用 log_intent 上报，traceId=T-001 生成                   │
-│      ↓                                                              │
-│  2️⃣ [Git Hook]                                                     │
-│      Agent commit → 创建 commitHash=C1                               │
+│      Agent 调用 log_intent 上报，创建 trace T-002, T-003...         │
 │      ↓                                                              │
 │  3️⃣ [人类接管]                                                      │
 │      人类发现 Bug → 用 OpenCode 打开文件 → 手动修改代码                │
 │      ↓                                                              │
 │  4️⃣ [Git Hook - Human Override]                                     │
 │      人类 git commit → post-commit 触发                              │
-│      → 创建 span: actor=human, actorName=git:human-override          │
-│      → 携带 traceId=T-001, commitHash=C2                            │
+│      → 读取 git config agentlog.traceId = T-001                     │
+│      → 获取 T-001 的创建时间                                         │
+│      → 查询 T-001 之后的所有 traces (T-001, T-002, T-003...)        │
+│      → 为每个 trace 创建 span: actor=human                          │
+│      → commit_bindings 写入所有 traceIds                            │
 │      ↓                                                              │
 │  5️⃣ [OpenClaw Agent Resume]                                         │
-│      Agent 查询 traceId=T-001                                        │
+│      Agent 查询任意 traceId                                          │
+│      → 通过 commit_bindings 获取关联的 commit                        │
 │      → 获取完整 span 树（包括 human override 的 diff）                │
 │      → Agent 知道人类修改了什么，继续修复                              │
 │                                                                     │
@@ -45,8 +49,8 @@
 | 验证点 | 说明 |
 |--------|------|
 | **T-001: TraceID 生成** | OpenCode Agent 首次调用 log_intent 时生成全局 TraceID |
-| **T-002: TraceID 透传** | Git Hook 能接收环境变量中的 TraceID |
-| **T-003: Human Override Span** | 人类 commit 时创建 actor=human 的 span |
+| **T-002: 基准 traceId 设置** | 用户通过 git config 设置基准 trace，Git Hook 读取并查询后续所有 traces |
+| **T-003: Human Override Span** | 人类 commit 时为每个 trace 创建 actor=human 的 span |
 | **T-004: Span 树完整性** | trace 包含 agent spans + human spans 的完整时间线 |
 | **T-005: Agent Resume** | Agent 能通过 traceId 拉取完整上下文继续工作 |
 
@@ -175,7 +179,7 @@
 
 ### TC-HO-003：人类通过 OpenCode 接管并修复
 
-**目的**：验证人类接管流程，人类修改被正确记录
+**目的**：验证人类接管流程，人类修改被正确记录。核心变化：git config 中的 traceId 作为"基准 trace"，git commit 时绑定**该基准创建时间之后的所有 traces**。
 
 **前置条件**：
 - TC-HO-001, TC-HO-002 已完成
@@ -190,22 +194,27 @@
      -d '{"workspacePath":"/path/to/your/repo"}'
    ```
 
-2. **设置环境变量让 Git Hook 知道 TraceID**
-   ```bash
-   export AGENTLOG_TRACE_ID="<traceId from TC-HO-001>"
-   export AGENTLOG_GATEWAY_URL="http://localhost:7892"
-   export AGENTLOG_WORKSPACE_PATH="/path/to/your/repo"
-   ```
-
-3. **人类手动修改代码（模拟接管）**
+2. **设置 git config traceId（作为基准 trace）**
    ```bash
    cd /path/to/your/repo
-   
-   # 假设 Agent 写了错误的版本
-   cat > test_reverse.py << 'EOF'
-   def reverse_string(s):
-       return s  # Bug 版本
-   EOF
+   # 将 TC-HO-001 创建的 traceId 设置为基准
+   git config agentlog.traceid "<traceId from TC-HO-001>"
+   echo "基准 traceId: $(git config agentlog.traceid)"
+   ```
+
+3. **模拟 AI 创建新的 traces（基准 trace 之后）**
+   ```bash
+   # 模拟 AI 工作创建新的 trace
+   TRACE2=$(curl -s -X POST http://localhost:7892/api/traces \
+     -H "Content-Type: application/json" \
+     -d '{"taskGoal":"AI task after human took over"}')
+   TRACE2_ID=$(echo $TRACE2 | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])")
+   echo "创建新 trace: $TRACE2_ID"
+   ```
+
+4. **人类手动修改代码（模拟接管）**
+   ```bash
+   cd /path/to/your/repo
    
    # 人类修复
    cat > test_reverse.py << 'EOF'
@@ -218,41 +227,41 @@
    git commit -m "Fix: reverse string function"
    ```
 
-4. **验证 Human Override Span 创建**
+5. **验证 commit 绑定了多个 traces**
    ```bash
    sleep 2  # 等待异步处理
-   curl -s "http://localhost:7892/api/traces/$TRACE_ID/summary" | python3 -c "
+   COMMIT_HASH=$(git rev-parse HEAD)
+   curl -s "http://localhost:7892/api/commits/$COMMIT_HASH" | python3 -c "
    import sys, json
    d = json.load(sys.stdin)
-   s = d.get('data', {}).get('statistics', {})
-   print('=== After Human Override ===')
-   print('Total Spans:', s.get('totalSpans'))
-   print('Human Spans:', s.get('humanSpans'))
-   print('Agent Spans:', s.get('agentSpans'))
+   if d.get('success'):
+       data = d.get('data', {})
+       trace_ids = data.get('traceIds', [])
+       print('=== Commit Binding ===')
+       print('Commit:', '$COMMIT_HASH'[:8])
+       print('Bound traces:', len(trace_ids))
+       for tid in trace_ids:
+           print('  -', tid)
    "
    ```
 
-5. **验证 Human Span 详情**
+6. **验证每个 trace 都有 Human Override Span**
    ```bash
-   curl -s "http://localhost:7892/api/traces/$TRACE_ID/diff" | python3 -c "
-   import sys, json
-   d = json.load(sys.stdin)
-   tree = d.get('data', {}).get('spanTree', [])
-   human_spans = [s for s in tree if s.get('actorType') == 'human']
-   print('Human Spans:')
-   for hs in human_spans:
-       print('  - ID:', hs['id'][:16])
-       print('    ActorName:', hs.get('actorName'))
-       print('    Payload:', hs.get('payload'))
-   "
+   for tid in "<traceId from TC-HO-001>" $TRACE2_ID; do
+     curl -s "http://localhost:7892/api/traces/$tid/summary" | python3 -c "
+     import sys, json
+     d = json.load(sys.stdin)
+     s = d.get('data', {}).get('statistics', {})
+     print(f'Trace {d.get(\"data\",{}).get(\"traceId\")[:12]}...: humanSpans={s.get(\"humanSpans\",0)}')"
+   done
    ```
 
 **预期结果**：
 - [ ] Git Hook 触发（post-commit hook 调用）
-- [ ] 创建新的 span，actorType = "human"
+- [ ] commit_bindings 包含基准 traceId + 所有后续 traces（共 2 个）
+- [ ] 每个 trace 都有 actorType = "human" 的 span
 - [ ] actorName = "git:human-override"
 - [ ] span payload 包含 commitHash, diff 信息
-- [ ] span 绑定到同一个 traceId
 
 **实际结果**：
 

@@ -61,6 +61,22 @@ importers:
         specifier: ^5.4.5
         version: 5.9.3
 
+  packages/openclaw-agent:
+    dependencies:
+      '@agentlog/shared':
+        specifier: workspace:*
+        version: link:../shared
+      nanoid:
+        specifier: ^3.3.7
+        version: 3.3.11
+    devDependencies:
+      '@types/node':
+        specifier: ^20.11.30
+        version: 20.19.37
+      typescript:
+        specifier: ^5.4.5
+        version: 5.9.3
+
   packages/shared:
     devDependencies:
       typescript:

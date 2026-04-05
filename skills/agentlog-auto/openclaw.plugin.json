@@ -2,7 +2,7 @@
   "$schema": "https://openclaw.ai/schemas/plugin.json",
   "id": "agentlog-auto",
   "name": "AgentLog Auto Logging",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Automatic logging of agent activities to AgentLog MCP server for compliance auditing",
   "skills": [
     {

@@ -672,20 +672,10 @@ export class BackendClient {
     status?: string;
     page?: number;
     pageSize?: number;
+    workspacePath?: string;
   }): Promise<unknown> {
     const query = buildQueryString(params ?? {});
-    const resp = await this.request<ApiResponse<unknown>>(
-      "GET",
-      `/api/traces${query}`,
-    );
-    if (!resp.success) {
-      throw new BackendApiError(
-        200,
-        `/api/traces${query}`,
-        resp.error ?? "获取 Trace 列表失败",
-      );
-    }
-    return resp.data;
+    return this.request<unknown>("GET", `/api/traces${query}`);
   }
 
   /**
@@ -722,6 +712,147 @@ export class BackendClient {
       );
     }
     return resp.data;
+  }
+
+/**
+   * 获取 Trace 的所有 Spans
+   */
+  async getTraceSpans(id: string): Promise<unknown[]> {
+    const resp = await this.request<ApiResponse<unknown[]>>(
+      "GET",
+      `/api/traces/${encodeURIComponent(id)}/spans`,
+    );
+    if (!resp.success || !resp.data) {
+      throw new BackendApiError(
+        200,
+        `/api/traces/${id}/spans`,
+        resp.error ?? "获取 Spans 失败",
+      );
+    }
+    return resp.data;
+  }
+
+  // ─────────────────────────────────────────────
+  // Handoff API (Stage 1 新增)
+  // ─────────────────────────────────────────────
+
+  /**
+   * 获取待认领的 traces
+   */
+  async getPendingTraces(workspacePath: string, agentType?: string): Promise<unknown> {
+    const params: Record<string, string> = { workspacePath };
+    if (agentType) params.agentType = agentType;
+    const query = buildQueryString(params);
+    return this.request<unknown>("GET", `/api/traces/pending${query}`);
+  }
+
+  /**
+   * 创建 pending_handoff trace
+   */
+  async createHandoff(
+    traceId: string,
+    targetAgent: string,
+    workspacePath: string,
+    taskGoal?: string,
+  ): Promise<unknown> {
+    const resp = await this.request<ApiResponse<unknown>>(
+      "POST",
+      `/api/traces/${encodeURIComponent(traceId)}/handoff`,
+      { targetAgent, workspacePath, ...(taskGoal ? { taskGoal } : {}) },
+    );
+    if (!resp.success) {
+      throw new BackendApiError(
+        200,
+        `/api/traces/${traceId}/handoff`,
+        resp.error ?? "创建 handoff 失败",
+      );
+    }
+    return resp.data;
+  }
+
+  /**
+   * Agent 认领 trace
+   */
+  async resumeTrace(
+    traceId: string,
+    agentType: string,
+    workspacePath: string,
+  ): Promise<unknown> {
+    const resp = await this.request<ApiResponse<unknown>>(
+      "POST",
+      `/api/traces/${encodeURIComponent(traceId)}/resume`,
+      { agentType, workspacePath },
+    );
+    if (!resp.success) {
+      throw new BackendApiError(
+        200,
+        `/api/traces/${traceId}/resume`,
+        resp.error ?? "认领 trace 失败",
+      );
+    }
+    return resp.data;
+  }
+
+  /**
+   * 暂停 trace
+   */
+  async pauseTrace(traceId: string): Promise<unknown> {
+    const resp = await this.request<ApiResponse<unknown>>(
+      "POST",
+      `/api/traces/${encodeURIComponent(traceId)}/pause`,
+    );
+    if (!resp.success) {
+      throw new BackendApiError(
+        200,
+        `/api/traces/${traceId}/pause`,
+        resp.error ?? "暂停 trace 失败",
+      );
+    }
+    return resp.data;
+  }
+
+  /**
+   * 从暂停恢复 trace
+   */
+  async resumeFromPause(traceId: string): Promise<unknown> {
+    const resp = await this.request<ApiResponse<unknown>>(
+      "POST",
+      `/api/traces/${encodeURIComponent(traceId)}/resume-from-pause`,
+    );
+    if (!resp.success) {
+      throw new BackendApiError(
+        200,
+        `/api/traces/${traceId}/resume-from-pause`,
+        resp.error ?? "恢复 trace 失败",
+      );
+    }
+    return resp.data;
+  }
+
+  /**
+   * 标记 trace 为完成
+   */
+  async completeTrace(traceId: string): Promise<unknown> {
+    const resp = await this.request<ApiResponse<unknown>>(
+      "POST",
+      `/api/traces/${encodeURIComponent(traceId)}/complete`,
+    );
+    if (!resp.success) {
+      throw new BackendApiError(
+        200,
+        `/api/traces/${traceId}/complete`,
+        resp.error ?? "完成 trace 失败",
+      );
+    }
+    return resp.data;
+  }
+
+  /**
+   * 获取当前 active session
+   */
+  async getActiveSession(workspacePath: string): Promise<unknown> {
+    const query = buildQueryString({ workspacePath });
+    return this.request<unknown>("GET", `/api/sessions/active${query}`);
   }
 }
 

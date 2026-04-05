@@ -52,6 +52,7 @@ async function gitHooksRoutes(app: FastifyInstance): Promise<void> {
             parentCommitHash: { type: "string" },
             agentId: { type: "string" },
             sessionId: { type: "string" },
+            traceId: { type: "string" },
           },
         },
       },

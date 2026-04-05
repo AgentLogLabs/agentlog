@@ -44,7 +44,9 @@ import {
   injectPostCommitHook,
   removePostCommitHook,
   isGitRepo,
+  getGitConfig,
 } from "../services/gitService";
+import { createSpan, getTraceById, queryTraces, type ActorType } from "../services/traceService";
 import { getDatabase, fromJson, toJson, type CommitRow } from "../db/database";
 import {
   generateCommitContext,
@@ -59,6 +61,7 @@ function rowToCommitBinding(row: CommitRow): CommitBinding {
   return {
     commitHash: row.commit_hash,
     sessionIds: fromJson<string[]>(row.session_ids, []),
+    traceIds: fromJson<string[]>(row.trace_ids ?? "[]", []),
     message: row.message,
     committedAt: row.committed_at,
     authorName: row.author_name,
@@ -96,17 +99,21 @@ function upsertCommitBinding(binding: CommitBinding): CommitBinding {
     ...new Set([...sessionIdsFromJoin, ...binding.sessionIds]),
   ];
 
+  const traceIds = binding.traceIds ?? [];
+
   if (existing) {
-    // 更新现有记录，使用 session_commits 中的完整列表
+    const existingTraceIds: string[] = fromJson(existing.trace_ids ?? "[]", []);
+    const allTraceIds = [...new Set([...existingTraceIds, ...traceIds])];
     db.prepare(
       `
       UPDATE commit_bindings
-      SET session_ids = ?, message = ?, committed_at = ?,
+      SET session_ids = ?, trace_ids = ?, message = ?, committed_at = ?,
           author_name = ?, author_email = ?, changed_files = ?
       WHERE commit_hash = ?
     `,
     ).run(
       toJson(allSessionIds),
+      toJson(allTraceIds),
       binding.message,
       binding.committedAt,
       binding.authorName,
@@ -115,17 +122,17 @@ function upsertCommitBinding(binding: CommitBinding): CommitBinding {
       binding.commitHash,
     );
   } else {
-    // 插入新记录
     db.prepare(
       `
       INSERT INTO commit_bindings (
-        commit_hash, session_ids, message, committed_at,
+        commit_hash, session_ids, trace_ids, message, committed_at,
         author_name, author_email, changed_files, workspace_path
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
     ).run(
       binding.commitHash,
       toJson(allSessionIds),
+      toJson(traceIds),
       binding.message,
       binding.committedAt,
       binding.authorName,
@@ -279,8 +286,11 @@ const commitsRouter: FastifyPluginAsync = async (fastify: FastifyInstance) => {
           } satisfies ApiResponse);
         }
 
-        // 2. 获取 commit 详细信息
-        const commitInfo = await getCommitInfo(workspacePath, commitHash);
+        // 2. 获取 commit 详细信息和仓库信息
+        const [commitInfo, repoInfo] = await Promise.all([
+          getCommitInfo(workspacePath, commitHash),
+          getRepoInfo(workspacePath),
+        ]);
 
         // 3. 解析当前 worktree 的 Git 仓库根目录，用于跨 worktree 会话匹配
         let repoRoot: string = workspacePath;
@@ -341,6 +351,7 @@ const commitsRouter: FastifyPluginAsync = async (fastify: FastifyInstance) => {
           const binding = upsertCommitBinding({
             commitHash: commitInfo.hash,
             sessionIds: [fallbackSession.id],
+            traceIds: [],
             message: commitInfo.message,
             committedAt: commitInfo.committedAt,
             authorName: commitInfo.authorName,
@@ -353,10 +364,74 @@ const commitsRouter: FastifyPluginAsync = async (fastify: FastifyInstance) => {
             `[Commits Hook] commit=${commitHash.slice(0, 8)} 兜底补写了 1 条会话并绑定（Level-3）`,
           );
 
+          // 同样执行 trace 绑定逻辑
+          const level3Binding = await bindTracesFromGitConfig(workspacePath, commitInfo, repoInfo, binding);
+
           return reply.code(200).send({
             success: true,
-            data: binding,
+            data: level3Binding,
           } satisfies ApiResponse<CommitBinding>);
+        }
+
+        // ──────────────────────────────────────────
+        // 8. 如果 git config 中有 agentlog.traceId，绑定该时间点之后的所有 traces
+        // ──────────────────────────────────────────
+        async function bindTracesFromGitConfig(
+          wsPath: string,
+          commit: typeof commitInfo,
+          repo: typeof repoInfo,
+          existingBinding: CommitBinding,
+        ): Promise<CommitBinding> {
+          try {
+            const gitConfigTraceId = await getGitConfig(wsPath, "agentlog.traceId");
+            if (!gitConfigTraceId) return existingBinding;
+
+            const baseTrace = getTraceById(gitConfigTraceId);
+            const baseTraceCreatedAt = baseTrace?.createdAt;
+
+            const traceFilter: { startDate?: string; workspacePath?: string } = { workspacePath: wsPath };
+            if (baseTraceCreatedAt) {
+              traceFilter.startDate = baseTraceCreatedAt;
+            }
+            const { data: tracesAfter } = queryTraces(traceFilter);
+            const allTraceIds = tracesAfter.map((t) => t.id);
+
+            fastify.log.info(
+              `[Commits Hook] commit=${commit.hash.slice(0, 8)} 找到 ${allTraceIds.length} 个 traces (从 ${gitConfigTraceId} 开始)`,
+            );
+
+            for (const tid of allTraceIds) {
+              createSpan({
+                traceId: tid,
+                parentSpanId: null,
+                actorType: "human" as ActorType,
+                actorName: "git:human-override",
+                payload: {
+                  source: "git-hook",
+                  event: "post-commit",
+                  commitHash: commit.hash,
+                  branch: repo.currentBranch,
+                  message: commit.message,
+                  author: commit.authorName,
+                  authorEmail: commit.authorEmail,
+                  committedAt: commit.committedAt,
+                  changedFiles: commit.changedFiles,
+                  isHumanOverride: true,
+                },
+              });
+            }
+
+            fastify.log.info(
+              `[Commits Hook] commit=${commit.hash.slice(0, 8)} 更新 trace_ids: [${allTraceIds.join(", ")}]`,
+            );
+            return upsertCommitBinding({
+              ...existingBinding,
+              traceIds: allTraceIds,
+            });
+          } catch (spanErr) {
+            fastify.log.warn(`[Commits Hook] 绑定 traces 失败: ${spanErr}`);
+            return existingBinding;
+          }
         }
 
         // 提取需要绑定的会话 ID
@@ -372,6 +447,7 @@ const commitsRouter: FastifyPluginAsync = async (fastify: FastifyInstance) => {
         const binding = upsertCommitBinding({
           commitHash: commitInfo.hash,
           sessionIds,
+          traceIds: [],
           message: commitInfo.message,
           committedAt: commitInfo.committedAt,
           authorName: commitInfo.authorName,
@@ -384,9 +460,17 @@ const commitsRouter: FastifyPluginAsync = async (fastify: FastifyInstance) => {
           `[Commits Hook] commit=${commitHash.slice(0, 8)} 自动绑定了 ${updatedCount} 条会话`,
         );
 
+        // 7. 如果 git config 中有 agentlog.traceId，绑定该时间点之后的所有 traces
+        let finalBinding = binding;
+        try {
+          finalBinding = await bindTracesFromGitConfig(workspacePath, commitInfo, repoInfo, binding);
+        } catch (spanErr) {
+          fastify.log.warn(`[Commits Hook] 创建 Human Span 失败: ${spanErr}`);
+        }
+
         return reply.code(200).send({
           success: true,
-          data: binding,
+          data: finalBinding,
         } satisfies ApiResponse<CommitBinding>);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -458,6 +542,7 @@ const commitsRouter: FastifyPluginAsync = async (fastify: FastifyInstance) => {
         const binding = upsertCommitBinding({
           commitHash,
           sessionIds,
+          traceIds: [],
           message: commitInfo?.message ?? "",
           committedAt: commitInfo?.committedAt ?? new Date().toISOString(),
           authorName: commitInfo?.authorName ?? "",

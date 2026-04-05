@@ -10,7 +10,7 @@
 
 ## 📋 测试用例总览
 
-### 一、基础功能测试（7个用例）
+### 一、基础功能测试（10个用例）
 
 | 编号 | 测试场景 | 优先级 | 预计时间 |
 |------|----------|--------|----------|
@@ -21,6 +21,9 @@
 | TC-005 | Git Hook 拦截人类提交 | P1 | 5 min |
 | TC-006 | SSE 实时刷新验证 | P1 | 5 min |
 | TC-007 | Trace Summary/Diff API | P2 | 5 min |
+| TC-008 | OpenCode Plugin 自动 Hook 安装验证 | P0 | 5 min |
+| TC-009 | OpenCode Plugin Hook 事件触发验证 | P0 | 10 min |
+| TC-010 | OpenCode Plugin Session 管理验证 | P1 | 5 min |
 
 ### 二、Human Override 场景测试（5个用例）
 
@@ -32,7 +35,7 @@
 | TC-HO-004 | Agent 通过 TraceID 恢复上下文 | P0 | 10 min |
 | TC-HO-005 | 完整链路端到端验证 | P0 | 15 min |
 
-**总计**：12 个测试用例
+**总计**：15 个测试用例
 
 ---
 
@@ -109,17 +112,23 @@ curl http://localhost:7892/health
 ### 3. OpenCode MCP 配置
 
 ```bash
-# 编辑 ~/.config/opencode/config.json
+# 编辑 ~/.config/opencode/opencode.json
 {
-  "mcpServers": {
-    "agentlog-mcp": {
-      "command": "node",
-      "args": ["/absolute/path/to/agentlog/packages/backend/dist/mcp.js"],
-      "env": {
-        "AGENTLOG_PORT": "7892"
-      }
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "agentlog": {
+      "type": "local",
+      "command": [
+        "node",
+        "/absolute/path/to/agentlog/packages/backend/dist/mcp.js"
+      ],
+      "environment": {
+        "AGENTLOG_GATEWAY_URL": "http://localhost:7892"
+      },
+      "enabled": true
     }
-  }
+  },
+  "plugin": ["file:///Users/hobo/.config/opencode/plugins/agentlog-auto.js"]
 }
 ```
 
@@ -146,35 +155,50 @@ curl http://localhost:7892/health
 
 2. **配置 OpenCode MCP**
    
-   编辑 `~/.config/opencode/config.json`：
+   编辑 `~/.config/opencode/opencode.json`：
    ```json
    {
-     "mcpServers": {
-       "agentlog-mcp": {
-         "command": "node",
-         "args": ["/absolute/path/to/agentlog/packages/backend/dist/mcp.js"],
-         "env": {
-           "AGENTLOG_PORT": "7892"
+      "$schema": "https://opencode.ai/config.json",
+      "mcp": {
+         "agentlog": {
+            "type": "local",
+            "command": [
+            "node",
+            "/absolute/path/to/agentlog/packages/backend/dist/mcp.js"
+            ],
+            "environment": {
+            "AGENTLOG_GATEWAY_URL": "http://localhost:7892"
+            },
+            "enabled": true
          }
-       }
-     }
+      }
    }
    ```
 
 3. **重启 OpenCode**
 
-4. **验证连接**
+   4. **验证连接**
    ```bash
    # 在 OpenCode 中执行任务，观察 Backend 日志
-   # 或直接调用
+   # 或直接调用（注意：必须先创建 trace，再用真实 traceId 创建 span）
+   
+   # 4.1 先创建 trace
+   TRACE=$(curl -s -X POST http://localhost:7892/api/traces \
+     -H "Content-Type: application/json" \
+     -d '{"taskGoal":"TC-001 连接测试"}')
+   TRACE_ID=$(echo $TRACE | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])")
+   
+   # 4.2 再用真实 traceId 创建 span
    curl -X POST http://localhost:7892/api/spans \
      -H "Content-Type: application/json" \
-     -d '{"traceId":"test","actorType":"agent","actorName":"Test","payload":{}}'
+     -d "{\"traceId\":\"$TRACE_ID\",\"actorType\":\"agent\",\"actorName\":\"Test\",\"payload\":{}}"
+   # 预期: {"success":true,"data":{"id":"...","traceId":"...","actorType":"agent",...}}
    ```
 
 **预期结果**：
 - [ ] MCP Server 启动成功
 - [ ] AgentLog 工具可调用
+- [ ] span 创建成功（返回 201）
 
 ---
 
@@ -328,9 +352,16 @@ curl http://localhost:7892/health
 
 2. **触发 Span 创建**
    ```bash
+   # 先创建 trace
+   TRACE=$(curl -s -X POST http://localhost:7892/api/traces \
+     -H "Content-Type: application/json" \
+     -d '{"taskGoal":"SSE Test"}')
+   TRACE_ID=$(echo $TRACE | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])")
+   
+   # 再创建 span
    curl -X POST http://localhost:7892/api/spans \
      -H "Content-Type: application/json" \
-     -d '{"traceId":"sse-test","actorType":"agent","actorName":"Test","payload":{}}'
+     -d "{\"traceId\":\"$TRACE_ID\",\"actorType\":\"agent\",\"actorName\":\"Test\",\"payload\":{}}"
    ```
 
 3. **观察 SSE 推送**
@@ -373,6 +404,315 @@ curl http://localhost:7892/health
 **预期结果**：
 - [ ] Summary 返回完整统计
 - [ ] Diff 返回完整 Span 树
+
+---
+
+### TC-008：OpenCode Plugin 自动 Hook 安装验证
+
+**目的**：验证 OpenCode Plugin 自动 Hook 机制已正确安装并加载
+
+**前置条件**：
+- AgentLog Backend 已构建并运行
+- OpenCode 已安装
+
+**测试步骤**：
+
+1. **确认 Plugin 文件存在（单文件形式）**
+   ```bash
+   ls ~/.config/opencode/plugins/agentlog-auto.js
+   ```
+
+2. **确认 opencode.json 配置正确**
+   ```bash
+   cat ~/.config/opencode/opencode.json
+   ```
+   预期内容应包含：
+   ```json
+   {
+     "mcp": { "agentlog": { ... } },
+     "plugin": ["file:///Users/hobo/.config/opencode/plugins/agentlog-auto.js"]
+   }
+   ```
+
+3. **确认 Plugin 源码结构正确**
+   ```bash
+   # 验证包含必要的 Hook 处理函数
+   grep -E "event:|message\.updated|tool\.execute\.before|tool\.execute\.after" \
+     ~/.config/opencode/plugins/agentlog-auto.js
+   ```
+   预期输出应包含：
+   - `event` - 监听 session.idle 等事件
+   - `message.updated` - 记录用户/助手消息
+   - `tool.execute.before` - 记录工具开始时间
+   - `tool.execute.after` - 记录工具执行结果
+
+4. **验证 OpenCode 控制台输出**
+   ```bash
+   opencode debug config 2>&1 | grep agentlog
+   ```
+   应看到：
+   ```
+   [agentlog-auto] Plugin loaded (v2.0.0)
+   [agentlog-auto] Backend API: http://localhost:7892/api
+   ```
+
+5. **验证 Backend API 连接**
+   ```bash
+   curl -s http://localhost:7892/health
+   # 预期: {"status":"ok","version":"..."}
+   ```
+
+**预期结果**：
+- [ ] `agentlog-auto.js` 文件存在于 `~/.config/opencode/plugins/`
+- [ ] `opencode.json` 包含正确的 `plugin` 数组配置
+- [ ] `opencode.json` 包含 `mcp.agentlog` 配置
+- [ ] `opencode debug config` 输出显示 Plugin loaded
+- [ ] Backend API 可访问
+
+**插件安装方式**：
+
+```bash
+# 方式一：手动安装（单文件）
+cp /path/to/agentlog/packages/vscode-extension/src/opencode-plugins/agentlog-auto/index.js \
+   ~/.config/opencode/plugins/agentlog-auto.js
+
+# 方式二：通过 VS Code 扩展自动安装
+# 扩展会调用 installOpenCodePlugin() 函数自动复制并配置
+
+# 方式三：项目级安装
+cp /path/to/agentlog/packages/vscode-extension/src/opencode-plugins/agentlog-auto/index.js \
+   /path/to/project/.opencode/plugins/agentlog-auto.js
+```
+
+**配置文件说明**：
+- OpenCode 使用 `opencode.json` 而不是 `config.json`
+- 插件必须放在 `plugins/` 目录下（单文件，不能是子目录）
+- 插件需要在 `plugin` 数组中声明才能被加载
+
+**卸载方法**：
+```bash
+rm ~/.config/opencode/plugins/agentlog-auto.js
+# 并从 opencode.json 中移除 plugin 数组中的引用
+```
+
+---
+
+### TC-009：OpenCode Plugin Hook 事件触发验证
+
+**目的**：验证 OpenCode Plugin 各 Hook 事件能正确拦截并上报数据
+
+**前置条件**：
+- TC-008 已完成
+- OpenCode 重启以加载 Plugin
+
+**测试步骤**：
+
+1. **验证 message.updated Hook**
+   
+   在 OpenCode 中执行任务：
+   ```
+   请用 JavaScript 写一个 Hello World 函数并保存到 /tmp/hello.js
+   ```
+   
+   观察 OpenCode 控制台输出，应看到：
+   ```
+   [agentlog-auto] Session started: sess_xxx
+   [agentlog-auto] Tool logged: bash (turns: x)
+   ```
+
+2. **验证 tool.execute.before Hook**
+   
+   执行一个工具操作：
+   ```
+   读取 /tmp/hello.js 的内容
+   ```
+   
+   验证工具开始时间被记录
+
+3. **验证 tool.execute.after Hook**
+   
+   工具执行后，验证：
+   ```bash
+   # 检查是否创建了 session
+   curl -s http://localhost:7892/api/sessions?pageSize=5 | python3 -c "
+   import sys, json
+   d = json.load(sys.stdin)
+   sessions = d.get('data', [])
+   if sessions:
+       s = sessions[-1]
+       print('Session ID:', s.get('id'))
+       print('Source:', s.get('source'))
+       print('Provider:', s.get('provider'))
+   "
+   ```
+
+4. **验证 session.idle Hook（event 类型）**
+   
+   完成一个任务后（OpenCode 变为 idle 状态）：
+   ```bash
+   # 验证 session 已结束
+   curl -s http://localhost:7892/api/sessions?pageSize=5 | python3 -c "
+   import sys, json
+   d = json.load(sys.stdin)
+   sessions = d.get('data', [])
+   if sessions:
+       s = sessions[-1]
+       print('Last Session:', s.get('id'))
+       print('Response (task):', s.get('response', '')[:100])
+   "
+   ```
+
+5. **验证 Transcript 内容**
+   ```bash
+   SESSION_ID="<从上面查询获取的 session ID>"
+   curl -s "http://localhost:7892/api/sessions/$SESSION_ID" | python3 -c "
+   import sys, json
+   d = json.load(sys.stdin)
+   if d.get('success'):
+       s = d.get('data', {})
+       print('Transcript entries:', len(s.get('transcript', [])))
+       print('First turn role:', s.get('transcript', [{}])[0].get('role', 'N/A'))
+   "
+   ```
+
+**预期结果**：
+- [ ] `chat.message` 触发时创建新 Session
+- [ ] `tool.execute.before` 记录工具开始时间
+- [ ] `tool.execute.after` 记录工具调用结果
+- [ ] `session.idle` 调用 log_intent 更新 session
+- [ ] Session 的 `source` 字段为 `opencode`
+- [ ] Transcript 包含正确的 role 序列（user → assistant → tool）
+
+**OpenCode Plugin Hook 事件说明**：
+
+| Hook 事件 | 触发时机 | Plugin 中的处理 |
+|-----------|---------|----------------|
+| `event` | 监听所有事件 | 根据 `event.type` 处理，如 `session.idle` |
+| `message.updated` | 用户/助手消息更新 | 根据 `message.role` 判断是 user 还是 assistant |
+| `tool.execute.before` | 工具执行前 | 在 `output.args` 中注入时间戳 |
+| `tool.execute.after` | 工具执行后 | 调用 `logToolCall()` 记录工具调用 |
+
+**Backend Session API 端点**：
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/sessions` | POST | 创建新 session |
+| `/api/sessions` | GET | 查询 session 列表 |
+| `/api/sessions/:id` | GET | 获取单个 session |
+| `/api/sessions/:id/transcript` | PATCH | 追加 transcript |
+| `/api/sessions/:id/intent` | PATCH | 更新 intent/response |
+
+---
+
+### TC-010：OpenCode Plugin Session 管理验证
+
+**目的**：验证 OpenCode Plugin 的 Session 生命周期管理正确
+
+**前置条件**：
+- TC-009 已完成
+- 有可查询的 OpenCode Session 数据
+
+**测试步骤**：
+
+1. **验证 Session 创建**
+   ```bash
+   # 查看最新的 OpenCode Session
+   curl -s http://localhost:7892/api/sessions?pageSize=10 | python3 -c "
+   import sys, json
+   d = json.load(sys.stdin)
+   sessions = [s for s in d.get('data', []) if s.get('source') == 'opencode']
+   if sessions:
+       s = sessions[-1]
+       print('=== Latest OpenCode Session ===')
+       print('ID:', s.get('id'))
+       print('Provider:', s.get('provider'))
+       print('Model:', s.get('model'))
+       print('Workspace:', s.get('workspacePath'))
+       print('Prompt preview:', s.get('prompt', '')[:80])
+   "
+   ```
+
+2. **验证 Transcript 完整性**
+   ```bash
+   SESSION_ID="<上一步获取的 session ID>"
+   curl -s "http://localhost:7892/api/sessions/$SESSION_ID" | python3 -c "
+   import sys, json
+   d = json.load(sys.stdin)
+   if d.get('success'):
+       s = d.get('data', {})
+       transcript = s.get('transcript', [])
+       print('=== Transcript Analysis ===')
+       print('Total turns:', len(transcript))
+       
+       # 统计各 role 数量
+       roles = {}
+       for t in transcript:
+           r = t.get('role', 'unknown')
+           roles[r] = roles.get(r, 0) + 1
+       print('Role breakdown:', roles)
+       
+       # 显示前 3 条
+       print('First 3 turns:')
+       for i, t in enumerate(transcript[:3]):
+           print(f'  {i+1}. [{t.get(\"role\")}] {t.get(\"content\", \"\")[:60]}...')
+   "
+   ```
+
+3. **验证工具调用记录**
+   ```bash
+   curl -s "http://localhost:7892/api/sessions/$SESSION_ID" | python3 -c "
+   import sys, json
+   d = json.load(sys.stdin)
+   if d.get('success'):
+       s = d.get('data', {})
+       transcript = s.get('transcript', [])
+       
+       tool_calls = [t for t in transcript if t.get('role') == 'tool']
+       print('=== Tool Calls ===')
+       print('Total:', len(tool_calls))
+       for t in tool_calls[:5]:
+           content = t.get('content', '')
+           tool_name = t.get('toolName', 'unknown')
+           print(f'  - {tool_name}: {content[:80]}...')
+   "
+   ```
+
+4. **验证 Provider 推断**
+   ```bash
+   # 根据模型名推断 provider
+   curl -s http://localhost:7892/api/sessions?pageSize=5 | python3 -c "
+   import sys, json
+   d = json.load(sys.stdin)
+   for s in d.get('data', [])[:5]:
+       model = s.get('model', '')
+       provider = s.get('provider', '')
+       print(f'{model} -> {provider}')
+   "
+   ```
+   
+   预期推断规则：
+   - 包含 `claude` → `anthropic`
+   - 包含 `gpt` / `o1` / `o3` / `o4` → `openai`
+   - 包含 `deepseek` → `deepseek`
+   - 包含 `qwen` → `qwen`
+   - 其他 → `unknown` 或基于模型名的合理推断
+
+**预期结果**：
+- [ ] Session 的 `source` 为 `opencode`
+- [ ] Session 包含正确的 `provider` 和 `model`
+- [ ] Transcript 包含完整的 user/assistant/tool 序列
+- [ ] 工具调用记录包含正确的 toolName
+- [ ] Provider 推断正确
+
+**Plugin 与 MCP 方式的区别**：
+
+| 对比项 | MCP 方式 | Plugin 方式 |
+|--------|---------|------------|
+| 实现位置 | MCP Server (`mcp.js`) | Plugin (`~/.config/opencode/plugins/agentlog-auto/index.js`) |
+| 调用方式 | Agent 主动调用 `log_turn`/`log_intent` | Plugin 自动拦截事件 |
+| 数据目标 | `/api/traces` + `/api/spans` | `/api/sessions` + `/api/sessions/:id/transcript` |
+| 数据结构 | Trace + Span 树 | Session + Transcript |
+| 依赖 | 需要在 prompt 中引导 Agent 调用 | 自动触发，无需 Agent 配合 |
 
 ---
 
@@ -820,7 +1160,7 @@ fi
 
 | 项目 | 结果 |
 |------|------|
-| 测试用例总数 | 12 |
+| 测试用例总数 | 15 |
 | 通过 | X |
 | 失败 | X |
 | 阻塞 | X |
@@ -845,6 +1185,11 @@ fi
 | `/api/hooks/post-commit` | POST | post-commit 回调 |
 | `/api/hooks/install` | POST | 安装 git hook |
 | `/api/hooks/status` | GET | 查询 hook 状态 |
+| `/api/sessions` | GET | 查询 session 列表 (Plugin 方式) |
+| `/api/sessions` | POST | 创建 session (Plugin 方式) |
+| `/api/sessions/:id` | GET | 获取单个 session |
+| `/api/sessions/:id/transcript` | PATCH | 追加 transcript |
+| `/api/sessions/:id/intent` | PATCH | 更新 intent/response |
 | `/mcp/sse` | GET | SSE 实时推送 |
 
 ### B. MCP 工具列表
@@ -893,6 +1238,8 @@ fi
 | `packages/backend/src/services/gitHookService.ts` | Git Hook 处理 |
 | `packages/backend/src/utils/sseManager.ts` | SSE 管理 |
 | `packages/vscode-extension/src/providers/traceWebviewProvider.ts` | VS Code Trace 视图 |
+| `packages/vscode-extension/src/opencode-plugins/agentlog-auto/index.js` | OpenCode Plugin 自动 Hook |
+| `packages/backend/src/routes/sessions.ts` | Session API (Plugin 方式数据) |
 
 ---
 
@@ -902,27 +1249,31 @@ fi
 
 **问题**：git config 中的 traceId 和数据库中的 traceId 是什么关系？
 
-**答案**：它们是**同一个东西**的两种存储形式。
+**答案**：git config 中的 traceId 是"基准 trace"，用于标记绑定起点。Git commit 时，会绑定**该基准 trace 创建时间点之后的所有 traces**。
 
 | 存储位置 | 存储内容 | 作用 |
 |----------|----------|------|
 | **数据库 traces 表** | traceId + task_goal + status | 主要存储，所有查询都基于此 |
-| **git config** | agentlog.traceId = traceId | 辅助存储，供 Git Hook 在人类直接 commit 时读取 |
+| **git config** | agentlog.traceId = traceId | 基准 trace，Git Hook 读取后查询该时间点之后的所有 traces 并绑定 |
 
 **git config 写入时机**：
 1. OpenCode Agent 调用 `log_intent` / `log_turn` / `create_trace` 时，MCP 自动写入
-2. 人类在终端直接执行 `git commit`（不通过 MCP）时，Git Hook 从 git config 读取
+2. 人类手动执行 `git config agentlog.traceid <trace-id>` 设置
 
-**流程图**：
+**Git Hook 绑定逻辑**：
 ```
-【Agent 通过 MCP 操作】
-OpenCode Agent → MCP log_intent → 写入 DB traces 表
-                                → 写入 .git/config agentlog.traceId
-
-【人类直接 git commit】
 人类 → git commit → Git Hook → 读取 .git/config agentlog.traceId
-                                → 创建 Human span（绑定到同一 traceId）
+                                → 获取基准 trace 的创建时间
+                                → 查询该时间点之后的所有 traces（包括基准 trace）
+                                → 为每个 trace 创建 Human Override span
+                                → 将所有 traceIds 写入 commit_bindings 表
 ```
+
+**示例**：
+1. 用户设置 `git config agentlog.traceid T-base`（创建时间 T0）
+2. AI 工作创建 trace `T-1`（创建时间 T1 > T0）
+3. AI 工作创建 trace `T-2`（创建时间 T2 > T1 > T0）
+4. 用户 git commit → Git Hook 绑定 T-base、T-1、T-2 到这次 commit
 
 ---
 
@@ -1137,9 +1488,9 @@ semantic_search({
 
 ---
 
-### TC-T-B：Git Hook 从 git config 读取 traceId
+### TC-T-B：Git Hook 从 git config 读取 traceId 并绑定所有后续 traces
 
-**目的**：验证 Git Hook post-commit 从 `.git/config` 读取 traceId 并创建 human span
+**目的**：验证 Git Hook post-commit 从 `.git/config` 读取 traceId，查询该基准时间点之后的所有 traces 并全部绑定
 
 **前置条件**：
 - TC-T-A 已完成
@@ -1157,34 +1508,71 @@ semantic_search({
 2. **确认 git config 有 traceId**
    ```bash
    cd /tmp/test-repo-tc-ta
-   echo $GIT_CONFIG_TRACE
+   git config agentlog.traceid
    ```
 
-3. **人类 git commit（触发 Git Hook）**
+3. **创建额外的 traces（模拟 AI 工作在基准 trace 之后创建新 traces）**
+   ```bash
+   # 创建 trace-2
+   TRACE2=$(curl -s -X POST http://localhost:7892/api/traces \
+     -H "Content-Type: application/json" \
+     -d '{"taskGoal":"Second task after base trace"}')
+   TRACE2_ID=$(echo $TRACE2 | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])")
+   echo "Created trace-2: $TRACE2_ID"
+   
+   # 创建 trace-3
+   TRACE3=$(curl -s -X POST http://localhost:7892/api/traces \
+     -H "Content-Type: application/json" \
+     -d '{"taskGoal":"Third task after base trace"}')
+   TRACE3_ID=$(echo $TRACE3 | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])")
+   echo "Created trace-3: $TRACE3_ID"
+   ```
+
+4. **人类 git commit（触发 Git Hook）**
    ```bash
    echo "test content" > test.txt
    git add . && git commit -m "Human commit via Git Hook"
    sleep 2
    ```
 
-4. **验证 human span 创建**
+5. **验证所有 traces 被绑定到 commit**
    ```bash
-   curl -s "http://localhost:7892/api/traces/$TRACE_ID/summary" | python3 -c "
+   # 查询 commit 绑定记录
+   COMMIT_HASH=$(cd /tmp/test-repo-tc-ta && git rev-parse HEAD)
+   curl -s "http://localhost:7892/api/commits/$COMMIT_HASH" | python3 -c "
    import sys,json
    d=json.load(sys.stdin)
-   s=d.get('data',{}).get('statistics',{})
-   print('=== Human Override ===')
-   print('Total:', s.get('totalSpans'))
-   print('Human:', s.get('humanSpans'))
-   if s.get('humanSpans', 0) > 0:
-       print('✅ Git Hook + git config 透传成功')
+   if d.get('success'):
+       data = d.get('data', {})
+       trace_ids = data.get('traceIds', [])
+       print('=== Commit Binding ===')
+       print('Commit:', '$COMMIT_HASH'[:8])
+       print('Bound traces:', len(trace_ids))
+       for tid in trace_ids:
+           print('  -', tid)
+       if len(trace_ids) >= 3:
+           print('✅ 所有 traces 绑定成功')
+       else:
+           print('❌ traces 绑定数量不足')
    "
+   ```
+
+6. **验证每个 trace 都有 human span**
+   ```bash
+   for tid in $GIT_CONFIG_TRACE $TRACE2_ID $TRACE3_ID; do
+     curl -s "http://localhost:7892/api/traces/$tid/summary" | python3 -c "
+     import sys,json
+     d=json.load(sys.stdin)
+     s=d.get('data',{}).get('statistics',{})
+     print(f'Trace {d.get(\"data\",{}).get(\"traceId\")[:8]}...: humanSpans={s.get(\"humanSpans\",0)}')"
+   done
    ```
 
 **预期结果**：
 - [ ] Git Hook 安装成功
-- [ ] 人类 git commit 后创建 human span
-- [ ] span 绑定到同一个 traceId
+- [ ] 人类 git commit 后，commit_bindings 表的 traceIds 包含基准 trace + 所有后续 traces
+- [ ] 每个 trace 都有 actor=human 的 span
+- [ ] commit 绑定了 3 个 traces（基准 + trace-2 + trace-3）
 
 ---
 
@@ -1238,7 +1626,7 @@ semantic_search({
 
 ---
 
-## 📊 T1-T8 功能覆盖总表
+## 📊 T1-T10 功能覆盖总表
 
 | Ticket | 功能 | 测试用例 | 状态 |
 |--------|------|---------|------|
@@ -1250,8 +1638,10 @@ semantic_search({
 | T6 | Trace summary API | TC-007 | ✅ |
 | T7 | Trace diff API | TC-007 | ✅ |
 | T8 | UI SSE 实时刷新 | TC-004, TC-006 | ✅ |
+| T9 | OpenCode Plugin 安装 | TC-008 | ✅ |
+| T10 | OpenCode Plugin Hook 事件 | TC-009, TC-010 | ✅ |
 
-**覆盖率：8/8 = 100% ✅**
+**覆盖率：10/10 = 100% ✅**
 
 ---
 
@@ -1315,9 +1705,11 @@ semantic_search({
 操作步骤：
 1. 保持 VS Code AgentLog 面板打开
 2. 使用另一个终端发送请求创建新 span：
+   # 先获取一个存在的 trace ID
+   TRACE_ID=$(curl -s http://localhost:7892/api/traces?pageSize=1 | python3 -c "import sys,json; print(json.load(sys.stdin)['data'][0]['id'])")
    curl -X POST http://localhost:7892/api/spans \
      -H "Content-Type: application/json" \
-     -d '{"traceId":"<当前trace ID>","actorType":"agent","actorName":"TestAgent","payload":{"event":"test"}}'
+     -d "{\"traceId\":\"$TRACE_ID\",\"actorType\":\"agent\",\"actorName\":\"TestAgent\",\"payload\":{\"event\":\"test\"}}"
 3. 观察 VS Code 面板是否自动刷新显示新 span
 ```
 

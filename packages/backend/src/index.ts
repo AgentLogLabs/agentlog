@@ -12,6 +12,10 @@
 import Fastify, { FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
 
+declare const __APP_VERSION__: string;
+const APP_VERSION: string =
+  typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "0.0.0";
+
 import sessionsRoutes from "./routes/sessions";
 import commitsRouter from "./routes/commits";
 import { exportRoutes } from "./routes/export";
@@ -19,6 +23,7 @@ import hooksRoutes from "./routes/hooks";
 import spansRoutes from "./routes/spans";
 import gitHooksRoutes from "./routes/gitHooks";
 import tracesRoutes from "./routes/traces";
+import handoffRoutes, { activeSessionRoutes } from "./routes/handoff";
 import { getDatabase, closeDatabase } from "./db/database";
 import {
   addSseClient,
@@ -136,7 +141,7 @@ async function start(): Promise<void> {
   app.get("/health", async (_req, reply) => {
     return reply.send({
       status: "ok",
-      version: "0.1.0",
+      version: APP_VERSION,
       timestamp: new Date().toISOString(),
       uptime: Math.floor(process.uptime()),
     });
@@ -145,7 +150,7 @@ async function start(): Promise<void> {
   app.get("/api", async (_req, reply) => {
     return reply.send({
       name: "AgentLog Backend",
-      version: "0.1.0",
+      version: APP_VERSION,
       description: "AI 编程行车记录仪 — 本地轻量后台服务",
       endpoints: {
         sessions: "/api/sessions",
@@ -164,7 +169,7 @@ async function start(): Promise<void> {
     const memUsage = process.memoryUsage();
     return reply.send({
       status: "running",
-      version: "0.1.0",
+      version: APP_VERSION,
       uptime: Math.floor(process.uptime()),
       memory: {
         rss: Math.round(memUsage.rss / 1024 / 1024) + " MB",
@@ -197,6 +202,12 @@ async function start(): Promise<void> {
 
   /** Trace API（UC-002 summary, UC-003 diff） */
   await app.register(tracesRoutes, { prefix: "/api/traces" });
+
+  /** Trace Handoff API（pending/resume/pause/complete） */
+  await app.register(handoffRoutes, { prefix: "/api/traces" });
+
+  /** Active Session API */
+  await app.register(activeSessionRoutes, { prefix: "/api/sessions" });
 
   /** MCP SSE 端点（供外部 IDE 接入） */
   app.get("/mcp/sse", async (req, reply) => {

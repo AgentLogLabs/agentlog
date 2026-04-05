@@ -26,6 +26,7 @@ import {
   getBackendClient,
   BackendUnreachableError,
 } from "../client/backendClient";
+import type { TraceSummary } from "./traceTreeProvider";
 
 // ─────────────────────────────────────────────
 // 常量
@@ -666,16 +667,16 @@ export class CommitGroupItem extends CommitTreeItem {
   constructor(
     public readonly commitHash: string,
     public readonly message: string,
-    public readonly sessionCount: number,
+    public readonly traceCount: number,
     public readonly committedAt: string,
-    public readonly sessions: AgentSession[],
+    public readonly traces: TraceSummary[],
   ) {
     super(
       `${commitHash.slice(0, 8)} — ${message.slice(0, 50)}${message.length > 50 ? "…" : ""}`,
       vscode.TreeItemCollapsibleState.Collapsed,
     );
     this.contextValue = "commit";
-    this.description = `${sessionCount} 条会话 · ${formatDateTime(committedAt)}`;
+    this.description = `${traceCount} 条 Trace · ${formatDateTime(committedAt)}`;
     this.iconPath = new vscode.ThemeIcon(
       "git-commit",
       new vscode.ThemeColor("gitDecoration.addedResourceForeground"),
@@ -707,6 +708,26 @@ export class CommitSessionItem extends CommitTreeItem {
   }
 }
 
+export class CommitTraceItem extends CommitTreeItem {
+  readonly type = "commit-session" as const;
+
+  constructor(public readonly trace: TraceSummary) {
+    const goalPreview = trace.taskGoal.replace(/\n/g, " ").slice(0, 45);
+    super(
+      `${goalPreview}${trace.taskGoal.length > 45 ? "…" : ""}`,
+      vscode.TreeItemCollapsibleState.None,
+    );
+    this.contextValue = "commit-session";
+    this.description = trace.status;
+    this.iconPath = new vscode.ThemeIcon("debug-pause");
+    this.command = {
+      command: "agentlog.viewTraceDetail",
+      title: "查看 Trace 详情",
+      arguments: [trace.id],
+    };
+  }
+}
+
 /**
  * Commit 绑定视图的 TreeDataProvider。
  * 以 Commit 为分组，展示每个 Commit 下关联的 AI 会话。
@@ -726,13 +747,14 @@ export class CommitBindingsTreeProvider
     hash: string;
     message: string;
     committedAt: string;
-    sessions: AgentSession[];
+    traces: TraceSummary[];
   }> = [];
 
   private _loading = false;
   private _error: string | null = null;
   private _workspacePath: string | undefined;
   private _disposables: vscode.Disposable[] = [];
+  private _refreshTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
     this._workspacePath = resolveWorkspacePath();
@@ -742,6 +764,11 @@ export class CommitBindingsTreeProvider
       this.refresh();
     });
     this._disposables.push(wsWatcher);
+
+    // 每 30 秒自动重试（后台未就绪时自动恢复）
+    this._refreshTimer = setInterval(() => {
+      this.refresh();
+    }, 30_000);
   }
 
   refresh(): void {
@@ -756,7 +783,7 @@ export class CommitBindingsTreeProvider
 
   async getChildren(element?: CommitTreeItem): Promise<CommitTreeItem[]> {
     if (element instanceof CommitGroupItem) {
-      return element.sessions.map((s) => new CommitSessionItem(s));
+      return element.traces.map((t) => new CommitTraceItem(t));
     }
 
     if (this._loading) {
@@ -776,18 +803,8 @@ export class CommitBindingsTreeProvider
     }
 
     if (this._error) {
-      return [
-        new (class extends CommitTreeItem {
-          readonly type = "error" as const;
-          constructor(msg: string) {
-            super(msg, vscode.TreeItemCollapsibleState.None);
-            this.iconPath = new vscode.ThemeIcon(
-              "error",
-              new vscode.ThemeColor("list.errorForeground"),
-            );
-          }
-        })(this._error),
-      ];
+      const isUnreachable = this._error === "后台服务未启动";
+      return [new ErrorStateItem(this._error, isUnreachable) as unknown as CommitTreeItem];
     }
 
     if (this._commitGroups.length === 0) {
@@ -810,9 +827,9 @@ export class CommitBindingsTreeProvider
         new CommitGroupItem(
           g.hash,
           g.message,
-          g.sessions.length,
+          g.traces.length,
           g.committedAt,
-          g.sessions,
+          g.traces,
         ),
     );
   }
@@ -833,14 +850,13 @@ export class CommitBindingsTreeProvider
       const groups: typeof this._commitGroups = [];
 
       for (const binding of result.data) {
-        // 为每个 Commit 加载关联的会话（简化版：使用 sessionIds 数量展示）
-        const sessions: AgentSession[] = [];
-        for (const sessionId of binding.sessionIds.slice(0, 10)) {
+        const traces: TraceSummary[] = [];
+        for (const traceId of (binding.traceIds ?? []).slice(0, 10)) {
           try {
-            const session = await client.getSession(sessionId);
-            sessions.push(session);
+            const trace = await client.getTrace(traceId) as TraceSummary;
+            traces.push(trace);
           } catch {
-            // 忽略已删除的会话
+            // 忽略已删除的 trace
           }
         }
 
@@ -848,7 +864,7 @@ export class CommitBindingsTreeProvider
           hash: binding.commitHash,
           message: binding.message,
           committedAt: binding.committedAt,
-          sessions,
+          traces,
         });
       }
 
@@ -864,6 +880,10 @@ export class CommitBindingsTreeProvider
   }
 
   dispose(): void {
+    if (this._refreshTimer !== null) {
+      clearInterval(this._refreshTimer);
+      this._refreshTimer = null;
+    }
     this._onDidChangeTreeData.dispose();
     for (const d of this._disposables) d.dispose();
     this._disposables = [];

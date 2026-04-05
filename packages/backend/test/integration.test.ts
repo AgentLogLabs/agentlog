@@ -38,7 +38,7 @@ async function buildApp(): Promise<FastifyInstance> {
   app.get("/health", async (_req, reply) => {
     return reply.send({
       status: "ok",
-      version: "0.1.0",
+      version: "1.1.0",
       timestamp: new Date().toISOString(),
       uptime: Math.floor(process.uptime()),
     });
@@ -47,7 +47,7 @@ async function buildApp(): Promise<FastifyInstance> {
   app.get("/api", async (_req, reply) => {
     return reply.send({
       name: "AgentLog Backend",
-      version: "0.1.0",
+      version: "1.1.0",
       description: "AI 编程行车记录仪 — 本地轻量后台服务",
       endpoints: {
         sessions: "/api/sessions",

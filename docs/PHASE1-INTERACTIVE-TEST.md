@@ -60,54 +60,52 @@ VS Code 设置中配置：
 **目的**：验证 OpenCode 能正确配置 AgentLog 作为 MCP 工具提供者
 
 **前置条件**：
-- AgentLog Backend 已构建：`cd /home/hobo/Projects/agentlog && pnpm build`
 - AgentLog Backend 运行在 localhost:7892
+- AgentLog VS Code 扩展已安装
 - OpenCode 已安装
 
 **测试步骤**：
 
-1. **确认 MCP Server 文件位置**
-   ```bash
-   # MCP Server 位于 backend 包的 dist 目录
-   ls /home/hobo/Projects/agentlog/packages/backend/dist/mcp.js
-   ```
+1. **通过 VS Code 扩展自动配置**
+   - 在 VS Code 中打开 Command Palette (`Cmd+Shift+P`)
+   - 输入 `AgentLog: Configure MCP Client`
+   - 在 QuickPick 中选择 **OpenCode**
+   - 扩展会自动完成以下操作：
+     - 写入 MCP 配置到 `~/.config/opencode/config.json`
+     - 安装 `agentlog-auto` 插件到 `~/.config/opencode/plugins/agentlog-auto/`
+     - 写入调用规则到 `~/.config/opencode/AGENTS.md`
 
-2. **配置 OpenCode MCP**
-   
-   编辑 `~/.config/opencode/config.json`：
-   
+2. **验证配置**
+   ```bash
+   cat ~/.config/opencode/config.json
+   ```
+   预期输出包含：
    ```json
    {
-     "mcpServers": {
-       "agentlog-mcp": {
-         "command": "node",
-         "args": [
-           "/absolute/path/to/agentlog/packages/backend/dist/mcp.js"
-         ],
-         "env": {
-           "AGENTLOG_PORT": "7892"
-         }
+     "mcp": {
+       "agentlog": {
+         "type": "local",
+         "command": ["node", "/path/to/agentlog-vscode/dist/backend/mcp.js"],
+         "environment": {
+           "AGENTLOG_GATEWAY_URL": "http://localhost:7892"
+         },
+         "enabled": true
        }
      }
    }
    ```
-   
-   **⚠️ 重要**：
-   - 路径必须是**绝对路径**
-   - 应指向 `packages/backend/dist/mcp.js`，**不是** VS Code extension 路径
-   - VS Code extension 路径（`~/.vscode/extensions/...`）**不适用于 OpenCode**
 
-3. **验证连接**
+3. **重启 OpenCode 使配置生效**
+
+4. **验证连接**
    - 重启 OpenCode
-   - 执行任意任务，观察 Backend 日志是否有 MCP 请求到达
-
-4. **验证 MCP 工具可用**
-   在 OpenCode 中执行任务时，检查 Backend 是否收到 `log_turn` / `log_intent` 调用。
+   - 检查 MCP 工具列表是否包含 AgentLog 工具
 
 **预期结果**：
-- [ ] OpenCode MCP 配置正确加载
-- [ ] Backend 收到来自 OpenCode 的 MCP 请求
-- [ ] `log_turn` / `log_intent` / `query_historical_interaction` 工具可调用
+- [ ] AgentLog MCP Server 成功连接
+- [ ] `agentlog-auto` 插件已安装到 `~/.config/opencode/plugins/agentlog-auto/`
+- [ ] `AGENTS.md` 中包含 AgentLog 调用规则
+- [ ] 可看到 `agentlog_*` 系列 MCP 工具
 
 **实际结果**：
 
@@ -248,11 +246,12 @@ VS Code 设置中配置：
 
 ### TC-005：Git Hook 拦截人类提交
 
-**目的**：验证 Git post-commit hook 正确拦截人类操作并创建 span
+**目的**：验证 Git post-commit hook 正确拦截人类操作，读取 git config traceId 作为基准，绑定所有后续 traces
 
 **前置条件**：
 - Git Hook 已安装（通过 AgentLog）
 - 处于 Git 仓库中
+- git config 中已设置 agentlog.traceid
 
 **测试步骤**：
 
@@ -269,27 +268,56 @@ VS Code 设置中配置：
    # 确认 hookInstalled: true
    ```
 
-3. **执行人类操作并提交**
+3. **设置 git config traceId（作为基准）**
+   ```bash
+   cd /path/to/repo
+   # 创建一个 trace 并设置为基准
+   TRACE=$(curl -s -X POST http://localhost:7892/api/traces \
+     -H "Content-Type: application/json" \
+     -d '{"taskGoal":"Base trace for binding test"}')
+   TRACE_ID=$(echo $TRACE | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])")
+   git config agentlog.traceid $TRACE_ID
+   echo "基准 traceId: $TRACE_ID"
+   ```
+
+4. **创建额外 traces（模拟 AI 工作）**
+   ```bash
+   # 模拟 AI 创建新的 trace
+   curl -s -X POST http://localhost:7892/api/traces \
+     -H "Content-Type: application/json" \
+     -d '{"taskGoal":"Second AI task"}' > /dev/null
+   ```
+
+5. **执行人类操作并提交**
    ```bash
    # 手动修改一个文件
    echo "# Test" > test.md
    git add test.md
    git commit -m "Human intervention test"
+   sleep 2
    ```
 
-4. **验证 Human Override Span**
+6. **验证所有 traces 被绑定到 commit**
    ```bash
-   # 查询包含 human actor 的 trace
-   TRACE_ID="<当前活跃的 trace ID>"
-   curl http://localhost:7892/api/traces/$TRACE_ID/summary
-   # 检查 humanSpans 计数是否增加
+   COMMIT_HASH=$(git rev-parse HEAD)
+   curl -s "http://localhost:7892/api/commits/$COMMIT_HASH" | python3 -c "
+   import sys,json
+   d=json.load(sys.stdin)
+   if d.get('success'):
+       data = d.get('data', {})
+       trace_ids = data.get('traceIds', [])
+       print('Bound traces:', len(trace_ids))
+       for tid in trace_ids:
+           print('  -', tid)
+   "
    ```
 
 **预期结果**：
 - [ ] Git Hook 安装成功
-- [ ] 人类提交后，系统创建 actor:human 类型的 span
+- [ ] git config traceId 已设置
+- [ ] 人类提交后，commit_bindings 包含基准 trace + 所有后续 traces（共 2 个）
+- [ ] 每个 trace 都有 actor:human 类型的 span
 - [ ] span payload 包含 commit hash 和 diff 信息
-- [ ] Summary API 显示 humanSpans 数量增加
 
 **实际结果**：
 
@@ -385,6 +413,141 @@ VS Code 设置中配置：
 
 ---
 
+### TC-008：人机混合微操接管完整链路（Use Case 1）
+
+**目的**：验证 Agent 陷入死循环后，CEO 手动修复并提交，Agent 恢复时能感知到人类干预并继续执行
+
+**对应方案**：
+> Use Case 1: 人机混合微操接管 (Handoff Tracing)
+> - CEO 在 VS Code 修复 Bug，执行 `git commit`
+> - AgentLog Git Hook 捕获 Diff，封装为 `Span (actor: human)`
+> - 重新唤醒 Agent 时，Agent 自动拉取该 TraceID 的最新上下文
+
+**前置条件**：
+- TC-001、TC-002 已完成
+- AgentLog Backend 运行中
+- Git Hook 已安装
+
+**测试步骤**：
+
+1. **启动 Agent 执行会失败的任务**
+   ```bash
+   # 假设有一个会触发死循环或报错的任务
+   # 例如：让 Agent 修复一个不存在的文件
+   ```
+
+2. **观察 Agent 失败或陷入循环**
+   - 记录当前的 `trace_id`
+
+3. **CEO 手动介入修复**
+   ```bash
+   # 手动修复问题
+   echo "# Fixed" > task.md
+   git add task.md
+   git commit -m "fix: CEO manual intervention"
+   ```
+
+4. **验证 Human Span 已创建**
+   ```bash
+   TRACE_ID="<上一步的 trace_id>"
+   curl http://localhost:7892/api/traces/$TRACE_ID/summary
+   # 确认 humanSpans >= 1
+   ```
+
+5. **Agent 恢复并拉取上下文**
+   ```bash
+   # 在 OpenCode/OpenClaw 中唤醒 Agent
+   # 传入 trace_id 环境变量或通过 MCP 工具指定
+   ```
+
+6. **验证 Agent 感知到人类修改**
+   - Agent 调用 `agentlog_get_trace` 获取完整上下文
+   - Agent 的回复中应体现对 human span 的理解（如提到 "我看到之前的修改"）
+
+**预期结果**：
+- [ ] Git Hook 成功创建 `actor:human` 类型的 span
+- [ ] span payload 包含 commit hash 和 diff 信息
+- [ ] Agent resume 后能通过 API 获取到 human span
+- [ ] Agent 的行为体现出对人类干预上下文的理解
+
+**实际结果**：
+
+---
+
+### TC-009：跨 Agent 急诊交接链路（Use Case 2）
+
+**目的**：验证 Builder Agent 失败后，Reviewer Agent 能通过 TraceID 接手并基于完整上下文修复问题
+
+**对应方案**：
+> Use Case 2: 跨 Agent 的"急诊交接" (JIT Context Hydration)
+> - Builder 失败时只传递 `TraceID: T-888`
+> - Reviewer 收到后调用 `get_failed_attempts(trace_id)`
+> - 获取结构化的历史报错栈、输入参数及环境状态，零信息损耗接手
+
+**前置条件**：
+- TC-002 已完成（有可查询的 trace）
+- OpenClaw Agent 已配置 AgentLog MCP
+
+**测试步骤**：
+
+1. **模拟 Builder Agent 执行失败**
+   ```bash
+   # 创建一个会失败的任务 trace
+   RESP=$(curl -s -X POST http://localhost:7892/api/traces \
+     -H "Content-Type: application/json" \
+     -d '{"taskGoal":"Builder task that will fail"}')
+   BUILDER_TRACE_ID=$(echo $RESP | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['id'])")
+   
+   # 添加一些 agent spans（模拟 Builder 执行）
+   curl -s -X POST http://localhost:7892/api/spans \
+     -H "Content-Type: application/json" \
+     -d "{\"traceId\":\"$BUILDER_TRACE_ID\",\"actorType\":\"agent\",\"actorName\":\"BuilderAgent\",\"payload\":{\"event\":\"error\",\"message\":\"Configuration failed\"}}"
+   
+   echo "Builder Trace ID: $BUILDER_TRACE_ID"
+   ```
+
+2. **模拟 Builder 失败并传递 TraceID**
+   ```bash
+   # 模拟 Builder 输出：
+   # "任务失败，请 Reviewer 接手。TraceID: $BUILDER_TRACE_ID"
+   ```
+
+3. **Reviewer Agent 获取失败详情**
+   ```bash
+   # 使用 MCP 工具获取失败上下文
+   curl http://localhost:7892/api/traces/$BUILDER_TRACE_ID/summary
+   
+   # 验证返回完整的：
+   # - 错误栈信息
+   # - 之前的工具调用记录
+   # - 输入参数和环境状态
+   ```
+
+4. **Reviewer 基于上下文修复**
+   ```bash
+   # 在 OpenClaw Agent 中使用 agentlog_get_failed_attempts
+   # 验证 Reviewer 能获取到完整的历史记录
+   
+   # 验证 Reviewer 的修复是否基于完整的失败上下文
+   ```
+
+5. **验证上下文复水成功**
+   ```bash
+   # 查询 Reviewer 创建的新 span 是否正确挂载到原 trace
+   curl http://localhost:7892/api/traces/$BUILDER_TRACE_ID/diff
+   # 确认 spanTree 包含 Builder 的 error span + Reviewer 的修复 span
+   ```
+
+**预期结果**：
+- [ ] Reviewer 通过 TraceID 获取到 Builder 的完整失败上下文
+- [ ] 包含错误栈、输入参数、历史工具调用
+- [ ] Reviewer 的修复 span 正确挂载到同一 trace
+- [ ] 无需 Builder 提供额外总结，Reviewer 零信息损耗接手
+
+**实际结果**：
+
+---
+
 ## 🐛 问题记录
 
 | Bug ID | 描述 | 严重程度 | 状态 |
@@ -397,7 +560,7 @@ VS Code 设置中配置：
 
 | 项目 | 结果 |
 |------|------|
-| 测试用例总数 | 7 |
+| 测试用例总数 | 9 |
 | 通过 | X |
 | 失败 | X |
 | 阻塞 | X |
@@ -420,14 +583,18 @@ VS Code 设置中配置：
 |------|------|------|
 | `/health` | GET | 健康检查 |
 | `/api/traces` | GET | 查询 trace 列表 |
-| `/api/traces` | POST | 创建 trace |
+| `/api/traces` | POST | 创建 trace（log_turn 首次调用时自动创建） |
 | `/api/traces/:id` | GET | 获取单个 trace |
+| `/api/traces/:id` | PATCH | 更新 trace 状态（log_intent 调用） |
 | `/api/traces/:id/summary` | GET | 获取 trace 摘要 |
 | `/api/traces/:id/diff` | GET | 获取 trace diff |
-| `/api/spans` | POST | 创建 span |
+| `/api/spans` | POST | 创建 span（log_turn 后续调用时创建） |
 | `/api/hooks/post-commit` | POST | post-commit 回调 |
 | `/api/hooks/install` | POST | 安装 git hook |
 | `/mcp/sse` | GET | SSE 实时推送 |
+| MCP: `log_turn` | 工具 | 逐轮记录（首次创建 trace，后续追加 span） |
+| MCP: `log_intent` | 工具 | 任务归档（更新 trace 状态为 completed） |
+| MCP: `query_historical_interaction` | 工具 | 查询历史 trace |
 
 ### C. 关键 Commit
 

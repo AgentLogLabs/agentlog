@@ -12,13 +12,14 @@ import {
 // 类型定义
 // ─────────────────────────────────────────────
 
-export type TraceStatus = 'running' | 'completed' | 'failed' | 'paused';
+export type TraceStatus = 'running' | 'pending_handoff' | 'in_progress' | 'completed' | 'failed' | 'paused';
 
 export interface Trace {
   id: string;
   parentTraceId: string | null;
   taskGoal: string;
   status: TraceStatus;
+  workspacePath: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -27,6 +28,7 @@ export interface CreateTraceRequest {
   taskGoal: string;
   status?: TraceStatus;
   parentTraceId?: string;
+  workspacePath?: string;
 }
 
 export interface UpdateTraceRequest {
@@ -58,6 +60,46 @@ export interface SpanTreeNode extends Span {
   children: SpanTreeNode[];
 }
 
+// Error Span types (Stage 1 新增)
+export interface ReasoningChainStep {
+  step: number;
+  thought: string;
+  action: string;
+}
+
+export interface ErrorSpanPayload {
+  errorType: string;
+  stackTrace?: string;
+  memorySnapshot?: {
+    workspacePath: string;
+    currentFiles: string[];
+    gitStatus: 'clean' | 'modified' | 'staged' | 'untracked';
+  };
+  diff?: {
+    changedFiles: string[];
+    additions: number;
+    deletions: number;
+  };
+  reasoningChain?: ReasoningChainStep[];
+}
+
+export interface CreateErrorSpanRequest {
+  traceId: string;
+  errorType: string;
+  stackTrace?: string;
+  memorySnapshot?: {
+    workspacePath: string;
+    currentFiles: string[];
+    gitStatus: 'clean' | 'modified' | 'staged' | 'untracked';
+  };
+  diff?: {
+    changedFiles: string[];
+    additions: number;
+    deletions: number;
+  };
+  reasoningChain?: ReasoningChainStep[];
+}
+
 // ─────────────────────────────────────────────
 // 行 → 实体 映射
 // ─────────────────────────────────────────────
@@ -68,6 +110,7 @@ function rowToTrace(row: TraceRow): Trace {
     parentTraceId: (row as unknown as { parent_trace_id: string | null }).parent_trace_id ?? null,
     taskGoal: row.task_goal,
     status: row.status as TraceStatus,
+    workspacePath: row.workspace_path ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -97,13 +140,14 @@ export function createTrace(req: CreateTraceRequest): Trace {
   const parentTraceId = req.parentTraceId ?? null;
 
   db.prepare(`
-    INSERT INTO traces (id, parent_trace_id, task_goal, status, created_at, updated_at)
-    VALUES (@id, @parent_trace_id, @task_goal, @status, @created_at, @updated_at)
+    INSERT INTO traces (id, parent_trace_id, task_goal, status, workspace_path, created_at, updated_at)
+    VALUES (@id, @parent_trace_id, @task_goal, @status, @workspace_path, @created_at, @updated_at)
   `).run({
     id,
     parent_trace_id: parentTraceId,
     task_goal: req.taskGoal,
     status,
+    workspace_path: req.workspacePath ?? null,
     created_at: now,
     updated_at: now,
   });
@@ -157,10 +201,16 @@ export function queryTraces(filter: {
   endDate?: string;
   page?: number;
   pageSize?: number;
+  workspacePath?: string;
 } = {}): { data: Trace[]; total: number; page: number; pageSize: number } {
   const db = getDatabase();
   const conditions: string[] = [];
   const params: Record<string, unknown> = {};
+
+  if (filter.workspacePath) {
+    conditions.push('workspace_path = @workspacePath');
+    params.workspacePath = filter.workspacePath;
+  }
 
   if (filter.status) {
     conditions.push('status = @status');
@@ -219,6 +269,68 @@ export function createSpan(req: CreateSpanRequest): Span {
     throw new Error(`[traceService] Span 创建失败，id=${id}`);
   }
   return created;
+}
+
+/**
+ * 创建 Error Span。
+ * 用于在 Agent 报错时记录错误详情、推理链、内存快照等信息。
+ */
+export function createErrorSpan(req: CreateErrorSpanRequest): Span {
+  const db = getDatabase();
+  const id = ulid();
+  const now = new Date().toISOString();
+
+  const payload: ErrorSpanPayload = {
+    errorType: req.errorType,
+    ...(req.stackTrace ? { stackTrace: req.stackTrace } : {}),
+    ...(req.memorySnapshot ? { memorySnapshot: req.memorySnapshot } : {}),
+    ...(req.diff ? { diff: req.diff } : {}),
+    ...(req.reasoningChain ? { reasoningChain: req.reasoningChain } : {}),
+  };
+
+  db.prepare(`
+    INSERT INTO spans (id, trace_id, parent_span_id, actor_type, actor_name, payload, created_at)
+    VALUES (@id, @trace_id, @parent_span_id, @actor_type, @actor_name, @payload, @created_at)
+  `).run({
+    id,
+    trace_id: req.traceId,
+    parent_span_id: null,
+    actor_type: 'error',
+    actor_name: 'error',
+    payload: toJson(payload),
+    created_at: now,
+  });
+
+  const created = getSpanById(id);
+  if (!created) {
+    throw new Error(`[traceService] Error Span 创建失败，id=${id}`);
+  }
+  return created;
+}
+
+/**
+ * 从 trace 的历史 spans 中构建推理链。
+ */
+export function buildReasoningChain(traceId: string): ReasoningChainStep[] {
+  const spans = getSpansByTraceId(traceId);
+  const reasoningChain: ReasoningChainStep[] = [];
+  let step = 1;
+
+  for (const span of spans) {
+    if (span.actorType === 'agent' && span.payload) {
+      const content = span.payload.content as string | undefined;
+      const reasoning = span.payload.reasoning as string | undefined;
+      if (content || reasoning) {
+        reasoningChain.push({
+          step: step++,
+          thought: reasoning || content || '',
+          action: (span.payload.toolName as string | undefined) || '思考',
+        });
+      }
+    }
+  }
+
+  return reasoningChain;
 }
 
 export function getSpanById(id: string): Span | null {
@@ -287,6 +399,54 @@ export function getFullSpanTree(traceId: string): {
     return { trace: null, tree: [] };
   }
   return { trace, tree: buildSpanTree(traceId) };
+}
+
+export function associateCommitsToTrace(
+  traceId: string,
+  commits: Array<{ commitHash: string; parentCommitHash?: string; workspacePath: string }>
+): { success: boolean; spanIds: string[]; errors: string[] } {
+  const db = getDatabase();
+  const trace = getTraceById(traceId);
+  if (!trace) {
+    return { success: false, spanIds: [], errors: [`Trace ${traceId} 不存在`] };
+  }
+
+  const spanIds: string[] = [];
+  const errors: string[] = [];
+
+  for (const commit of commits) {
+    try {
+      const now = new Date().toISOString();
+      const id = ulid();
+
+      db.prepare(`
+        INSERT INTO spans (id, trace_id, parent_span_id, actor_type, actor_name, payload, created_at)
+        VALUES (@id, @trace_id, @parent_span_id, @actor_type, @actor_name, @payload, @created_at)
+      `).run({
+        id,
+        trace_id: traceId,
+        parent_span_id: null,
+        actor_type: 'human',
+        actor_name: 'git:human-override',
+        payload: toJson({
+          source: 'manual-associate',
+          event: 'post-commit',
+          commitHash: commit.commitHash,
+          parentCommitHash: commit.parentCommitHash ?? null,
+          workspacePath: commit.workspacePath,
+          isHumanOverride: true,
+        }),
+        created_at: now,
+      });
+
+      spanIds.push(id);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`Commit ${commit.commitHash}: ${msg}`);
+    }
+  }
+
+  return { success: spanIds.length > 0, spanIds, errors };
 }
 
 /**
@@ -383,4 +543,101 @@ export function searchTraces(filter: {
   }));
 
   return { data: results, total: countResult.total };
+}
+
+// ─────────────────────────────────────────────
+// State Transitions (Stage 1 新增)
+// ─────────────────────────────────────────────
+
+/**
+ * 将 trace 转为 pending_handoff 状态。
+ * 用于 Agent 报错需要交接给人类的场景。
+ */
+export function transitionToHandoff(
+  traceId: string,
+  targetAgent: string,
+  workspacePath?: string
+): Trace | null {
+  const trace = getTraceById(traceId);
+  if (!trace) {
+    console.log(`[traceService] transitionToHandoff: trace not found ${traceId}`);
+    return null;
+  }
+
+  if (trace.status !== 'running' && trace.status !== 'in_progress') {
+    console.log(`[traceService] transitionToHandoff: invalid status ${trace.status} for trace ${traceId}`);
+    return null;
+  }
+
+  const updated = updateTrace(traceId, { status: 'pending_handoff' });
+  console.log(`[traceService] transitionToHandoff: ${traceId} -> pending_handoff (target: ${targetAgent})`);
+  return updated;
+}
+
+/**
+ * 将 trace 转为 in_progress 状态。
+ * 用于人类/新 Agent 接手继续工作的场景。
+ */
+export function transitionToInProgress(traceId: string): Trace | null {
+  const trace = getTraceById(traceId);
+  if (!trace) {
+    console.log(`[traceService] transitionToInProgress: trace not found ${traceId}`);
+    return null;
+  }
+
+  if (trace.status !== 'pending_handoff' && trace.status !== 'running') {
+    console.log(`[traceService] transitionToInProgress: invalid status ${trace.status} for trace ${traceId}`);
+    return null;
+  }
+
+  const updated = updateTrace(traceId, { status: 'in_progress' });
+  console.log(`[traceService] transitionToInProgress: ${traceId} -> in_progress`);
+  return updated;
+}
+
+/**
+ * 将 trace 转为 completed 状态。
+ */
+export function transitionToCompleted(traceId: string): Trace | null {
+  const trace = getTraceById(traceId);
+  if (!trace) {
+    return null;
+  }
+
+  const updated = updateTrace(traceId, { status: 'completed' });
+  console.log(`[traceService] transitionToCompleted: ${traceId}`);
+  return updated;
+}
+
+/**
+ * 将 trace 转为 paused 状态。
+ * 用于用户主动暂停的场景。
+ */
+export function transitionToPaused(traceId: string): Trace | null {
+  const trace = getTraceById(traceId);
+  if (!trace) {
+    return null;
+  }
+
+  if (trace.status !== 'running' && trace.status !== 'in_progress') {
+    return null;
+  }
+
+  const updated = updateTrace(traceId, { status: 'paused' });
+  console.log(`[traceService] transitionToPaused: ${traceId}`);
+  return updated;
+}
+
+/**
+ * 从 paused 状态恢复为 running。
+ */
+export function transitionFromPaused(traceId: string): Trace | null {
+  const trace = getTraceById(traceId);
+  if (!trace || trace.status !== 'paused') {
+    return null;
+  }
+
+  const updated = updateTrace(traceId, { status: 'running' });
+  console.log(`[traceService] transitionFromPaused: ${traceId} -> running`);
+  return updated;
 }

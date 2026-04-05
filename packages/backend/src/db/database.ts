@@ -80,15 +80,19 @@ const DDL_AGENT_SESSIONS_INDEXES = `
 `;
 
 /**
- * commit_bindings — Git Commit 与若干 AgentSession 的绑定关系。
+ * commit_bindings — Git Commit 与若干 AgentSession/Trace 的绑定关系。
  *
- * 一个 commit_hash 对应一条记录，session_ids 以 JSON 数组存储。
+ * 一个 commit_hash 对应一条记录，session_ids/trace_ids 以 JSON 数组存储。
  * changed_files 同样以 JSON 数组存储（来自 git diff --name-only）。
+ * 
+ * 2026-04-04: 迁移到 Trace/Span 架构，session_ids 保留用于兼容，
+ * 新绑定使用 trace_ids。
  */
 const DDL_COMMIT_BINDINGS = `
   CREATE TABLE IF NOT EXISTS commit_bindings (
     commit_hash     TEXT    NOT NULL PRIMARY KEY,
     session_ids     TEXT    NOT NULL DEFAULT '[]',
+    trace_ids       TEXT    NOT NULL DEFAULT '[]',
     message         TEXT    NOT NULL DEFAULT '',
     committed_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     author_name     TEXT    NOT NULL DEFAULT '',
@@ -96,6 +100,11 @@ const DDL_COMMIT_BINDINGS = `
     changed_files   TEXT    NOT NULL DEFAULT '[]',
     workspace_path  TEXT    NOT NULL
   );
+`;
+
+// 2026-04-04: 迁移：添加 trace_ids 列到已存在的表
+const MIGRATION_ADD_TRACE_IDS = `
+  ALTER TABLE commit_bindings ADD COLUMN trace_ids TEXT NOT NULL DEFAULT '[]';
 `;
 
 const DDL_COMMIT_BINDINGS_INDEXES = `
@@ -410,6 +419,19 @@ const MIGRATIONS: Array<{ version: number; up: MigrationFn }> = [
       }
     },
   },
+  {
+    version: 9,
+    up: (db) => {
+      // Trace workspace 归属：新增 workspace_path 字段支持按工作区过滤
+      const existing = db
+        .prepare("PRAGMA table_info(traces)")
+        .all() as { name: string }[];
+      if (!existing.find((col) => col.name === "workspace_path")) {
+        db.exec(`ALTER TABLE traces ADD COLUMN workspace_path TEXT`);
+      }
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_traces_workspace_path ON traces (workspace_path)`);
+    },
+  },
 ];
 
 function getCurrentSchemaVersion(db: Database.Database): number {
@@ -542,7 +564,8 @@ export type SessionRow = {
 
 export type CommitRow = {
   commit_hash: string;
-  session_ids: string; // JSON
+  session_ids: string; // JSON (保留兼容)
+  trace_ids: string; // JSON (2026-04-04 新增)
   message: string;
   committed_at: string;
   author_name: string;
@@ -615,6 +638,7 @@ export type TraceRow = {
   parent_trace_id: string | null;
   task_goal: string;
   status: string;
+  workspace_path: string | null;
   created_at: string;
   updated_at: string;
 };

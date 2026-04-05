@@ -5,10 +5,9 @@
  * 通过 acquireVsCodeApi() 与 Extension Host 通信。
  *
  * 功能：
- *  - 统计卡片（总数 / 已绑定 / 未绑定 / 平均耗时）
- *  - 高级搜索面板（关键字 / 文件名 / 时间范围 / provider / source / 未绑定过滤）
- *  - 会话列表表格（分页）
- *  - 导出操作（周报 / PR 说明 / JSONL / CSV）
+ *  - Trace 列表（任务目标 / 状态 / 创建时间）
+ *  - 状态过滤（全部 / 运行中 / 已完成 / 失败 / 已暂停）
+ *  - 查看 Trace 详情
  */
 
 const vscode = acquireVsCodeApi();
@@ -18,15 +17,13 @@ const vscode = acquireVsCodeApi();
 // ─────────────────────────────────────────────
 
 let state = {
-  sessions: [],
+  traces: [],
   total: 0,
   page: 1,
-  pageSize: 20,
-  stats: {},
+  pageSize: 50,
   backendAlive: false,
   loading: false,
-  // 当前生效的搜索条件（由 applySearch() 写入，goPage() 复用）
-  currentFilter: {}
+  statusFilter: '',
 };
 
 // ─────────────────────────────────────────────
@@ -36,16 +33,12 @@ let state = {
 window.addEventListener('message', (event) => {
   const msg = event.data;
   switch (msg.type) {
-    case 'loadSessions':
-      state.sessions = msg.payload.sessions;
+    case 'loadTraces':
+      state.traces = msg.payload.traces;
       state.total    = msg.payload.total;
       state.page     = msg.payload.page;
       state.pageSize = msg.payload.pageSize;
       renderTable();
-      renderPagination();
-      break;
-    case 'loadStats':
-      state.stats = msg.payload;
       renderStats();
       break;
     case 'backendStatus':
@@ -82,11 +75,18 @@ function renderApp() {
         <div class="sidebar-section-title">导出</div>
         <button class="primary sidebar-btn" onclick="exportReport('weekly-report')">📝 导出周报</button>
         <button class="secondary sidebar-btn" onclick="exportReport('pr-description')">🔗 导出 PR 说明</button>
-        <button class="secondary sidebar-btn" onclick="exportReport('jsonl')">💾 导出 JSONL</button>
-        <button class="secondary sidebar-btn" onclick="exportReport('csv')">📊 导出 CSV</button>
 
         <hr class="sidebar-divider">
         <button class="secondary sidebar-btn" onclick="openSettings()">⚙️ 设置</button>
+
+        <hr class="sidebar-divider">
+
+        <div class="sidebar-section-title">状态过滤</div>
+        <button class="sidebar-btn status-filter-btn" data-status="" onclick="setStatusFilter('')">全部</button>
+        <button class="sidebar-btn status-filter-btn" data-status="running" onclick="setStatusFilter('running')">🟢 运行中</button>
+        <button class="sidebar-btn status-filter-btn" data-status="completed" onclick="setStatusFilter('completed')">✅ 已完成</button>
+        <button class="sidebar-btn status-filter-btn" data-status="failed" onclick="setStatusFilter('failed')">❌ 失败</button>
+        <button class="sidebar-btn status-filter-btn" data-status="paused" onclick="setStatusFilter('paused')">⏸ 已暂停</button>
       </div>
 
       <!-- ── 主内容区 ── -->
@@ -95,86 +95,18 @@ function renderApp() {
         <!-- 统计卡片 -->
         <div id="stats-area" class="stat-cards"></div>
 
-        <!-- 高级搜索面板 -->
+        <!-- 搜索栏 -->
         <div class="search-panel">
-          <div class="search-panel-header" onclick="toggleSearchPanel()">
-            <span class="search-panel-title">🔍 搜索 &amp; 过滤</span>
-            <span id="search-panel-toggle" class="search-panel-chevron">▼</span>
-          </div>
-          <div id="search-panel-body" class="search-panel-body">
-
-            <!-- 第一行：关键字 + 文件名 -->
-            <div class="search-row">
-              <div class="search-field">
-                <label class="search-label">关键字</label>
-                <input type="text" id="q-keyword" class="search-input"
-                  placeholder="搜索 Prompt / 回复 / 备注…"
-                  onkeydown="if(event.key==='Enter') applySearch()">
-              </div>
-              <div class="search-field">
-                <label class="search-label">文件名</label>
-                <input type="text" id="q-filename" class="search-input"
-                  placeholder="如 logService.ts（模糊匹配涉及文件）"
-                  onkeydown="if(event.key==='Enter') applySearch()">
-              </div>
+          <div class="search-row">
+            <div class="search-field" style="flex:2">
+              <label class="search-label">关键字搜索</label>
+              <input type="text" id="q-keyword" class="search-input"
+                placeholder="搜索任务目标…"
+                onkeydown="if(event.key==='Enter') applySearch()">
             </div>
-
-            <!-- 第二行：时间范围 -->
-            <div class="search-row">
-              <div class="search-field">
-                <label class="search-label">开始日期</label>
-                <input type="date" id="q-start-date" class="search-input">
-              </div>
-              <div class="search-field">
-                <label class="search-label">结束日期</label>
-                <input type="date" id="q-end-date" class="search-input">
-              </div>
-            </div>
-
-            <!-- 第三行：provider / source / 未绑定 -->
-            <div class="search-row">
-              <div class="search-field">
-                <label class="search-label">模型提供商</label>
-                <select id="q-provider" class="search-select">
-                  <option value="">全部</option>
-                  <option value="anthropic">Anthropic (Claude)</option>
-                  <option value="openai">OpenAI (GPT)</option>
-                  <option value="deepseek">DeepSeek</option>
-                  <option value="qwen">通义千问 (Qwen)</option>
-                  <option value="kimi">Kimi (月之暗面)</option>
-                  <option value="doubao">豆包 (Doubao)</option>
-                  <option value="zhipu">智谱 (GLM)</option>
-                  <option value="minimax">MiniMax</option>
-                  <option value="ollama">Ollama (本地)</option>
-                </select>
-              </div>
-              <div class="search-field">
-                <label class="search-label">Agent 来源</label>
-                <select id="q-source" class="search-select">
-                  <option value="">全部</option>
-                  <option value="opencode">OpenCode</option>
-                  <option value="cline">Cline / Roo Code</option>
-                  <option value="cursor">Cursor</option>
-                  <option value="claude-code">Claude Code</option>
-                  <option value="copilot">GitHub Copilot</option>
-                  <option value="continue">Continue</option>
-                  <option value="mcp-tool-call">MCP 工具调用</option>
-                  <option value="direct-api">直接 API</option>
-                </select>
-              </div>
-              <div class="search-field search-field-checkbox">
-                <label class="search-checkbox-label">
-                  <input type="checkbox" id="q-unbound-only">
-                  <span>仅显示未绑定 Commit</span>
-                </label>
-              </div>
-            </div>
-
-            <!-- 操作按钮 -->
-            <div class="search-actions">
+            <div class="search-actions" style="align-self:flex-end">
               <button class="primary" onclick="applySearch()">搜索</button>
               <button class="secondary" onclick="resetSearch()">重置</button>
-              <span id="search-result-hint" class="search-hint"></span>
             </div>
           </div>
         </div>
@@ -183,24 +115,18 @@ function renderApp() {
         <div id="error-area"></div>
         <div id="loading-area"></div>
 
-        <!-- 会话列表表格 -->
+        <!-- Trace 列表表格 -->
         <table>
           <thead>
             <tr>
               <th>时间</th>
-              <th>模型</th>
-              <th>来源</th>
-              <th>Prompt 预览</th>
-              <th>涉及文件</th>
-              <th>Commit</th>
+              <th>任务目标</th>
+              <th>状态</th>
               <th>操作</th>
             </tr>
           </thead>
-          <tbody id="sessions-tbody"></tbody>
+          <tbody id="traces-tbody"></tbody>
         </table>
-
-        <!-- 分页控件 -->
-        <div class="pagination" id="pagination"></div>
 
       </div>
     </div>
@@ -210,70 +136,42 @@ function renderApp() {
 renderApp();
 
 // ─────────────────────────────────────────────
-// 搜索面板折叠 / 展开
+// 状态过滤
 // ─────────────────────────────────────────────
 
-let _searchPanelOpen = true;
-
-function toggleSearchPanel() {
-  _searchPanelOpen = !_searchPanelOpen;
-  const body   = document.getElementById('search-panel-body');
-  const toggle = document.getElementById('search-panel-toggle');
-  if (body)   body.style.display   = _searchPanelOpen ? '' : 'none';
-  if (toggle) toggle.textContent   = _searchPanelOpen ? '▼' : '▶';
+function setStatusFilter(status) {
+  state.statusFilter = status;
+  document.querySelectorAll('.status-filter-btn').forEach(btn => {
+    btn.style.fontWeight = btn.dataset.status === status ? '700' : '';
+  });
+  applySearch();
 }
 
 // ─────────────────────────────────────────────
 // 搜索 / 过滤逻辑
 // ─────────────────────────────────────────────
 
-/**
- * 读取搜索面板所有字段，构建 filter 对象并发送查询请求。
- * 文件名过滤在此标记，由 Extension Host 处理后在 MCP 端客户端过滤。
- */
 function applySearch() {
-  const keyword       = val('q-keyword');
-  const filename      = val('q-filename');
-  const startDate     = val('q-start-date');
-  const endDate       = val('q-end-date');
-  const provider      = val('q-provider');
-  const source        = val('q-source');
-  const unboundOnly   = document.getElementById('q-unbound-only').checked;
-
+  const keyword = val('q-keyword');
+  const status = state.statusFilter;
   const filter = {};
-  if (keyword)     filter.keyword           = keyword;
-  if (filename)    filter.filename          = filename;
-  if (startDate)   filter.startDate         = startDate;
-  if (endDate)     filter.endDate           = endDate;
-  if (provider)    filter.provider          = provider;
-  if (source)      filter.source            = source;
-  if (unboundOnly) filter.onlyBoundToCommit = false;   // false = 未绑定
-  if (unboundOnly) filter.onlyUnbound       = true;
-
-  state.currentFilter = filter;
+  if (keyword) filter.keyword = keyword;
+  if (status) filter.status = status;
 
   vscode.postMessage({
-    command: 'querySessions',
+    command: 'queryTraces',
     data: { page: 1, pageSize: state.pageSize, ...filter }
   });
 }
 
 function resetSearch() {
-  setVal('q-keyword',     '');
-  setVal('q-filename',    '');
-  setVal('q-start-date',  '');
-  setVal('q-end-date',    '');
-  setVal('q-provider',    '');
-  setVal('q-source',      '');
-  document.getElementById('q-unbound-only').checked = false;
-
-  state.currentFilter = {};
-
-  const hint = document.getElementById('search-result-hint');
-  if (hint) hint.textContent = '';
-
+  setVal('q-keyword', '');
+  state.statusFilter = '';
+  document.querySelectorAll('.status-filter-btn').forEach(btn => {
+    btn.style.fontWeight = btn.dataset.status === '' ? '700' : '';
+  });
   vscode.postMessage({
-    command: 'querySessions',
+    command: 'queryTraces',
     data: { page: 1, pageSize: state.pageSize }
   });
 }
@@ -283,133 +181,90 @@ function resetSearch() {
 // ─────────────────────────────────────────────
 
 function renderStats() {
-  const s   = state.stats;
-  const el  = document.getElementById('stats-area');
-  if (!el) return;
+  const traces = state.traces || [];
+  const total = state.total || 0;
+  const running = traces.filter(t => t.status === 'running').length;
+  const completed = traces.filter(t => t.status === 'completed').length;
+  const failed = traces.filter(t => t.status === 'failed').length;
+  const paused = traces.filter(t => t.status === 'paused').length;
 
-  // 构建 provider 分布迷你列表（取前 3 名）
-  const byProvider = s.byProvider || {};
-  const topProviders = Object.entries(byProvider)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3)
-    .map(([p, c]) => `<span class="stat-tag">${escHtml(p)} ${c}</span>`)
-    .join('');
+  const el = document.getElementById('stats-area');
+  if (!el) return;
 
   el.innerHTML = `
     <div class="stat-card">
-      <div class="stat-value">${s.total || 0}</div>
-      <div class="stat-label">总会话数</div>
+      <div class="stat-value">${total}</div>
+      <div class="stat-label">全部 Trace</div>
     </div>
     <div class="stat-card">
-      <div class="stat-value" style="color:var(--vscode-gitDecoration-addedResourceForeground)">${s.boundToCommit || 0}</div>
-      <div class="stat-label">已绑定 Commit</div>
+      <div class="stat-value" style="color:#1e8cff">${running}</div>
+      <div class="stat-label">运行中</div>
     </div>
     <div class="stat-card">
-      <div class="stat-value" style="color:var(--vscode-editorWarning-foreground)">${s.unbound || 0}</div>
-      <div class="stat-label">未绑定</div>
+      <div class="stat-value" style="color:#4caf50">${completed}</div>
+      <div class="stat-label">已完成</div>
     </div>
     <div class="stat-card">
-      <div class="stat-value">${Math.round((s.avgDurationMs || 0) / 1000)}s</div>
-      <div class="stat-label">平均耗时</div>
+      <div class="stat-value" style="color:#f44336">${failed}</div>
+      <div class="stat-label">失败</div>
     </div>
-    ${topProviders ? `<div class="stat-card stat-card-wide">
-      <div class="stat-label" style="margin-bottom:6px">模型分布</div>
-      <div>${topProviders}</div>
-    </div>` : ''}
+    <div class="stat-card">
+      <div class="stat-value" style="color:#ff9800">${paused}</div>
+      <div class="stat-label">已暂停</div>
+    </div>
   `;
 }
 
 // ─────────────────────────────────────────────
-// 渲染：会话列表表格
+// 渲染：Trace 列表表格
 // ─────────────────────────────────────────────
 
 function renderTable() {
-  const tbody = document.getElementById('sessions-tbody');
+  const tbody = document.getElementById('traces-tbody');
   if (!tbody) return;
 
-  if (state.sessions.length === 0) {
+  if (state.traces.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="7" class="empty-cell">
-          ${Object.keys(state.currentFilter).length > 0
-            ? '没有符合条件的记录，请调整过滤条件'
-            : '暂无 AI 交互记录'}
+        <td colspan="4" class="empty-cell">
+          暂无 Trace 记录
         </td>
       </tr>`;
-    updateSearchHint(0);
     return;
   }
 
-  tbody.innerHTML = state.sessions.map(s => {
-    const files = (s.affectedFiles || []);
-    const filesCell = files.length > 0
-      ? files.slice(0, 2).map(f => `<code class="file-badge">${escHtml(basename(f))}</code>`).join(' ')
-        + (files.length > 2 ? `<span class="more-badge">+${files.length - 2}</span>` : '')
-      : '<span class="muted">—</span>';
-
-    const commitCell = s.sessionCommits && s.sessionCommits.length > 0
-      ? (() => {
-          const maxDisplay = 2;
-          const displayed = s.sessionCommits.slice(0, maxDisplay);
-          const badges = displayed.map(sc => 
-            `<span class="badge commit-badge" title="${escHtml(sc.commitHash)} (绑定于 ${escHtml(sc.createdAt)})">${escHtml(sc.commitHash.slice(0, 7))}</span>`
-          ).join(' ');
-          if (s.sessionCommits.length > maxDisplay) {
-            badges += ` <span class="more-badge" title="还有 ${s.sessionCommits.length - maxDisplay} 个 Commit">+${s.sessionCommits.length - maxDisplay}</span>`;
-          }
-          return badges;
-        })()
-      : s.commitHash
-      ? `<span class="badge commit-badge" title="${escHtml(s.commitHash)}">${escHtml(s.commitHash.slice(0, 7))}</span>`
-      : `<span class="muted">—</span>`;
-
-    const tokenInfo = s.tokenUsage
-      ? formatTokens(s.tokenUsage)
-      : '';
-
+  tbody.innerHTML = state.traces.map(t => {
+    const statusBadge = getStatusBadge(t.status);
     return `
       <tr>
         <td class="nowrap time-cell">
-          <div>${escHtml(formatTime(s.createdAt))}</div>
-          ${tokenInfo ? `<div class="token-hint">${tokenInfo}</div>` : ''}
+          ${escHtml(formatTime(t.createdAt))}
         </td>
-        <td>
-          <span class="badge provider-badge provider-${escHtml(s.provider)}">${escHtml(s.model)}</span>
+        <td class="prompt-cell" onclick="viewTrace('${escHtml(t.id)}')"
+            title="${escHtml(t.taskGoal)}">
+          ${escHtml(t.taskGoal || '(无任务目标)')}
         </td>
-        <td>
-          <span class="badge source-badge">${escHtml(s.source)}</span>
-        </td>
-        <td class="prompt-cell" onclick="viewSession('${escHtml(s.id)}')"
-            title="${escHtml(s.prompt)}">
-          ${escHtml(s.prompt.slice(0, 70))}${s.prompt.length > 70 ? '…' : ''}
-        </td>
-        <td class="files-cell">${filesCell}</td>
-        <td>${commitCell}</td>
+        <td>${statusBadge}</td>
         <td class="action-cell">
-          <button class="secondary btn-sm" onclick="viewSession('${escHtml(s.id)}')">详情</button>
-          <button class="secondary btn-sm btn-danger" onclick="deleteSession('${escHtml(s.id)}')">删除</button>
+          <button class="secondary btn-sm" onclick="viewTrace('${escHtml(t.id)}')">详情</button>
         </td>
       </tr>`;
   }).join('');
-
-  updateSearchHint(state.total);
 }
 
-// ─────────────────────────────────────────────
-// 渲染：分页
-// ─────────────────────────────────────────────
-
-function renderPagination() {
-  const el = document.getElementById('pagination');
-  if (!el) return;
-  const totalPages = Math.max(1, Math.ceil(state.total / state.pageSize));
-  el.innerHTML = `
-    <button class="secondary" onclick="goPage(${state.page - 1})"
-      ${state.page <= 1 ? 'disabled' : ''}>上一页</button>
-    <span class="page-info">第 ${state.page} / ${totalPages} 页（共 ${state.total} 条）</span>
-    <button class="secondary" onclick="goPage(${state.page + 1})"
-      ${state.page >= totalPages ? 'disabled' : ''}>下一页</button>
-  `;
+function getStatusBadge(status) {
+  switch (status) {
+    case 'running':
+      return '<span class="badge" style="background:#1e8cff30;color:#1e8cff">● 运行中</span>';
+    case 'completed':
+      return '<span class="badge" style="background:#4caf5030;color:#4caf50">✓ 已完成</span>';
+    case 'failed':
+      return '<span class="badge" style="background:#f4433630;color:#f44336">✗ 失败</span>';
+    case 'paused':
+      return '<span class="badge" style="background:#ff980030;color:#ff9800">⏸ 已暂停</span>';
+    default:
+      return `<span class="badge">${escHtml(status)}</span>`;
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -439,32 +294,12 @@ function showError(msg) {
   }
 }
 
-function updateSearchHint(total) {
-  const hint = document.getElementById('search-result-hint');
-  if (!hint) return;
-  const hasFilter = Object.keys(state.currentFilter).length > 0;
-  hint.textContent = hasFilter ? `找到 ${total} 条记录` : '';
-}
-
 // ─────────────────────────────────────────────
 // 用户操作
 // ─────────────────────────────────────────────
 
-function goPage(page) {
-  const totalPages = Math.ceil(state.total / state.pageSize);
-  if (page < 1 || page > totalPages) return;
-  vscode.postMessage({
-    command: 'querySessions',
-    data: { page, pageSize: state.pageSize, ...state.currentFilter }
-  });
-}
-
-function viewSession(id) {
-  vscode.postMessage({ command: 'viewSessionDetail', data: { sessionId: id } });
-}
-
-function deleteSession(id) {
-  vscode.postMessage({ command: 'deleteSession', data: { sessionId: id } });
+function viewTrace(id) {
+  vscode.postMessage({ command: 'viewTraceDetail', data: { traceId: id } });
 }
 
 function exportReport(format) {
@@ -487,19 +322,6 @@ function val(id) {
 function setVal(id, v) {
   const el = document.getElementById(id);
   if (el) el.value = v;
-}
-
-function basename(filepath) {
-  return filepath.split('/').pop() || filepath;
-}
-
-function formatTokens(u) {
-  const total = (u.inputTokens || 0) + (u.outputTokens || 0)
-    + (u.cacheCreationTokens || 0) + (u.cacheReadTokens || 0);
-  if (total === 0) return '';
-  if (total >= 1_000_000) return `${(total / 1_000_000).toFixed(1)}M tok`;
-  if (total >= 1_000)     return `${(total / 1_000).toFixed(1)}K tok`;
-  return `${total} tok`;
 }
 
 function escHtml(str) {
