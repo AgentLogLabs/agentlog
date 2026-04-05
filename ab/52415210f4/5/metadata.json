@@ -1,0 +1,37 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "ab52415210f4",
+  "session_id": "ses_2a1defe20ffeQ0GzxfpU948Urm",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-05T15:05:10.273763Z",
+  "branch": "phase1-tickets",
+  "checkpoints_count": 6,
+  "files_touched": [
+    "packages/backend/src/mcp.ts",
+    "packages/backend/src/routes/traces.ts",
+    "packages/backend/src/services/traceService.ts",
+    "packages/vscode-extension/src/providers/traceWebviewProvider.ts"
+  ],
+  "agent": "OpenCode",
+  "model": "MiniMax-M2.7",
+  "turn_id": "f7177ee5b620",
+  "token_usage": {
+    "input_tokens": 0,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 0,
+    "output_tokens": 0,
+    "api_call_count": 2
+  },
+  "session_metrics": {
+    "turn_count": 8
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-05T15:05:10.271502Z",
+    "agent_lines": 154,
+    "human_added": 9,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 163,
+    "agent_percentage": 94.47852760736197
+  }
+}

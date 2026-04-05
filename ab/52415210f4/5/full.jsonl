@@ -1,0 +1,211 @@
+{
+  "info": {
+    "id": "ses_2a1defe20ffeQ0GzxfpU948Urm",
+    "slug": "neon-cactus",
+    "projectID": "bf4c3e099400a06715a042f25f06edf8caeff610",
+    "directory": "/Users/hobo/Projects/AgentLog",
+    "title": "VSCode tree right-click: pause trace API 400 Bad Request",
+    "version": "1.3.7",
+    "summary": {
+      "additions": 0,
+      "deletions": 0,
+      "files": 0
+    },
+    "time": {
+      "created": 1775400714719,
+      "updated": 1775400730885
+    }
+  },
+  "messages": [
+    {
+      "info": {
+        "role": "user",
+        "time": {
+          "created": 1775400714732
+        },
+        "summary": {
+          "diffs": []
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "opencode",
+          "modelID": "claude-sonnet-4-6"
+        },
+        "variant": "low",
+        "id": "msg_d5e2101e70013dqtO5vZ3dhvMj",
+        "sessionID": "ses_2a1defe20ffeQ0GzxfpU948Urm"
+      },
+      "parts": [
+        {
+          "type": "text",
+          "text": "vscode树形列表右键菜单暂停一个trace报错：暂停失败：[400] /api/traces/01KNF0Z8HF466APTS5YF6MQF60/pause — Bad Request",
+          "id": "prt_d5e2101e7002f8yrU11aMEl4Hh",
+          "sessionID": "ses_2a1defe20ffeQ0GzxfpU948Urm",
+          "messageID": "msg_d5e2101e70013dqtO5vZ3dhvMj"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1775400714742,
+          "completed": 1775400730934
+        },
+        "parentID": "msg_d5e2101e70013dqtO5vZ3dhvMj",
+        "modelID": "claude-sonnet-4-6",
+        "providerID": "opencode",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "cache": {
+            "read": 0,
+            "write": 0
+          }
+        },
+        "variant": "low",
+        "error": {
+          "name": "MessageAbortedError",
+          "data": {
+            "message": "Aborted"
+          }
+        },
+        "id": "msg_d5e2101f6001SY2mL3hTKJ5hg6",
+        "sessionID": "ses_2a1defe20ffeQ0GzxfpU948Urm"
+      },
+      "parts": [
+        {
+          "snapshot": "baebc89a7af25f27f74776390ed781dc31b0ca58",
+          "type": "step-start",
+          "id": "prt_d5e2115600013sbuocYo2Ct7Sl",
+          "sessionID": "ses_2a1defe20ffeQ0GzxfpU948Urm",
+          "messageID": "msg_d5e2101f6001SY2mL3hTKJ5hg6"
+        },
+        {
+          "type": "reasoning",
+          "text": "Let me look at the pause trace functionality to understand the error.",
+          "time": {
+            "start": 1775400719712,
+            "end": 1775400720259
+          },
+          "metadata": {
+            "anthropic": {
+              "signature": "EoICClsIDBgCKkDY2rVvyQk3SEJtn10GwBCoCI2KmPZn+ScyGAqO4z0hJvFHL76o6wx5BBMM7FSzeGvI88PCtfAub1V51VzMaFbZMhFjbGF1ZGUtc29ubmV0LTQtNjgAEgzWWmfUutLYhFfnilYaDMspOSbcVF284ZfNuiIwdELZCcvt6pD8+Xy7qVU6v1sCkGnIjsoIFkgigUl5dnuXg0eLXAEXdi5xOFAKzrhTKlXqGf3dhC0Y5aOxQ1NfH8478yHluoReAU7GxFyVizB3so09rsOnja36cw3orAFIf+SIyH4ETuXPztzz2vdoP4TkvAI9tdl/D1EQ1QL4yXJK/MSh4DnzGAE="
+            }
+          },
+          "id": "prt_d5e2115600031z5EQCd8C2rAOJ",
+          "sessionID": "ses_2a1defe20ffeQ0GzxfpU948Urm",
+          "messageID": "msg_d5e2101f6001SY2mL3hTKJ5hg6"
+        },
+        {
+          "type": "tool",
+          "callID": "toolu_01Nbdsex7XEUCQF6U6rWJ2A9",
+          "tool": "task",
+          "state": {
+            "status": "error",
+            "input": {
+              "description": "Find pause trace code",
+              "subagent_type": "explore",
+              "prompt": "In /Users/hobo/Projects/AgentLog, find all code related to \"pause\" for traces. Look in both the backend (packages/backend) and vscode extension (packages/vscode-extension). I need to see: 1) The backend route handler for PATCH/POST pause endpoint, 2) The VS Code extension code that calls the pause API. Return file paths and line numbers for all relevant code."
+            },
+            "title": "Find pause trace code",
+            "metadata": {
+              "sessionId": "ses_2a1dee3feffei79ZWBj0tT286D",
+              "model": {
+                "modelID": "claude-sonnet-4-6",
+                "providerID": "opencode"
+              }
+            },
+            "time": {
+              "start": 1775400730934,
+              "end": 1775400730934
+            },
+            "error": "Tool execution aborted"
+          },
+          "metadata": {
+            "anthropic": {
+              "caller": {
+                "type": "direct"
+              }
+            }
+          },
+          "id": "prt_d5e211788001c0TK3Ip11rsoLM",
+          "sessionID": "ses_2a1defe20ffeQ0GzxfpU948Urm",
+          "messageID": "msg_d5e2101f6001SY2mL3hTKJ5hg6"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "user",
+        "time": {
+          "created": 1775400730879
+        },
+        "summary": {
+          "diffs": []
+        },
+        "agent": "plan",
+        "model": {
+          "providerID": "minimax-cn-coding-plan",
+          "modelID": "MiniMax-M2.7"
+        },
+        "id": "msg_d5e213713001k9pQyRNpiLdH2C",
+        "sessionID": "ses_2a1defe20ffeQ0GzxfpU948Urm"
+      },
+      "parts": [
+        {
+          "type": "text",
+          "text": "vscode树形列表右键菜单暂停一个trace报错：暂停失败：[400] /api/traces/01KNF0Z8HF466APTS5YF6MQF60/pause — Bad Request",
+          "id": "prt_d5e2137130026vjX9IyvcKvEOh",
+          "sessionID": "ses_2a1defe20ffeQ0GzxfpU948Urm",
+          "messageID": "msg_d5e213713001k9pQyRNpiLdH2C"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1775400730883,
+          "completed": 1775400734686
+        },
+        "parentID": "msg_d5e213713001k9pQyRNpiLdH2C",
+        "modelID": "MiniMax-M2.7",
+        "providerID": "minimax-cn-coding-plan",
+        "mode": "plan",
+        "agent": "plan",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "cache": {
+            "read": 0,
+            "write": 0
+          }
+        },
+        "error": {
+          "name": "MessageAbortedError",
+          "data": {
+            "message": "Aborted"
+          }
+        },
+        "id": "msg_d5e214103002YTrvscPx2GuduG",
+        "sessionID": "ses_2a1defe20ffeQ0GzxfpU948Urm"
+      },
+      "parts": []
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+vscode树形列表右键菜单暂停一个trace报错：暂停失败：[400] /api/traces/01KNF0Z8HF466APTS5YF6MQF60/pause — Bad Request
+
+---
+
+vscode树形列表右键菜单暂停一个trace报错：暂停失败：[400] /api/traces/01KNF0Z8HF466APTS5YF6MQF60/pause — Bad Request
+
+---
+
+vscode树形列表右键菜单暂停一个trace报错：暂停失败：[400] /api/traces/01KNF0Z8HF466APTS5YF6MQF60/pause — Bad Request
