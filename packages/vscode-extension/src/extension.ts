@@ -1489,10 +1489,22 @@ function registerCommands(
           const content = (payload.content as string) || "";
           const reasoning = (payload.reasoning as string) || "";
           const toolName = payload.toolName as string | undefined;
-          
+          const toolInput = payload.toolInput as Record<string, unknown> | undefined;
+          const result = payload.result as string | undefined;
+
           const roleLabel = role === "user" ? "User" : role === "assistant" ? "Assistant" : `Tool(${toolName ?? "unknown"})`;
           parts.push(`### ${roleLabel}`);
-          if (content) parts.push(content);
+          if (content) {
+            parts.push(content);
+          } else if (toolName) {
+            if (toolInput) {
+              parts.push(`Input: ${JSON.stringify(toolInput)}`);
+            }
+            if (result) {
+              parts.push("");
+              parts.push(`Result: ${result}`);
+            }
+          }
           if (reasoning) {
             parts.push("");
             parts.push("**推理过程:**");
