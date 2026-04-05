@@ -1,0 +1,1 @@
+In /Users/hobo/Projects/AgentLog/packages/vscode-extension, find where the extension calls the pause API endpoint for a trace (something like /api/traces/:id/pause). Return the relevant code with file paths and line numbers.
