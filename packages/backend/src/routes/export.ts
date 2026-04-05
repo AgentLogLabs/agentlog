@@ -53,6 +53,18 @@ const exportBodySchema = {
 // ─────────────────────────────────────────────
 
 export async function exportRoutes(fastify: FastifyInstance): Promise<void> {
+  // 统一错误格式：schema 验证失败时也返回 { success: false }
+  fastify.setErrorHandler((err, _req, reply: FastifyReply) => {
+    if (err.validation) {
+      return reply.status(400).send({
+        success: false,
+        error: err.message,
+      });
+    }
+    // 其他错误继续抛出不拦截
+    throw err;
+  });
+
   /**
    * GET /api/export/formats
    * 返回所有支持的导出格式，供前端 UI 渲染选项。
