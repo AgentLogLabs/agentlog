@@ -60,6 +60,7 @@ export interface PendingTraceEntry {
   createdAt: string;
   targetAgent: 'opencode' | 'cursor' | 'claude-code' | string;
   taskGoal?: string;
+  worktree?: string;
 }
 
 /** active session 条目 */

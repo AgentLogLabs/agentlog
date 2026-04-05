@@ -431,6 +431,141 @@ async function start(): Promise<void> {
         }
       }
 
+      // claim_pending_trace
+      if (toolName === "claim_pending_trace") {
+        try {
+          const workspacePath = (args.workspace_path as string | undefined) ?? process.cwd();
+
+          // 导入需要的函数
+          const { getSessionsJsonPath, readSessionsJson, writeSessionsJson } = await import("./services/sessionsJsonService.js");
+          const sessionsPath = await getSessionsJsonPath(workspacePath);
+          const sessions = readSessionsJson(sessionsPath);
+
+          // 查找匹配的 pending trace
+          // 推断 source 从环境变量或默认
+          const source = process.env.AGENTLOG_SOURCE || "opencode";
+
+          for (const [traceId, entry] of Object.entries(sessions.pending)) {
+            if (entry.targetAgent === source || entry.targetAgent === "*") {
+              // 认领：移动到 active
+              const { nanoid } = await import("nanoid");
+              const sessionId = nanoid();
+              const activeEntry = {
+                sessionId,
+                traceId,
+                agentType: source,
+                status: "active" as const,
+                startedAt: new Date().toISOString(),
+                worktree: workspacePath,
+              };
+
+              delete sessions.pending[traceId];
+              sessions.active[sessionId] = activeEntry;
+              writeSessionsJson(sessionsPath, sessions);
+
+              return reply.send({
+                jsonrpc: "2.0",
+                id: body.id,
+                result: {
+                  content: [
+                    {
+                      type: "text",
+                      text: JSON.stringify({ success: true, claimed: true, traceId, sessionId, message: `成功认领 Trace ${traceId}` }, null, 2),
+                    },
+                  ],
+                },
+              });
+            }
+          }
+
+          // 没有找到匹配的 pending trace
+          return reply.send({
+            jsonrpc: "2.0",
+            id: body.id,
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify({ success: true, claimed: false, message: `当前无待认领的 Trace（pending）分配给 ${source}` }, null, 2),
+                },
+              ],
+            },
+          });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          return reply.send({
+            jsonrpc: "2.0",
+            id: body.id,
+            error: { code: -32603, message: `Internal error: ${msg}` },
+          });
+        }
+      }
+
+      // query_traces
+      if (toolName === "query_traces") {
+        try {
+          const traceId = (args.trace_id as string | undefined) ?? "";
+          const keyword = (args.keyword as string | undefined) ?? "";
+          const wsPath = (args.workspace_path as string | undefined) ?? process.cwd();
+
+          // 导入需要的函数
+          const { getSessionsJsonPath, readSessionsJson } = await import("./services/sessionsJsonService.js");
+
+          // 如果有 trace_id，直接查询
+          if (traceId) {
+            const resp = await fetch(`http://localhost:${PORT}/api/traces/${encodeURIComponent(traceId)}`);
+            const result = (await resp.json()) as unknown;
+            return reply.send({
+              jsonrpc: "2.0",
+              id: body.id,
+              result: { content: [{ type: "text", text: JSON.stringify({ success: true, trace: result }, null, 2) }] },
+            });
+          }
+
+          // 无 trace_id 时，从 active 中查找
+          const sessionsPath = await getSessionsJsonPath(wsPath);
+          const sessions = readSessionsJson(sessionsPath);
+          const source = process.env.AGENTLOG_SOURCE || "opencode";
+
+          for (const entry of Object.values(sessions.active)) {
+            if (entry.agentType === source || entry.agentType === "*") {
+              const resp = await fetch(`http://localhost:${PORT}/api/traces/${encodeURIComponent(entry.traceId)}`);
+              const result = (await resp.json()) as unknown;
+              return reply.send({
+                jsonrpc: "2.0",
+                id: body.id,
+                result: { content: [{ type: "text", text: JSON.stringify({ success: true, trace: result, source: "active_session" }, null, 2) }] },
+              });
+            }
+          }
+
+          // 无 active trace 时语义搜索
+          if (keyword) {
+            const queryParams = new URLSearchParams({ keyword, workspacePath: wsPath, page: "1", pageSize: "10" });
+            const resp = await fetch(`http://localhost:${PORT}/api/traces/search?${queryParams.toString()}`);
+            const result = (await resp.json()) as unknown;
+            return reply.send({
+              jsonrpc: "2.0",
+              id: body.id,
+              result: { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] },
+            });
+          }
+
+          return reply.send({
+            jsonrpc: "2.0",
+            id: body.id,
+            result: { content: [{ type: "text", text: JSON.stringify({ success: true, message: "当前无活跃 Trace", hint: "可传入 keyword 搜索" }, null, 2) }] },
+          });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          return reply.send({
+            jsonrpc: "2.0",
+            id: body.id,
+            error: { code: -32603, message: `Internal error: ${msg}` },
+          });
+        }
+      }
+
       return reply.send({
         jsonrpc: "2.0",
         id: body.id,

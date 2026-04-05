@@ -103,13 +103,15 @@ export async function writeSessionsJsonByWorkspace(
  * @param traceId Trace ID
  * @param targetAgent 目标 Agent 类型
  * @param taskGoal 任务目标（可选）
+ * @param worktree 工作tree 标识（可选）
  * @returns 更新后的 pending 条目
  */
 export async function createPendingTrace(
   workspacePath: string,
   traceId: string,
   targetAgent: string,
-  taskGoal?: string
+  taskGoal?: string,
+  worktree?: string,
 ): Promise<PendingTraceEntry> {
   const sessions = await readSessionsJsonByWorkspace(workspacePath);
 
@@ -117,12 +119,13 @@ export async function createPendingTrace(
     createdAt: new Date().toISOString(),
     targetAgent,
     ...(taskGoal ? { taskGoal } : {}),
+    ...(worktree ? { worktree } : {}),
   };
 
   sessions.pending[traceId] = entry;
   await writeSessionsJsonByWorkspace(workspacePath, sessions);
 
-  console.log(`[sessionsJson] Created pending trace: ${traceId} -> ${targetAgent}`);
+  console.log(`[sessionsJson] Created pending trace: ${traceId} -> ${targetAgent}${worktree ? ` (worktree: ${worktree})` : ""}`);
   return entry;
 }
 
@@ -147,6 +150,14 @@ export async function claimPendingTrace(
     return null;
   }
 
+  const pendingEntry = sessions.pending[traceId];
+
+  // 检查 worktree 是否匹配（如果 pending trace 指定了 worktree）
+  if (pendingEntry.worktree && pendingEntry.worktree !== workspacePath) {
+    console.log(`[sessionsJson] Cannot claim trace: worktree mismatch (expected: ${pendingEntry.worktree}, got: ${workspacePath})`);
+    return null;
+  }
+
   const sessionId = nanoid();
   const activeEntry: ActiveSessionEntry = {
     sessionId,
@@ -154,6 +165,7 @@ export async function claimPendingTrace(
     agentType,
     status: "active",
     startedAt: new Date().toISOString(),
+    worktree: workspacePath,
   };
 
   delete sessions.pending[traceId];

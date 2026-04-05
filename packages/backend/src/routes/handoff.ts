@@ -148,6 +148,16 @@ async function handoffRoutes(app: FastifyInstance): Promise<void> {
 
       const wsPath = workspacePath ?? trace.workspacePath ?? process.cwd() ?? "";
 
+      // 检查是否已有分配给相同 agent 的 pending trace
+      const existingPending = await getPendingTraces(wsPath, targetAgent);
+      if (existingPending.length > 0) {
+        return reply.status(409).send({
+          success: false,
+          error: `当前工作区已有一个待认领的 Trace（${existingPending[0].traceId}）分配给 ${targetAgent}，请切换到其他 Git Worktree 再进行交接。`,
+          existingPendingTraceId: existingPending[0].traceId,
+        });
+      }
+
       // 1. 更新 trace 状态为 pending_handoff
       const updatedTrace = transitionToHandoff(traceId, targetAgent, wsPath);
       if (!updatedTrace) {
@@ -157,8 +167,8 @@ async function handoffRoutes(app: FastifyInstance): Promise<void> {
         });
       }
 
-      // 2. 创建 pending trace 条目
-      const entry = await createPendingTrace(wsPath, traceId, targetAgent, taskGoal ?? trace.taskGoal);
+      // 2. 创建 pending trace 条目（带上当前 worktree 标识）
+      const entry = await createPendingTrace(wsPath, traceId, targetAgent, taskGoal ?? trace.taskGoal, wsPath);
 
       return reply.send({
         success: true,

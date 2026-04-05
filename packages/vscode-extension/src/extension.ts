@@ -599,11 +599,83 @@ async function writeMcpEntryToConfig(
 const AGENTS_MD_RULE_START = "<!-- agentlog-mcp-rules-start -->";
 const AGENTS_MD_RULE_END = "<!-- agentlog-mcp-rules-end -->";
 
-/**
- * 生成写入 AGENTS.md 的规则块文本（含起止标记）。
- * 精简版：只保留核心约束和调用流程，详细字段说明已内置在 MCP tool description 中。
- */
-function buildAgentRulesBlock(): string {
+type AgentClientType = "opencode" | "cline" | "qoder" | "other";
+
+function buildAgentRulesBlock(clientType: AgentClientType = "other"): string {
+  if (clientType === "opencode") {
+    return `${AGENTS_MD_RULE_START}
+## AgentLog 自动监听说明
+
+你已接入 AgentLog MCP Server。由于 OpenCode 已安装 agentlog-auto 插件，**编码过程会被自动监听和记录**，无需手动调用 log_turn/log_intent。
+
+插件会自动：
+- 在每次用户消息、助手回复、工具调用时创建 trace
+- 在任务完成后自动归档
+- 绑定 Git commit 到会话
+
+**正常对话即可，所有操作都会被自动记录。**
+
+### Agent 接力（Handoff）
+
+当用户发送「继续」「接力」「恢复」「接着做」等指令时，直接调用 \`query_traces()\` 即可获取当前活动的 Trace 详情。
+
+**MCP 会自动从 \`.git/agentlog/sessions.json\` 读取当前 active 的 trace_id 并查询。**
+
+\`query_traces()\`
+
+${AGENTS_MD_RULE_END}`;
+  }
+
+  if (clientType === "cline") {
+    return `${AGENTS_MD_RULE_START}
+## AgentLog MCP 调用规则（必须遵守）
+
+你已接入 AgentLog MCP Server，**必须在每个对话中按以下流程调用**，记录完整的编码交互过程。
+
+---
+
+## ⚠️ 核心原则：log_turn 必须在做任何其他操作之前调用
+
+**错误做法（不要这样做）：**
+❌ 收到用户消息 → 直接读取文件 → 直接编辑文件 → 然后才调用 log_turn
+→ 这样在 log_turn 之前的操作都**不会被记录**
+
+**正确做法（必须这样做）：**
+✅ 收到用户消息 → **先调用 log_turn** → 再读取文件 → 再编辑文件 → 再调用 log_turn
+→ 所有操作都被完整记录
+
+---
+
+## 调用流程
+
+**第 1 步（最先）：收到用户消息后，立即调用 log_turn，不传 trace_id：**
+\`log_turn(role="user", content="用户消息", model="模型名", workspace_path="工作目录")\`
+→ 返回 JSON，提取 trace_id 并缓存
+
+**第 2 步（每次工具执行后）：**
+\`log_turn(trace_id="trace_id", role="tool", content="结果摘要", tool_name="edit", tool_input="filePath=...")\`
+
+**第 3 步（每次回复后）：**
+\`log_turn(trace_id="trace_id", role="assistant", content="回复内容")\`
+
+**第 4 步（任务完成后）：**
+\`log_intent(trace_id="trace_id", task="任务描述", model="模型名", affected_files=["file1.ts"])\`
+
+---
+
+## 强制约束
+
+⚠️ **log_turn 必须在 read/edit/write/webfetch 等任何操作之前调用**
+⚠️ **trace_id 丢失 = 每条消息创建独立 Trace（对话碎片化）**
+⚠️ **跳过 log_turn = 那部分编码过程无法记录**
+⚠️ **不调用 log_intent = 任务无法归档**
+
+### Agent 接力（Handoff）
+
+当用户发送「继续」「接力」「恢复」「接着做」等指令时，调用 \`query_traces()\` 即可获取当前活动的 Trace 详情。
+${AGENTS_MD_RULE_END}`;
+  }
+
   return `${AGENTS_MD_RULE_START}
 ## AgentLog MCP 调用规则（必须遵守）
 
@@ -694,7 +766,7 @@ async function injectOpenCodeAgentRules(): Promise<void> {
     log(`[MCP-CFG] 文件不存在，将创建新文件`);
   }
 
-  const rulesBlock = buildAgentRulesBlock();
+  const rulesBlock = buildAgentRulesBlock("opencode");
   log(`[MCP-CFG] 规则块大小: ${rulesBlock.length} 字符`);
 
   if (
@@ -757,7 +829,7 @@ async function injectQoderAgentRules(workspaceRoot: string): Promise<void> {
     log("[MCP-CFG] 文件不存在，将创建新文件");
   }
 
-  const rulesBlock = buildAgentRulesBlock();
+  const rulesBlock = buildAgentRulesBlock("qoder");
   log(`[MCP-CFG] 规则块大小: ${rulesBlock.length} 字符`);
 
   if (
@@ -783,6 +855,59 @@ async function injectQoderAgentRules(workspaceRoot: string): Promise<void> {
     log(`[MCP-CFG] 文件写入失败: ${err instanceof Error ? err.message : String(err)}`);
     throw err;
   }
+}
+
+/**
+ * 将 AgentLog MCP 调用规则写入 Cline 全局规则目录。
+ * - 目标路径：~/Documents/Cline/Rules/agentlog.md（macOS）
+ * - 若文件已存在，替换规则块；否则创建新文件。
+ */
+async function injectClineAgentRules(): Promise<string> {
+  const rulesDir = path.join(os.homedir(), "Documents", "Cline", "Rules");
+  const rulesPath = path.join(rulesDir, "agentlog.md");
+
+  log(`[MCP-CFG] 开始写入 Cline 规则文件: ${rulesPath}`);
+
+  try {
+    await fs.promises.mkdir(rulesDir, { recursive: true });
+  } catch (err) {
+    log(`[MCP-CFG] 创建目录失败: ${err instanceof Error ? err.message : String(err)}`);
+    throw err;
+  }
+
+  let content = "";
+  if (fs.existsSync(rulesPath)) {
+    try {
+      content = await fs.promises.readFile(rulesPath, "utf-8");
+    } catch (err) {
+      log(`[MCP-CFG] 读取现有文件失败: ${err instanceof Error ? err.message : String(err)}`);
+      throw err;
+    }
+  }
+
+  const rulesBlock = buildAgentRulesBlock("cline");
+
+  if (content.includes(AGENTS_MD_RULE_START) && content.includes(AGENTS_MD_RULE_END)) {
+    const pattern = new RegExp(
+      `${escapeRegExp(AGENTS_MD_RULE_START)}[\\s\\S]*?${escapeRegExp(AGENTS_MD_RULE_END)}`,
+    );
+    content = content.replace(pattern, rulesBlock);
+    log("[MCP-CFG] 已更新 Cline 规则文件中的 AgentLog 规则块");
+  } else {
+    const trimmed = content.trimEnd();
+    content = trimmed.length > 0 ? `${trimmed}\n\n${rulesBlock}\n` : `${rulesBlock}\n`;
+    log("[MCP-CFG] 已写入 AgentLog 规则块到 Cline 规则文件");
+  }
+
+  try {
+    await fs.promises.writeFile(rulesPath, content, "utf-8");
+    log(`[MCP-CFG] 文件写入成功: ${rulesPath}`);
+  } catch (err) {
+    log(`[MCP-CFG] 文件写入失败: ${err instanceof Error ? err.message : String(err)}`);
+    throw err;
+  }
+
+  return rulesPath;
 }
 
 /**
@@ -917,6 +1042,14 @@ async function configureMcpClient(
       }
     }
 
+    // Cline 专项：将调用规则写入 ~/Documents/Cline/Rules/agentlog.md
+    const isCline = picked.profile?.id === "cline" ||
+      (!picked.profile && (targetPath.includes("cline")));
+    let clineRulesPath = "";
+    if (isCline) {
+      clineRulesPath = await injectClineAgentRules();
+    }
+
     // 记录已配置的客户端 ID
     if (picked.profile) {
       const newConfigured = Array.from(
@@ -940,6 +1073,9 @@ async function configureMcpClient(
     } else if (isQoder) {
       message = `AgentLog MCP 已配置到 ${clientName}，调用规则已写入项目 AGENTS.md，请重启 Qoder 生效。`;
       actions.push("查看 AGENTS.md");
+    } else if (isCline) {
+      message = `AgentLog MCP 已配置到 ${clientName}，调用规则已写入 Cline Rules，请重启 Cline 生效。`;
+      actions.push("查看 MCP 规则");
     } else {
       message = `AgentLog MCP 已成功注册到 ${clientName}，请重启该 AI 客户端使配置生效。`;
     }
@@ -955,6 +1091,9 @@ async function configureMcpClient(
         const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(agentsPath));
         await vscode.window.showTextDocument(doc);
       }
+    } else if (action === "查看 MCP 规则" && clineRulesPath) {
+      const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(clineRulesPath));
+      await vscode.window.showTextDocument(doc);
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -1901,6 +2040,177 @@ function registerCommands(
         }
       },
     );
+  });
+
+  // ── Handoff 命令 ────────────────────────────
+
+  const AGENT_OPTIONS = [
+    { label: "$(person) 人工接管", value: "human", description: "转交给人工处理" },
+    { label: "$(code) OpenCode", value: "opencode", description: "转交给 OpenCode Agent" },
+    { label: "$(debug-alt) Cursor", value: "cursor", description: "转交给 Cursor IDE" },
+    { label: "$(person) Claude Code", value: "claude-code", description: "转交给 Claude Code" },
+    { label: "$(bracket) Cline", value: "cline", description: "转交给 Cline" },
+    { label: "$(symbol-misc) 其他 Agent...", value: "other", description: "手动输入 Agent 类型" },
+  ];
+
+  register("agentlog.createHandoff", async (item: unknown) => {
+    let traceId: string | undefined;
+
+    if (item instanceof TraceItem) {
+      traceId = item.trace.id;
+    }
+
+    if (!traceId) {
+      traceId = await vscode.window.showInputBox({
+        prompt: "请输入要创建交接的 Trace ID",
+        placeHolder: "ULID（例如：01ARZ3NDEKTSV4RRFFQ69G5FAV）",
+      });
+      if (!traceId) return;
+    }
+
+    const picked = await vscode.window.showQuickPick(AGENT_OPTIONS, {
+      placeHolder: "选择交接目标",
+    });
+
+    if (!picked) return;
+
+    let targetAgent = picked.value;
+
+    if (targetAgent === "other") {
+      const input = await vscode.window.showInputBox({
+        prompt: "请输入目标 Agent 类型",
+        placeHolder: "例如：opencode, cursor, claude-code",
+        validateInput: (v) => (v.trim().length > 0 ? undefined : "不能为空"),
+      });
+      if (!input) return;
+      targetAgent = input.trim();
+    }
+
+    try {
+      const client = getBackendClient();
+      const workspacePath = resolveWorkspacePath() ?? "";
+      await client.createHandoff(traceId, targetAgent, workspacePath);
+      traceTreeProvider.refresh();
+      vscode.window.showInformationMessage(`✅ 交接请求已创建给 ${picked.label}`);
+    } catch (err) {
+      if (err instanceof Error && err.message.includes("409")) {
+        vscode.window.showWarningMessage(
+          `⚠️ 当前工作区已有一个待认领的 Trace，请切换到其他 Git Worktree 再进行交接。`,
+        );
+      } else {
+        vscode.window.showErrorMessage(
+          `创建交接失败：${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+  });
+
+  register("agentlog.resumeTraceWith", async (item: unknown) => {
+    let traceId: string | undefined;
+
+    if (item instanceof TraceItem) {
+      traceId = item.trace.id;
+    } else if (typeof item === "string") {
+      traceId = item;
+    }
+
+    if (!traceId) {
+      traceId = await vscode.window.showInputBox({
+        prompt: "请输入要恢复的 Trace ID",
+        placeHolder: "ULID（例如：01ARZ3NDEKTSV4RRFFQ69G5FAV）",
+      });
+      if (!traceId) return;
+    }
+
+    const picked = await vscode.window.showQuickPick(AGENT_OPTIONS.filter(o => o.value !== "other" && o.value !== "human"), {
+      placeHolder: "选择要恢复的 Agent 类型",
+    });
+
+    if (!picked) return;
+
+    try {
+      const client = getBackendClient();
+      const workspacePath = resolveWorkspacePath() ?? "";
+      await client.resumeTrace(traceId, picked.value, workspacePath);
+      traceTreeProvider.refresh();
+      vscode.window.showInformationMessage(`✅ 已认领 Trace，由 ${picked.label} 接管`);
+    } catch (err) {
+      vscode.window.showErrorMessage(
+        `认领失败：${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  });
+
+  register("agentlog.pauseTrace", async (item: unknown) => {
+    let traceId: string | undefined;
+
+    if (item instanceof TraceItem) {
+      traceId = item.trace.id;
+    }
+
+    if (!traceId) {
+      vscode.window.showErrorMessage("无法解析 Trace ID");
+      return;
+    }
+
+    try {
+      const client = getBackendClient();
+      await client.pauseTrace(traceId);
+      traceTreeProvider.refresh();
+      vscode.window.showInformationMessage("✅ Trace 已暂停");
+    } catch (err) {
+      vscode.window.showErrorMessage(
+        `暂停失败：${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  });
+
+  register("agentlog.resumeFromPause", async (item: unknown) => {
+    let traceId: string | undefined;
+
+    if (item instanceof TraceItem) {
+      traceId = item.trace.id;
+    }
+
+    if (!traceId) {
+      vscode.window.showErrorMessage("无法解析 Trace ID");
+      return;
+    }
+
+    try {
+      const client = getBackendClient();
+      await client.resumeFromPause(traceId);
+      traceTreeProvider.refresh();
+      vscode.window.showInformationMessage("✅ Trace 已从暂停恢复");
+    } catch (err) {
+      vscode.window.showErrorMessage(
+        `恢复失败：${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  });
+
+  register("agentlog.completeTrace", async (item: unknown) => {
+    let traceId: string | undefined;
+
+    if (item instanceof TraceItem) {
+      traceId = item.trace.id;
+    }
+
+    if (!traceId) {
+      vscode.window.showErrorMessage("无法解析 Trace ID");
+      return;
+    }
+
+    try {
+      const client = getBackendClient();
+      await client.completeTrace(traceId);
+      traceTreeProvider.refresh();
+      vscode.window.showInformationMessage("✅ Trace 已标记完成");
+    } catch (err) {
+      vscode.window.showErrorMessage(
+        `完成失败：${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   });
 }
 

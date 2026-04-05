@@ -138,6 +138,52 @@ import { getDatabase, closeDatabase } from '../db/database';
 - **CORS**: Restricted to localhost origins only
 - **Token count mismatch**: OpenCode/Cursor shows context tokens; AgentLog records model API tokens
 
+## OpenCode 插件监听说明
+
+OpenCode 用户通过 `agentlog-auto` 插件自动监听编码过程，**无需手动调用 log_turn/log_intent**。插件会自动记录所有操作并绑定到 Git commit。
+
+配置 OpenCode 时，插件会被自动安装到 `~/.config/opencode/plugins/agentlog-auto.js`，并在 `~/.config/opencode/AGENTS.md` 中写入自动监听说明。
+
+如果 AI Agent 回复未被记录，请检查：
+1. OpenCode 配置文件中是否正确配置了 AgentLog MCP
+2. `~/.config/opencode/opencode.json` 中的 `plugin` 数组是否包含 `agentlog-auto.js`
+3. AgentLog 后端服务是否运行中（`pnpm dev`）
+
+### Agent 接力（Handoff）
+
+当用户发送「继续」「接力」「恢复」「接着做」等指令时，直接调用 `query_traces()` 即可获取当前活动的 Trace 详情。
+
+**MCP 会自动从 `.git/agentlog/sessions.json` 读取当前 active 的 trace_id 并查询。**
+
+```
+query_traces()
+```
+
+**返回值说明：**
+- `trace`: 完整的 Trace 详情（含 spans、task_goal 等）
+- `source: "active_session"`: 标识数据来自当前活跃会话
+
+---
+
+**其他查询场景：**
+
+**语义搜索 Trace（当无 active trace 时）：**
+```
+query_traces(keyword="登录bug")
+```
+
+**查询涉及特定文件的历史会话：**
+```
+query_historical_interaction(filename="相关文件名", source="opencode", page_size=10)
+```
+
+**按 Commit 查找关联会话：**
+```
+query_historical_interaction(commit_hash="git commit hash")
+```
+
+通过这些接口，接收方 Agent 可以快速了解任务的上下文、历史决策和已修改的文件，实现平滑交接。
+
 ## VS Code Extension Specifics
 - Use VS Code API from `@types/vscode`
 - Register commands in `package.json` contributes section

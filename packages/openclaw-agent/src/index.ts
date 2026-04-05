@@ -133,6 +133,11 @@ export async function checkAndClaimTrace(
 
     // 查找匹配的 pending trace
     for (const [traceId, entry] of Object.entries(sessions.pending)) {
+      // 检查 worktree 是否匹配（如果 pending trace 指定了 worktree）
+      if (entry.worktree && entry.worktree !== workspacePath) {
+        continue;
+      }
+
       if (entry.targetAgent === agentType) {
         // 认领：移动到 active
         const sessionId = nanoid();
@@ -142,6 +147,7 @@ export async function checkAndClaimTrace(
           agentType,
           status: "active",
           startedAt: new Date().toISOString(),
+          worktree: workspacePath,
         };
 
         delete sessions.pending[traceId];

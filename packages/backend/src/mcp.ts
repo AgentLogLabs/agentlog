@@ -39,6 +39,7 @@ import {
   transitionToHandoff,
   type ReasoningChainStep,
 } from "./services/traceService.js";
+import { getSessionsJsonPath, readSessionsJson, writeSessionsJson } from "./services/sessionsJsonService.js";
 
 // ─────────────────────────────────────────────
 // 配置
@@ -647,24 +648,43 @@ async function main(): Promise<void> {
           },
         },
 
+        // ── claim_pending_trace ──────────────────────────────────────────
+        {
+          name: "claim_pending_trace",
+          description:
+            "认领一个待处理的 Trace。\n\n" +
+            "启动时自动调用，检查并认领分配给当前 Agent 的 pending trace。\n" +
+            "成功认领后，trace 会从 pending 移动到 active 状态。",
+          inputSchema: {
+            type: "object" as const,
+            properties: {
+              workspace_path: {
+                type: "string",
+                description: "工作区路径（默认使用 MCP 服务当前目录）",
+              },
+            },
+            required: [],
+          },
+        },
+
         // ── query_traces ─────────────────────────────────────────────────
         {
           name: "query_traces",
           description:
-            "查询 Trace 列表（语义检索）。\n\n" +
-            "搜索 traces.task_goal 和 spans.payload 中的内容，\n" +
-            "找到与关键词最匹配的 trace。\n\n" +
-            "【使用场景】\n" +
-            "  - OpenClaw Agent 接手任务时，先搜索相似 trace\n" +
-            "  - 按关键字查找历史 trace\n" +
-            "  - 按工作区过滤 trace\n\n" +
-            "【搜索范围】\n" +
+            "查询 Trace 列表（语义检索）或直接获取单个 Trace。\n\n" +
+            "【使用方式】\n" +
+            "  - 传入 trace_id：直接获取指定 Trace 的详情（推荐用于 Handoff 场景）\n" +
+            "  - 不传 trace_id：语义搜索 traces.task_goal 和 spans.payload\n\n" +
+            "【搜索范围（无 trace_id 时）】\n" +
             "  - traces.task_goal：任务目标\n" +
-            "  - spans.payload：包含 content、tool_name、commit_hash 等\n" +
-            "  - workspace_path：过滤同一项目的 trace",
+            "  - spans.payload：包含 content、tool_name、commit_hash 等",
           inputSchema: {
             type: "object" as const,
             properties: {
+              trace_id: {
+                type: "string",
+                description: "Trace ID（直接获取详情，用于 Handoff 后恢复上下文）",
+              },
               keyword: {
                 type: "string",
                 description: "搜索关键字（匹配 task_goal 和 span payload）",
@@ -891,16 +911,201 @@ async function main(): Promise<void> {
       }
     }
 
+    // ── claim_pending_trace ─────────────────────────────────────────────
+    if (request.params.name === "claim_pending_trace") {
+      const args = request.params.arguments ?? {};
+      const workspacePath = (args.workspace_path as string | undefined) ?? process.cwd();
+
+      try {
+        const sessionsPath = await getSessionsJsonPath(workspacePath);
+        const sessions = readSessionsJson(sessionsPath);
+
+        // 查找匹配的 pending trace
+        for (const [traceId, entry] of Object.entries(sessions.pending)) {
+          if (entry.targetAgent === source || entry.targetAgent === "*") {
+            // 认领：移动到 active
+            const { nanoid } = await import("nanoid");
+            const sessionId = nanoid();
+            const activeEntry: { sessionId: string; traceId: string; agentType: string; status: "active"; startedAt: string } = {
+              sessionId,
+              traceId,
+              agentType: source,
+              status: "active",
+              startedAt: new Date().toISOString(),
+            };
+
+            delete sessions.pending[traceId];
+            sessions.active[sessionId] = activeEntry;
+            writeSessionsJson(sessionsPath, sessions);
+
+            process.stderr.write(`[agentlog-mcp] claim_pending_trace: 认领 trace_id=${traceId}, session_id=${sessionId}\n`);
+
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: JSON.stringify(
+                    {
+                      success: true,
+                      claimed: true,
+                      traceId,
+                      sessionId,
+                      message: `成功认领 Trace ${traceId}`,
+                    },
+                    null,
+                    2,
+                  ),
+                },
+              ],
+            };
+          }
+        }
+
+        // 没有找到匹配的 pending trace
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  success: true,
+                  claimed: false,
+                  message: `当前无待认领的 Trace（pending）分配给 ${source}`,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        process.stderr.write(`[agentlog-mcp] claim_pending_trace 失败：${msg}\n`);
+        return {
+          isError: true,
+          content: [{ type: "text" as const, text: `认领失败：${msg}` }],
+        };
+      }
+    }
+
     // ── query_traces ────────────────────────────────────────────────────
     if (request.params.name === "query_traces") {
       const args = request.params.arguments ?? {};
+      const traceId = (args.trace_id as string | undefined) ?? "";
       const keyword = (args.keyword as string | undefined) ?? "";
-      const workspacePath = (args.workspace_path as string | undefined);
+      const workspacePath = (args.workspace_path as string | undefined) ?? process.cwd();
       const status = (args.status as string | undefined);
       const limit = (args.limit as number | undefined) ?? 10;
       const page = (args.page as number | undefined) ?? 1;
 
       try {
+        // 优先用 trace_id 直接查询
+        if (traceId) {
+          const url = `${BACKEND_BASE}/api/traces/${encodeURIComponent(traceId)}`;
+          process.stderr.write(`[agentlog-mcp] query_traces: GET ${url}\n`);
+
+          const resp = await fetch(url);
+          if (!resp.ok) {
+            const text = await resp.text().catch(() => "");
+            return {
+              isError: true,
+              content: [{ type: "text" as const, text: `查询失败：HTTP ${resp.status} - ${text}` }],
+            };
+          }
+
+          const json = await resp.json() as { success?: boolean; data?: unknown; error?: string };
+          if (!json.success) {
+            return {
+              isError: true,
+              content: [{ type: "text" as const, text: `查询失败：${json.error ?? "unknown"}` }],
+            };
+          }
+
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify({ success: true, trace: json.data }, null, 2),
+              },
+            ],
+          };
+        }
+
+        // 无 trace_id 时，从 sessions.json 的 active 中获取当前工作区的活跃 trace
+        let foundTraceId = "";
+        let traceSource = "";
+        if (!keyword) {
+          try {
+            const sessionsPath = await getSessionsJsonPath(workspacePath);
+            const sessions = readSessionsJson(sessionsPath);
+
+            // 从 active 中查找当前 Agent 的 trace
+            for (const entry of Object.values(sessions.active)) {
+              if (entry.agentType === source || entry.agentType === "*") {
+                foundTraceId = entry.traceId;
+                traceSource = "active_session";
+                process.stderr.write(`[agentlog-mcp] query_traces: 从 active 获取 trace_id=${foundTraceId}, agentType=${entry.agentType}\n`);
+                break;
+              }
+            }
+          } catch (e) {
+            process.stderr.write(`[agentlog-mcp] query_traces: 读取 sessions.json 失败: ${e instanceof Error ? e.message : String(e)}\n`);
+          }
+        }
+
+        // 如果获取到 trace_id，直接查询
+        if (foundTraceId) {
+          const url = `${BACKEND_BASE}/api/traces/${encodeURIComponent(foundTraceId)}`;
+          process.stderr.write(`[agentlog-mcp] query_traces: GET ${url}\n`);
+
+          const resp = await fetch(url);
+          if (!resp.ok) {
+            const text = await resp.text().catch(() => "");
+            return {
+              isError: true,
+              content: [{ type: "text" as const, text: `查询失败：HTTP ${resp.status} - ${text}` }],
+            };
+          }
+
+          const json = await resp.json() as { success?: boolean; data?: unknown; error?: string };
+          if (!json.success) {
+            return {
+              isError: true,
+              content: [{ type: "text" as const, text: `查询失败：${json.error ?? "unknown"}` }],
+            };
+          }
+
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify({ success: true, trace: json.data, source: traceSource }, null, 2),
+              },
+            ],
+          };
+        }
+
+        // 无 active trace 且无 keyword 时，返回提示
+        if (!keyword) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify(
+                  {
+                    success: true,
+                    message: "当前无活跃 Trace（active），也未提供 keyword 参数进行搜索。可传入 keyword 进行语义搜索。",
+                    hint: "query_traces() 会自动从 .git/agentlog/sessions.json 的 active 中查找当前 Agent 的 trace，或传入 keyword 搜索",
+                  },
+                  null,
+                  2,
+                ),
+              },
+            ],
+          };
+        }
+
+        // 语义搜索
         const params = new URLSearchParams();
         if (keyword) params.set("keyword", keyword);
         if (workspacePath) params.set("workspacePath", workspacePath);
