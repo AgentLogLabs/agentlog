@@ -33,7 +33,7 @@ function resolveDbPath(): string {
  * 当前 Schema 版本。
  * 每次变更 DDL 时递增，迁移系统据此判断是否需要升级。
  */
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 10;
 
 const DDL_SCHEMA_VERSION = `
   CREATE TABLE IF NOT EXISTS schema_version (
@@ -80,15 +80,19 @@ const DDL_AGENT_SESSIONS_INDEXES = `
 `;
 
 /**
- * commit_bindings — Git Commit 与若干 AgentSession 的绑定关系。
+ * commit_bindings — Git Commit 与若干 AgentSession/Trace 的绑定关系。
  *
- * 一个 commit_hash 对应一条记录，session_ids 以 JSON 数组存储。
+ * 一个 commit_hash 对应一条记录，session_ids/trace_ids 以 JSON 数组存储。
  * changed_files 同样以 JSON 数组存储（来自 git diff --name-only）。
+ * 
+ * 2026-04-04: 迁移到 Trace/Span 架构，session_ids 保留用于兼容，
+ * 新绑定使用 trace_ids。
  */
 const DDL_COMMIT_BINDINGS = `
   CREATE TABLE IF NOT EXISTS commit_bindings (
     commit_hash     TEXT    NOT NULL PRIMARY KEY,
     session_ids     TEXT    NOT NULL DEFAULT '[]',
+    trace_ids       TEXT    NOT NULL DEFAULT '[]',
     message         TEXT    NOT NULL DEFAULT '',
     committed_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     author_name     TEXT    NOT NULL DEFAULT '',
@@ -96,6 +100,11 @@ const DDL_COMMIT_BINDINGS = `
     changed_files   TEXT    NOT NULL DEFAULT '[]',
     workspace_path  TEXT    NOT NULL
   );
+`;
+
+// 2026-04-04: 迁移：添加 trace_ids 列到已存在的表
+const MIGRATION_ADD_TRACE_IDS = `
+  ALTER TABLE commit_bindings ADD COLUMN trace_ids TEXT NOT NULL DEFAULT '[]';
 `;
 
 const DDL_COMMIT_BINDINGS_INDEXES = `
@@ -230,6 +239,63 @@ const DDL_USER_OPERATIONS_INDEXES = `
   CREATE INDEX IF NOT EXISTS idx_ops_operation_type ON user_operations (operation_type);
 `;
 
+/**
+ * traces — 层级化树状流转体系的主 trace 表。
+ *
+ * 字段说明：
+ *  - task_goal      : 本次 trace 的任务目标描述
+ *  - status         : trace 状态（running|completed|failed|paused）
+ *  - affected_files : 本次交互改动的文件列表（JSON 数组，路径相对于工作区根目录）
+ */
+const DDL_TRACES = `
+  CREATE TABLE IF NOT EXISTS traces (
+    id                TEXT    NOT NULL PRIMARY KEY,
+    parent_trace_id   TEXT,
+    task_goal         TEXT    NOT NULL,
+    status            TEXT    NOT NULL DEFAULT 'running',
+    affected_files    TEXT    NOT NULL DEFAULT '[]',
+    created_at        TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at        TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  );
+`;
+
+const DDL_TRACES_INDEXES = `
+  CREATE INDEX IF NOT EXISTS idx_traces_status ON traces (status);
+  CREATE INDEX IF NOT EXISTS idx_traces_created_at ON traces (created_at);
+`;
+
+/**
+ * spans — trace 下的层级化操作单元。
+ *
+ * 字段说明：
+ *  - trace_id      : 所属 trace 的 ULID
+ *  - parent_span_id : 父 span 的 ULID（顶级 span 此字段为 NULL）
+ *  - actor_type    : 执行者类型（human|agent|system）
+ *  - actor_name    : 执行者名称
+ *  - payload       : JSON 对象，存储 span 相关的详细数据
+ *
+ * 通过 trace_id 和 parent_span_id 可构建完整的 Span Tree。
+ */
+const DDL_SPANS = `
+  CREATE TABLE IF NOT EXISTS spans (
+    id            TEXT    NOT NULL PRIMARY KEY,
+    trace_id      TEXT    NOT NULL,
+    parent_span_id TEXT,
+    actor_type    TEXT    NOT NULL,
+    actor_name    TEXT    NOT NULL,
+    payload       TEXT    NOT NULL DEFAULT '{}',
+    created_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    FOREIGN KEY (trace_id) REFERENCES traces(id) ON DELETE CASCADE
+  );
+`;
+
+const DDL_SPANS_INDEXES = `
+  CREATE INDEX IF NOT EXISTS idx_spans_trace_id ON spans (trace_id);
+  CREATE INDEX IF NOT EXISTS idx_spans_parent_span_id ON spans (parent_span_id);
+  CREATE INDEX IF NOT EXISTS idx_spans_actor_type ON spans (actor_type);
+  CREATE INDEX IF NOT EXISTS idx_spans_created_at ON spans (created_at);
+`;
+
 // ─────────────────────────────────────────────
 // 迁移系统（简易版）
 // ─────────────────────────────────────────────
@@ -330,6 +396,54 @@ const MIGRATIONS: Array<{ version: number; up: MigrationFn }> = [
       // 用户操作追溯表：记录用户在系统中的关键操作
       db.exec(DDL_USER_OPERATIONS);
       db.exec(DDL_USER_OPERATIONS_INDEXES);
+    },
+  },
+  {
+    version: 7,
+    up: (db) => {
+      // 层级化树状流转体系：traces 和 spans
+      db.exec(DDL_TRACES);
+      db.exec(DDL_TRACES_INDEXES);
+      db.exec(DDL_SPANS);
+      db.exec(DDL_SPANS_INDEXES);
+    },
+  },
+  {
+    version: 8,
+    up: (db) => {
+      // Trace Fork 支持：新增 parent_trace_id 字段支持 trace 分叉
+      // 检查列是否已存在（CREATE TABLE 可能已包含，迁移也可能已执行）
+      const existing = db
+        .prepare("PRAGMA table_info(traces)")
+        .all() as { name: string }[];
+      if (!existing.find((col) => col.name === "parent_trace_id")) {
+        db.exec(`ALTER TABLE traces ADD COLUMN parent_trace_id TEXT`);
+      }
+    },
+  },
+  {
+    version: 9,
+    up: (db) => {
+      // Trace workspace 归属：新增 workspace_path 字段支持按工作区过滤
+      const existing = db
+        .prepare("PRAGMA table_info(traces)")
+        .all() as { name: string }[];
+      if (!existing.find((col) => col.name === "workspace_path")) {
+        db.exec(`ALTER TABLE traces ADD COLUMN workspace_path TEXT`);
+      }
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_traces_workspace_path ON traces (workspace_path)`);
+    },
+  },
+  {
+    version: 10,
+    up: (db) => {
+      // Trace 文件改动列表：新增 affected_files 字段存储本次交互改动的文件路径（JSON 数组）
+      const existing = db
+        .prepare("PRAGMA table_info(traces)")
+        .all() as { name: string }[];
+      if (!existing.find((col) => col.name === "affected_files")) {
+        db.exec(`ALTER TABLE traces ADD COLUMN affected_files TEXT NOT NULL DEFAULT '[]'`);
+      }
     },
   },
 ];
@@ -464,7 +578,8 @@ export type SessionRow = {
 
 export type CommitRow = {
   commit_hash: string;
-  session_ids: string; // JSON
+  session_ids: string; // JSON (保留兼容)
+  trace_ids: string; // JSON (2026-04-04 新增)
   message: string;
   committed_at: string;
   author_name: string;
@@ -529,5 +644,26 @@ export type UserOperationRow = {
   ip_address: string | null;
   user_agent: string | null;
   timestamp: string;
+  created_at: string;
+};
+
+export type TraceRow = {
+  id: string;
+  parent_trace_id: string | null;
+  task_goal: string;
+  status: string;
+  workspace_path: string | null;
+  affected_files: string; // JSON array
+  created_at: string;
+  updated_at: string;
+};
+
+export type SpanRow = {
+  id: string;
+  trace_id: string;
+  parent_span_id: string | null;
+  actor_type: string;
+  actor_name: string;
+  payload: string; // JSON
   created_at: string;
 };

@@ -193,6 +193,36 @@ export async function getChangedFiles(
 }
 
 /**
+ * 获取指定 commit 的完整 unified diff 内容。
+ *
+ * @param workspacePath 工作区路径
+ * @param commitRef     Commit SHA 或引用，默认为 "HEAD"
+ * @param maxBytes      diff 内容最大字节数，超出则截断（默认 500KB）
+ */
+export async function getCommitDiff(
+  workspacePath: string,
+  commitRef = "HEAD",
+  maxBytes = 512 * 1024,
+): Promise<string> {
+  const g = git(workspacePath);
+  let diffOutput: string;
+  try {
+    diffOutput = await g.diff([`${commitRef}^`, commitRef]);
+  } catch {
+    // 初始 commit 没有父节点，使用空树
+    const emptyTree = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
+    diffOutput = await g.diff([emptyTree, commitRef]);
+  }
+
+  if (Buffer.byteLength(diffOutput, "utf8") > maxBytes) {
+    // 截断并附加提示
+    const truncated = Buffer.from(diffOutput, "utf8").slice(0, maxBytes).toString("utf8");
+    return truncated + "\n\n[diff truncated: exceeded 512KB limit]";
+  }
+  return diffOutput;
+}
+
+/**
  * 获取最近 N 条 commit 的信息列表（不含 changedFiles，保持轻量）。
  *
  * @param workspacePath 工作区路径
@@ -241,6 +271,42 @@ export async function getModifiedFiles(
     ...status.renamed.map((r) => r.to),
     ...status.staged,
   ].filter((value, index, self) => self.indexOf(value) === index); // 去重
+}
+
+/**
+ * 读取 Git 配置项。
+ * @param workspacePath 工作区路径
+ * @param key 配置键名
+ * @returns 配置值（不存在返回 null）
+ */
+export async function getGitConfig(
+  workspacePath: string,
+  key: string,
+): Promise<string | null> {
+  const g = git(workspacePath);
+  try {
+    // 使用 git config --get 读取配置
+    const output = await g.raw(["config", "--get", key]);
+    return output.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 写入 Git 配置项（local级别）。
+ * @param workspacePath 工作区路径
+ * @param key 配置键名
+ * @param value 配置值
+ */
+export async function setGitConfig(
+  workspacePath: string,
+  key: string,
+  value: string,
+): Promise<void> {
+  const g = git(workspacePath);
+  // 使用 git config 设置本地配置
+  await g.raw(["config", key, value]);
 }
 
 // ─────────────────────────────────────────────

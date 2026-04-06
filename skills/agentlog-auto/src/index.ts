@@ -61,9 +61,9 @@ let pendingLogs: Array<() => Promise<void>> = [];
 // MCP Client
 // ─────────────────────────────────────────────
 
-async function mcpRequest(tool: string, args: Record<string, unknown>): Promise<{ sessionId?: string; success: boolean; error?: string }> {
+async function mcpRequest(tool: string, args: Record<string, unknown>): Promise<{ success: boolean; error?: string; data?: unknown }> {
   try {
-    const response = await fetch(`${config.mcpUrl}/mcp`, {
+    const response = await fetch(`${config.mcpUrl}/mcp/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -72,7 +72,10 @@ async function mcpRequest(tool: string, args: Record<string, unknown>): Promise<
         method: `tools/call`,
         params: {
           name: tool,
-          arguments: args,
+          arguments: {
+            tool_name: tool,
+            ...args,
+          },
         },
       }),
     });
@@ -82,7 +85,16 @@ async function mcpRequest(tool: string, args: Record<string, unknown>): Promise<
     }
 
     const data = await response.json();
-    return { success: true, sessionId: data.sessionId };
+    // 工具调用返回格式: { content: [{ type: "text", text: "..." }] }
+    if (data.content && data.content[0] && data.content[0].text) {
+      try {
+        const parsed = JSON.parse(data.content[0].text);
+        return { success: !data.isError, data: parsed };
+      } catch {
+        return { success: !data.isError, data: data.content[0].text };
+      }
+    }
+    return { success: true, data };
   } catch (error) {
     console.error('[agentlog-auto] MCP request failed:', error);
     return { success: false, error: String(error) };
@@ -211,7 +223,7 @@ async function tryBindCommit(): Promise<void> {
 // ─────────────────────────────────────────────
 
 /**
- * Session start hook - initialize new session
+ * Session start hook - initialize new session and claim pending trace
  */
 export async function onSessionStart(params: {
   sessionKey: string;
@@ -219,8 +231,24 @@ export async function onSessionStart(params: {
   workspacePath?: string;
 }): Promise<void> {
   const source = detectAgentSource();
-  startSession(params.model, source, params.workspacePath || process.cwd());
+  const workspace = params.workspacePath || process.cwd();
+  startSession(params.model, source, workspace);
   console.log(`[agentlog-auto] Session started for ${params.sessionKey}`);
+
+  // 启动时尝试认领 pending trace
+  const claimResult = await mcpRequest('claim_pending_trace', {
+    workspace_path: workspace,
+  });
+  if (claimResult.success && claimResult.data) {
+    const resultData = claimResult.data as { claimed?: boolean; traceId?: string; message?: string };
+    if (resultData.claimed) {
+      console.log(`[agentlog-auto] Pending trace claimed: ${resultData.traceId} - ${resultData.message}`);
+    } else {
+      console.log(`[agentlog-auto] No pending trace to claim: ${resultData.message}`);
+    }
+  } else if (claimResult.error) {
+    console.log(`[agentlog-auto] Failed to claim pending trace: ${claimResult.error}`);
+  }
 }
 
 /**
@@ -393,7 +421,7 @@ function detectAgentSource(): string {
 
 export const skill = {
   name: 'agentlog-auto',
-  version: '1.0.0',
+  version: '1.1.0',
   hooks: {
     'session:start': onSessionStart,
     'tool:before_call': beforeToolCall,

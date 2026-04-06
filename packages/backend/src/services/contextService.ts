@@ -20,6 +20,7 @@ import type {
 import { getSessionsByCommitHash, getSessionById } from "./logService";
 import { getCommitInfo } from "./gitService";
 import { getDatabase, fromJson, type CommitRow } from "../db/database";
+import { getTraceById, getSpansByTraceId } from "./traceService";
 
 // ─────────────────────────────────────────────
 // 默认值
@@ -340,6 +341,54 @@ async function resolveCommitData(
       sessions = sessionIds
         .map((id) => getSessionById(id))
         .filter((s): s is AgentSession => s !== null);
+    }
+  }
+
+  //    若仍无结果，尝试通过 trace_ids 将 trace+spans 转换为 session 格式
+  if (sessions.length === 0) {
+    const bindingRow = getCommitBindingRow(resolvedHash);
+    if (bindingRow) {
+      const traceIds = fromJson<string[]>(bindingRow.trace_ids ?? "[]", []);
+      for (const traceId of traceIds) {
+        const trace = await getTraceById(traceId);
+        if (!trace) continue;
+        const spans = getSpansByTraceId(traceId);
+
+        // 将 spans 中 human/agent 角色的 content 拼接成 prompt/response
+        const humanSpans = spans.filter(s => s.actorType === "human");
+        const agentSpans = spans.filter(s => s.actorType === "agent");
+
+        const prompt = humanSpans
+          .map(s => (s.payload.content as string) || "")
+          .filter(Boolean)
+          .join("\n---\n") || trace.taskGoal;
+
+        const response = agentSpans
+          .map(s => (s.payload.content as string) || "")
+          .filter(Boolean)
+          .join("\n---\n") || "(无 Agent 回复记录)";
+
+        // 构造兼容 AgentSession 格式的对象
+        const fakeSession: AgentSession = {
+          id: trace.id,
+          provider: "unknown",
+          model: "unknown",
+          source: "mcp-tool-call",
+          prompt,
+          response,
+          reasoning: "",
+          tags: [],
+          note: `Trace: ${trace.taskGoal}`,
+          metadata: {},
+          affectedFiles: [],
+          commitHash: resolvedHash,
+          workspacePath: bindingRow.workspace_path ?? "",
+          tokenUsage: undefined,
+          durationMs: 0,
+          createdAt: trace.createdAt,
+        };
+        sessions.push(fakeSession);
+      }
     }
   }
 
