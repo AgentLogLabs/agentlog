@@ -215,8 +215,10 @@ async function createSpan(traceId: string, span: {
   role: string;
   content: string;
   tool_name?: string;
-  params?: Record<string, unknown>;
-  toolResult?: unknown;
+  params?: Record<string, unknown>;      // OpenClaw hook field (data source)
+  toolInput?: Record<string, unknown>;  // VS Code display compatibility
+  toolResult?: unknown;                  // OpenClaw hook field (data source)
+  toolOutput?: string;                   // VS Code display compatibility
   duration_ms?: number;
   timestamp?: string;
 }): Promise<boolean> {
@@ -234,8 +236,10 @@ async function createSpan(traceId: string, span: {
           toolName: span.tool_name,
           durationMs: span.duration_ms,
           timestamp: span.timestamp || new Date().toISOString(),
-          args: span.params,  // renamed to args for clarity
-          result: span.toolResult,
+          args: span.params,              // OpenClaw data source
+          result: span.toolResult,        // OpenClaw data source
+          toolInput: span.toolInput,      // VS Code display compatibility
+          toolOutput: span.toolOutput,    // VS Code display compatibility
         },
       }
     );
@@ -491,8 +495,10 @@ export async function afterToolCall(
     role: "tool",
     content: JSON.stringify(contentObj),  // Include args and result in content
     tool_name: event.toolName,
-    params: input,
-    toolResult: event.error || event.result,
+    params: input,           // OpenClaw hook field (data source)
+    toolInput: input,         // VS Code display compatibility
+    toolResult: event.error || event.result,  // OpenClaw hook field
+    toolOutput: String(event.result ?? event.error ?? ""),  // VS Code display compatibility
     duration_ms: durationMs,
     timestamp,
   });
