@@ -215,6 +215,8 @@ async function createSpan(traceId: string, span: {
   role: string;
   content: string;
   tool_name?: string;
+  toolInput?: Record<string, unknown>;
+  toolResult?: unknown;
   duration_ms?: number;
   timestamp?: string;
 }): Promise<boolean> {
@@ -233,6 +235,9 @@ async function createSpan(traceId: string, span: {
           durationMs: span.duration_ms,
           timestamp: span.timestamp || new Date().toISOString(),
         },
+        toolName: span.tool_name,
+        toolInput: span.toolInput,
+        toolResult: span.toolResult,
       }
     );
     return result.success;
@@ -472,8 +477,10 @@ export async function afterToolCall(
 
   await createSpan(session.traceId, {
     role: "tool",
-    content: JSON.stringify({ tool: event.toolName, input, output: event.toolOutput }),
+    content: JSON.stringify({ tool: event.toolName }),
     tool_name: event.toolName,
+    toolInput: input || undefined,
+    toolResult: event.error || event.toolOutput,
     duration_ms: durationMs,
     timestamp,
   });
