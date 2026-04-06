@@ -67,6 +67,7 @@
 | 文档 | 说明 | 状态 |
 |------|------|------|
 | [AGENTLOG_COMPLETE_AUDIT_v1.0.md](./AGENTLOG_COMPLETE_AUDIT_v1.0.md) | 全量存证完整性设计方案（P0） | 🔄 讨论中 |
+| [TICKET_SPLIT_AUDIT_v1.0.md](./TICKET_SPLIT_AUDIT_v1.0.md) | 工作分解文档（Ticket 拆分） | 🔄 讨论中 |
 
 ---
 
@@ -74,8 +75,8 @@
 
 | Skill | 说明 | 状态 |
 |-------|------|------|
-| [openclaw-agent-log](../skills/openclaw-agent-log/) | OpenClaw Agent 统一存证 + Trace Handoff | ✅ 已完成（合并后） |
-| [agentlog-auto](../skills/agentlog-auto/) | 自动存证 Hooks | ⚠️ 已废弃（合并到 openclaw-agent-log） |
+| [openclaw-agentlog](../skills/openclaw-agentlog/) | OpenClaw Agent 统一存证 + Trace Handoff | ✅ 已完成（合并后） |
+| [agentlog-auto](../skills/agentlog-auto/) | 自动存证 Hooks | ⚠️ 已废弃（合并到 openclaw-agentlog） |
 | [agentlog-daily-report](../skills/agentlog-daily-report/) | 每日日报自动填充 | 🔄 开发中 |
 
 ---
@@ -95,6 +96,8 @@
 |------|------|------|
 | [E2E_TEST_CASES.md](./E2E_TEST_CASES.md) | 端到端测试用例 | ✅ 已完成 |
 | [TESTING.md](./TESTING.md) | 测试文档 | ✅ 已完成 |
+| [E2E_TEST_OPENCLAW_AGENT_LOG.md](./E2E_TEST_OPENCLAW_AGENT_LOG.md) | OpenClaw Agent Log E2E 测试用例（REST API） | ✅ 已完成（v1.0） |
+| [E2E_TEST_MCP_FULL_FLOW.md](./E2E_TEST_MCP_FULL_FLOW.md) | MCP 完整链路 E2E 测试用例 | ✅ 新增（v1.0） |
 
 ---
 
@@ -129,7 +132,7 @@
 
 | 状态 | 数量 |
 |------|------|
-| ✅ 已完成 | 28 |
+| ✅ 已完成 | 30 |
 | 🔄 讨论中 | 2 |
 | ⚠️ 已废弃 | 4 |
 

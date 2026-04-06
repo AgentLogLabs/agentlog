@@ -137,7 +137,7 @@ Trace 下的层级化操作单元，构成完整的 Span Tree。
 - [x] **OpenClaw Agent Skills**:
   - `agentlog-auto` - 自动 trace/span 记录
   - `agentlog-daily-report` - 日报生成
-  - `openclaw-agent-log` - MCP 协议支持
+  - `openclaw-agentlog` - MCP 协议支持
 
 ### 进行中
 - [ ] **VS Code UI 更新** - Trace Tree View 支持（当前 UI 仍基于 session）
@@ -158,7 +158,7 @@ Trace 下的层级化操作单元，构成完整的 Span Tree。
 - `commit_bindings` 新增 `trace_ids` 字段
 - `agentlog-auto` skill 升级为 trace/span API
 - 新增 `agentlog-daily-report` skill
-- 新增 `openclaw-agent-log` skill (MCP 协议支持)
+- 新增 `openclaw-agentlog` skill (MCP 协议支持)
 
 ### v2.0 (初始版本)
 - Session-based 架构

@@ -6,13 +6,13 @@
 
 ---
 
-## Ticket 1: 创建 openclaw-agent-log Plugin
+## Ticket 1: 创建 openclaw-agentlog Plugin
 
 ### 概述
-将 `agentlog-auto` 和 `openclaw-agent` 合并为一个统一的 plugin `openclaw-agent-log`
+将 `agentlog-auto` 和 `openclaw-agent` 合并为一个统一的 plugin `openclaw-agentlog`
 
 ### Base_Ticket
-创建 `skills/openclaw-agent-log/` plugin，实现：
+创建 `skills/openclaw-agentlog/` plugin，实现：
 1. 合并 auto-logging hooks（session_start, before_tool_call, after_tool_call, agent_end）
 2. 合并 trace handoff 功能（checkAndClaimTrace, claimTrace, completeSession）
 3. 实现 source 标识从 workspace 路径自动推断
@@ -21,7 +21,7 @@
 必须通过 Auditor E2E 测试集 #存证完整性
 
 ### Acceptance_Criteria
-- [ ] `skills/openclaw-agent-log/` 目录结构完整
+- [ ] `skills/openclaw-agentlog/` 目录结构完整
 - [ ] `openclaw.plugin.json` 配置正确
 - [ ] `detectAgentSource()` 从 `process.cwd()` 推断 source
 - [ ] Hooks 正确注册：session_start, before_tool_call, after_tool_call, agent_end
@@ -44,20 +44,20 @@ function detectAgentSource(): string {
 
 ---
 
-## Ticket 2: 配置 openclaw-agent-log Plugin
+## Ticket 2: 配置 openclaw-agentlog Plugin
 
 ### 概述
-在 `openclaw.json` 中配置 `openclaw-agent-log` plugin 启用
+在 `openclaw.json` 中配置 `openclaw-agentlog` plugin 启用
 
 ### Base_Ticket
-更新 `/home/hobo/.openclaw/openclaw.json`，添加 `openclaw-agent-log` plugin 配置
+更新 `/home/hobo/.openclaw/openclaw.json`，添加 `openclaw-agentlog` plugin 配置
 
 ### Compliance_Rule
 必须通过 Auditor E2E 测试集 #存证完整性
 
 ### Acceptance_Criteria
-- [ ] `plugins.entries.openclaw-agent-log.enabled: true`
-- [ ] `plugins.installs.openclaw-agent-log` 配置正确
+- [ ] `plugins.entries.openclaw-agentlog.enabled: true`
+- [ ] `plugins.installs.openclaw-agentlog` 配置正确
 - [ ] plugin 可被 OpenClaw 加载
 
 ### 技术细节
@@ -65,15 +65,15 @@ function detectAgentSource(): string {
 {
   "plugins": {
     "entries": {
-      "openclaw-agent-log": {
+      "openclaw-agentlog": {
         "enabled": true
       }
     },
     "installs": {
-      "openclaw-agent-log": {
+      "openclaw-agentlog": {
         "source": "path",
-        "sourcePath": "/home/hobo/Projects/agentlog/skills/openclaw-agent-log",
-        "installPath": "/home/hobo/.openclaw/skills/openclaw-agent-log",
+        "sourcePath": "/home/hobo/Projects/agentlog/skills/openclaw-agentlog",
+        "installPath": "/home/hobo/.openclaw/skills/openclaw-agentlog",
         "version": "1.0.0"
       }
     }
@@ -110,7 +110,7 @@ function detectAgentSource(): string {
 ## Ticket 4: 配置所有 Agent 启用存证
 
 ### 概述
-确保所有 8 个 Agent 都启用了 openclaw-agent-log plugin
+确保所有 8 个 Agent 都启用了 openclaw-agentlog plugin
 
 ### Base_Ticket
 验证并配置所有 Agent 的存证
@@ -168,7 +168,7 @@ done
 
 ## 实施顺序
 
-1. **Ticket 1**: 创建 openclaw-agent-log Plugin（基础）
+1. **Ticket 1**: 创建 openclaw-agentlog Plugin（基础）
 2. **Ticket 2**: 配置 Plugin（依赖 Ticket 1）
 3. **Ticket 3**: 验证数据流（独立）
 4. **Ticket 4**: 配置所有 Agent（依赖 Ticket 2）

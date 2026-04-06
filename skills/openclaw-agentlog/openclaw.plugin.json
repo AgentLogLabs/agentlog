@@ -1,0 +1,57 @@
+{
+  "$schema": "https://openclaw.ai/schemas/plugin.json",
+  "id": "openclaw-agentlog",
+  "name": "OpenClaw Agent Log",
+  "version": "1.0.0",
+  "description": "OpenClaw Agent 自动存证与 Trace 生命周期管理 - 合并了 agentlog-auto 和 openclaw-agent 功能",
+  "main": "src/index.ts",
+  "skills": [
+    {
+      "id": "openclaw-agentlog",
+      "path": "./src/index.ts",
+      "enabled": true
+    }
+  ],
+  "hooks": [
+    "session_start",
+    "before_tool_call",
+    "after_tool_call",
+    "agent_end",
+    "session_end"
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "mcpUrl": {
+        "type": "string",
+        "default": "http://localhost:7892",
+        "description": "AgentLog MCP Server URL"
+      },
+      "autoBindCommit": {
+        "type": "boolean",
+        "default": true,
+        "description": "Automatically bind sessions to Git commits"
+      },
+      "reasoningCapture": {
+        "type": "boolean",
+        "default": true,
+        "description": "Capture reasoning process"
+      },
+      "toolCallCapture": {
+        "type": "boolean",
+        "default": true,
+        "description": "Capture tool calls"
+      }
+    }
+  },
+  "requires": {
+    "openclaw": ">=1.0.0"
+  },
+  "author": "AgentLog Team",
+  "license": "Apache-2.0",
+  "deprecated": [
+    "agentlog-auto",
+    "openclaw-agent"
+  ]
+}

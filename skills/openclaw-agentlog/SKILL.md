@@ -1,5 +1,5 @@
 ---
-name: openclaw-agent-log
+name: openclaw-agentlog
 description: |
   OpenClaw Agent 自动存证与 Trace 生命周期管理 Skill。
   
@@ -33,7 +33,7 @@ description: |
 OpenClaw Agent
       ↓
 ┌─────────────────────────────────┐
-│   openclaw-agent-log Skill      │
+│   openclaw-agentlog Skill      │
 ├─────────────────────────────────┤
 │  ┌───────────────────────────┐  │
 │  │   Auto-Logging Module    │  │ ← Hooks 自动记录
@@ -93,7 +93,7 @@ agentlog:
 启动时检查并认领 pending traces。
 
 ```typescript
-import { checkAndClaimTrace } from 'openclaw-agent-log';
+import { checkAndClaimTrace } from 'openclaw-agentlog';
 
 const result = await checkAndClaimTrace('/path/to/workspace', 'architect');
 // result: { success: true, traceId: '...', sessionId: '...' }
@@ -104,7 +104,7 @@ const result = await checkAndClaimTrace('/path/to/workspace', 'architect');
 手动认领指定 trace。
 
 ```typescript
-import { claimTrace } from 'openclaw-agent-log';
+import { claimTrace } from 'openclaw-agentlog';
 
 const result = await claimTrace('TRACE_ID', 'architect', '/path/to/workspace');
 ```
@@ -114,7 +114,7 @@ const result = await claimTrace('TRACE_ID', 'architect', '/path/to/workspace');
 完成当前 session。
 
 ```typescript
-import { completeActiveSession } from 'openclaw-agent-log';
+import { completeActiveSession } from 'openclaw-agentlog';
 
 await completeActiveSession('/path/to/workspace');
 ```

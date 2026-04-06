@@ -9,28 +9,28 @@
 
 ## 📋 工作分解
 
-### Ticket 1: 创建 openclaw-agent-log Plugin
+### Ticket 1: 创建 openclaw-agentlog Plugin
 
-**Base_Ticket**: 创建 `skills/openclaw-agent-log/` plugin，实现：
+**Base_Ticket**: 创建 `skills/openclaw-agentlog/` plugin，实现：
 1. 合并 auto-logging hooks（session_start, before_tool_call, after_tool_call, agent_end）
 2. 合并 trace handoff 功能（checkAndClaimTrace, claimTrace, completeSession）
 3. **source 从 workspace 路径自动推断**
 
 **Acceptance_Criteria**:
-- [ ] `skills/openclaw-agent-log/` 目录结构完整
+- [ ] `skills/openclaw-agentlog/` 目录结构完整
 - [ ] `openclaw.plugin.json` 配置正确
 - [ ] `detectAgentSource()` 从 `process.cwd()` 推断 source
 - [ ] Hooks 正确注册
 
 ---
 
-### Ticket 2: 配置 openclaw-agent-log Plugin
+### Ticket 2: 配置 openclaw-agentlog Plugin
 
 **Base_Ticket**: 更新 `/home/hobo/.openclaw/openclaw.json`
 
 **Acceptance_Criteria**:
-- [ ] `plugins.entries.openclaw-agent-log.enabled: true`
-- [ ] `plugins.installs.openclaw-agent-log` 配置正确
+- [ ] `plugins.entries.openclaw-agentlog.enabled: true`
+- [ ] `plugins.installs.openclaw-agentlog` 配置正确
 
 ---
 
@@ -82,7 +82,7 @@ log_intent(trace_id="xxx") → 更新 status = 'completed' (traces 表)
 
 ## ✅ 验收标准
 
-- [ ] 所有 8 个 Agent 启用了 openclaw-agent-log skill
+- [ ] 所有 8 个 Agent 启用了 openclaw-agentlog skill
 - [ ] source 标识通过 workspace 路径自动推断
 - [ ] AgentLog backend 正常运行
 - [ ] MCP log_turn/log_intent 写入 traces/spans 表
@@ -100,4 +100,4 @@ log_intent(trace_id="xxx") → 更新 status = 'completed' (traces 表)
 |--------|--------|
 | agent_sessions 表 | traces + spans 表 |
 | /api/sessions | MCP log_turn/log_intent |
-| agentlog-auto skill | openclaw-agent-log |
+| agentlog-auto skill | openclaw-agentlog |

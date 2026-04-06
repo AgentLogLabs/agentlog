@@ -214,8 +214,9 @@ async function createSpan(traceId: string, span: {
   try {
     const result = await apiRequest<{ success: boolean }>(
       "POST",
-      `/api/traces/${traceId}/spans`,
+      "/api/spans",
       {
+        traceId,
         actorType: span.role === "tool" ? "agent" : span.role,
         actorName: span.tool_name || "agent",
         payload: {
@@ -229,7 +230,7 @@ async function createSpan(traceId: string, span: {
     );
     return result.success;
   } catch (error) {
-    console.error("[openclaw-agent-log] Failed to create span:", error);
+    console.error("[openclaw-agentlog] Failed to create span:", error);
     return false;
   }
 }
@@ -254,7 +255,7 @@ async function finalizeTrace(
     );
     return result.success;
   } catch (error) {
-    console.error("[openclaw-agent-log] Failed to finalize trace:", error);
+    console.error("[openclaw-agentlog] Failed to finalize trace:", error);
     return false;
   }
 }
@@ -272,7 +273,7 @@ async function createTrace(taskGoal: string, workspacePath: string): Promise<Tra
     );
     return result.data;
   } catch (error) {
-    console.error("[openclaw-agent-log] Failed to create trace:", error);
+    console.error("[openclaw-agentlog] Failed to create trace:", error);
     return null;
   }
 }
@@ -286,7 +287,7 @@ async function updateTraceStatus(traceId: string, status: string): Promise<boole
     );
     return result.success;
   } catch (error) {
-    console.error("[openclaw-agent-log] Failed to update trace status:", error);
+    console.error("[openclaw-agentlog] Failed to update trace status:", error);
     return false;
   }
 }
@@ -316,7 +317,7 @@ async function startSession(model: string, source: string, workspacePath: string
     taskGoal,
   };
 
-  console.log(`[openclaw-agent-log] Session started: ${sessionId}, trace: ${traceId} (source: ${source})`);
+  console.log(`[openclaw-agentlog] Session started: ${sessionId}, trace: ${traceId} (source: ${source})`);
   return sessionId;
 }
 
@@ -332,7 +333,7 @@ export async function onSessionStart(params: {
   const source = detectAgentSource();
   const workspace = params.workspacePath || process.cwd();
   await startSession(params.model, source, workspace);
-  console.log(`[openclaw-agent-log] Session started for ${params.sessionKey}`);
+  console.log(`[openclaw-agentlog] Session started for ${params.sessionKey}`);
 }
 
 export async function beforeToolCall(params: {
@@ -444,10 +445,10 @@ async function tryBindCommit(): Promise<void> {
     }).trim();
 
     if (commitHash) {
-      console.log(`[openclaw-agent-log] Bound session to commit ${commitHash.slice(0, 7)}`);
+      console.log(`[openclaw-agentlog] Bound session to commit ${commitHash.slice(0, 7)}`);
     }
   } catch {
-    console.log("[openclaw-agent-log] No git commit to bind");
+    console.log("[openclaw-agentlog] No git commit to bind");
   }
 }
 
@@ -471,7 +472,7 @@ export async function onAgentEnd(params: {
     currentSession.reasoning
   );
 
-  console.log(`[openclaw-agent-log] Session ${currentSession.sessionId} finalized, trace ${currentSession.traceId} marked completed`);
+  console.log(`[openclaw-agentlog] Session ${currentSession.sessionId} finalized, trace ${currentSession.traceId} marked completed`);
   currentSession = null;
 }
 
@@ -512,7 +513,7 @@ export async function checkAndClaimTrace(
         // Update trace status to in_progress
         await updateTraceStatus(traceId, "in_progress");
 
-        console.log(`[openclaw-agent-log] Claimed trace: ${traceId} (agent: ${agentType})`);
+        console.log(`[openclaw-agentlog] Claimed trace: ${traceId} (agent: ${agentType})`);
 
         return { success: true, traceId, sessionId };
       }
@@ -561,7 +562,7 @@ export async function queryPendingTraces(
       createdAt: item.entry.createdAt,
     }));
   } catch (err) {
-    console.error(`[openclaw-agent-log] Query pending traces failed: ${err}`);
+    console.error(`[openclaw-agentlog] Query pending traces failed: ${err}`);
     return [];
   }
 }
@@ -607,7 +608,7 @@ export async function claimTrace(
       // API call failure doesn't affect local state
     }
 
-    console.log(`[openclaw-agent-log] Claimed trace: ${traceId} (agent: ${agentType})`);
+    console.log(`[openclaw-agentlog] Claimed trace: ${traceId} (agent: ${agentType})`);
 
     return { success: true, traceId, sessionId };
   } catch (err) {
@@ -648,7 +649,7 @@ export async function completeActiveSession(workspacePath: string): Promise<bool
       await updateTraceStatus(traceId, "completed");
     }
 
-    console.log(`[openclaw-agent-log] Completed session: ${sessionId}`);
+    console.log(`[openclaw-agentlog] Completed session: ${sessionId}`);
     return true;
   } catch {
     return false;
@@ -660,7 +661,7 @@ export async function completeActiveSession(workspacePath: string): Promise<bool
 // ─────────────────────────────────────────────
 
 export const skillMetadata = {
-  name: "openclaw-agent-log",
+  name: "openclaw-agentlog",
   description: "OpenClaw Agent 自动存证与 Trace 生命周期管理 - 使用 trace/span API",
   version: "2.0.0",
   functions: [
@@ -705,20 +706,24 @@ export const skillMetadata = {
 
 // onSessionEnd hook
 export async function onSessionEnd(): Promise<void> {
-  console.log('[openclaw-agent-log] Session cleanup completed');
+  console.log('[openclaw-agentlog] Session cleanup completed');
 }
 
-// OpenClaw plugin register function
 export function register(api: {
   on(event: string, handler: (...args: unknown[]) => unknown, opts?: { priority?: number }): void;
   registerHook(event: string, handler: (...args: unknown[]) => unknown, opts?: { name?: string; description?: string }): void;
 }): void {
-  // Register lifecycle hooks using api.on()
-  api.on('session:start', onSessionStart);
-  api.on('tool:before_call', beforeToolCall);
-  api.on('tool:after_call', afterToolCall);
-  api.on('agent:end', onAgentEnd);
-  api.on('session:end', onSessionEnd);
+  api.on('session_start', onSessionStart);
+  api.on('before_tool_call', beforeToolCall);
+  api.on('after_tool_call', afterToolCall);
+  api.on('agent_end', onAgentEnd);
+  api.on('session_end', onSessionEnd);
 }
 
-export default { register };
+export default { register, skillMetadata, hooks: {
+  session_start: onSessionStart,
+  before_tool_call: beforeToolCall,
+  after_tool_call: afterToolCall,
+  agent_end: onAgentEnd,
+  session_end: onSessionEnd,
+}};

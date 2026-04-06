@@ -1,5 +1,5 @@
 {
-  "name": "openclaw-agent-log",
+  "name": "openclaw-agentlog",
   "version": "1.0.0",
   "description": "OpenClaw Agent 自动存证与 Trace 生命周期管理 Skill",
   "main": "src/index.ts",
@@ -13,11 +13,11 @@
       "./src/index.ts"
     ],
     "hooks": {
-      "session:start": true,
-      "tool:before_call": true,
-      "tool:after_call": true,
-      "agent:end": true,
-      "session:end": true
+      "session_start": true,
+      "before_tool_call": true,
+      "after_tool_call": true,
+      "agent_end": true,
+      "session_end": true
     }
   },
   "dependencies": {

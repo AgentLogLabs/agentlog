@@ -9,7 +9,7 @@
 
 ## 📌 1. 需求背景
 
-**陈洪博指示**：需要一份通用方案，支持所有 Agent 进行工作过程记录存储和获取，用于各自的每日工作日报汇报。
+**CEO指示**：需要一份通用方案，支持所有 Agent 进行工作过程记录存储和获取，用于各自的每日工作日报汇报。
 
 ### 1.1 现状问题
 
@@ -46,7 +46,7 @@
 │       │              │              │              │        │
 │       ▼              ▼              ▼              ▼        │
 │  ┌─────────────────────────────────────────────────────┐   │
-│  │         agentlog-auto（统一存证，source 自动标识）       │   │
+│  │         openclaw-agentlog（统一存证，source 自动标识）       │   │
 │  └─────────────────────────────────────────────────────┘   │
 │                            │                               │
 │                            ▼                               │
@@ -370,7 +370,7 @@ FEISHU_WEBHOOK="https://open.feishu.cn/open-apis/bot/v2/hook/xxx-growth"
 |------|------|
 | 通用日报脚本 | `skills/agentlog-daily-report/agent-daily-report.sh` |
 | MCP Server | `/home/hobo/Projects/agentlog/packages/backend/dist/mcp.js` |
-| agentlog-auto SKILL | `/home/hobo/Projects/agentlog/skills/agentlog-auto/SKILL.md` |
+| openclaw-agentlog SKILL | `/home/hobo/Projects/agentlog/skills/openclaw-agentlog/SKILL.md` |
 
 ### B. source 参数对照表
 
