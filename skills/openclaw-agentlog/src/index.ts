@@ -351,6 +351,24 @@ export async function onBeforeAgentStart(
   }
 }
 
+/**
+ * session_start hook
+ *
+ * ⚠️  触发时机说明（与 before_agent_start 不同）：
+ *
+ * session_start 是一个 session 生命周期事件，仅在以下情况触发：
+ *   1. 某个 sessionKey 的第一条消息（全新会话）
+ *   2. 用户发送 /new 或 /reset 命令（主动重置）
+ *   3. session 长时间空闲后超时重置的首条消息
+ *
+ * 对于正在进行中的会话，每条普通消息只触发 before_agent_start，
+ * 不会再次触发 session_start。
+ *
+ * 因此本插件的主要 per-turn 记录逻辑在 before_agent_start 中实现。
+ * session_start 此处仅做补充记录（例如覆盖 resumedFrom 信息）。
+ *
+ * 参考：openclaw src/auto-reply/reply/session.ts initSessionState()
+ */
 export async function onSessionStart(
   event: { sessionId: string; sessionKey?: string; resumedFrom?: string },
   ctx: { agentId?: string; sessionId: string; sessionKey?: string }
@@ -361,8 +379,15 @@ export async function onSessionStart(
   const source = `openclaw:${agentId}`;
   const workspace = process.cwd();
   const model = agentId;
-  await startSession(model, source, workspace);
-  console.log(`[openclaw-agentlog] Session started for ${sessionKey}, agent: ${agentId}`);
+
+  // session_start 触发时 before_agent_start 可能尚未执行（取决于调用时序）。
+  // 若当前已有 session（before_agent_start 已建立），则跳过，避免重复创建 trace。
+  if (!currentSession) {
+    await startSession(model, source, workspace);
+    console.log(`[openclaw-agentlog] Session started via session_start for ${sessionKey}, agent: ${agentId}`);
+  } else {
+    console.log(`[openclaw-agentlog] session_start: session already exists (created by before_agent_start), skipping trace creation for ${sessionKey}`);
+  }
 }
 
 export async function beforeToolCall(
@@ -779,13 +804,27 @@ export const skillMetadata = {
   ],
 };
 
-// onSessionEnd hook
+/**
+ * session_end hook
+ *
+ * 在 session 生命周期结束时触发（与 session_start 对应）。
+ * 触发时机：用户发送 /new 或 /reset、session 超时后，下一条消息开始前。
+ *
+ * 注意：agent_end 已经处理了 per-turn 的 trace 归档和 currentSession 清理。
+ * session_end 主要用于处理 session 重置时 agent_end 未能清理的残留状态
+ * （例如用户直接 /new 而 agent 尚未完成上一轮时）。
+ */
 export async function onSessionEnd(
   _event: unknown,
   _ctx: unknown
 ): Promise<void> {
   console.log('[openclaw-agentlog][DEBUG] session_end hook fired!');
-  console.log('[openclaw-agentlog] Session cleanup completed');
+  // 若 agent_end 未能清理（如 session 在 agent 运行中被重置），在此兜底清理
+  if (currentSession) {
+    console.log(`[openclaw-agentlog] session_end: cleaning up residual session ${currentSession.sessionId}`);
+    sessionByTraceId.delete(currentSession.traceId);
+    currentSession = null;
+  }
 }
 
 export function register(api: {
