@@ -708,13 +708,17 @@ export async function onSessionEnd(): Promise<void> {
   console.log('[openclaw-agent-log] Session cleanup completed');
 }
 
-export default {
-  ...skillMetadata,
-  hooks: {
-    'session:start': onSessionStart,
-    'tool:before_call': beforeToolCall,
-    'tool:after_call': afterToolCall,
-    'agent:end': onAgentEnd,
-    'session:end': onSessionEnd,
-  },
-};
+// OpenClaw plugin register function
+export function register(api: {
+  on(event: string, handler: (...args: unknown[]) => unknown, opts?: { priority?: number }): void;
+  registerHook(event: string, handler: (...args: unknown[]) => unknown, opts?: { name?: string; description?: string }): void;
+}): void {
+  // Register lifecycle hooks using api.on()
+  api.on('session:start', onSessionStart);
+  api.on('tool:before_call', beforeToolCall);
+  api.on('tool:after_call', afterToolCall);
+  api.on('agent:end', onAgentEnd);
+  api.on('session:end', onSessionEnd);
+}
+
+export default { register };

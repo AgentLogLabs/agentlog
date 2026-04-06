@@ -21,7 +21,7 @@
     }
   },
   "dependencies": {
-    "@agentlog/shared": "workspace:*"
+    "nanoid": "^5.1.7"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
