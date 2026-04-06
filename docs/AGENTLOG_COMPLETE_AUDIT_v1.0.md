@@ -60,9 +60,19 @@ CREATE TABLE spans (
 | 状态 | 含义 | 触发条件 |
 |------|------|---------|
 | `running` | 任务进行中 | 默认初始状态 |
-| `paused` | 任务暂停 | 用户主动暂停或超时 |
+| `pending_handoff` | 等待交接 | 任务完成，等待交接给其他 Agent |
+| `in_progress` | 进行中 | 从 pending_handoff 或 running 进入 |
 | `completed` | 任务完成 | log_intent 被调用 |
 | `failed` | 任务失败 | Agent 执行出错 |
+| `paused` | 任务暂停 | 用户主动暂停或超时 |
+
+### 2.4 状态转换
+
+```
+running → pending_handoff → in_progress → completed/failed
+    ↓                                        ↑
+paused ───────────────────────────────────────┘
+```
 
 ### 2.4 session 与 trace 的关系
 
