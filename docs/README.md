@@ -31,7 +31,8 @@
 | [MCP-CLIENT-GUIDE.md](./MCP-CLIENT-GUIDE.md) | MCP 客户端指南 |
 | [MCP_DATA_QUALITY_ASSESSMENT.md](./MCP_DATA_QUALITY_ASSESSMENT.md) | MCP 数据质量评估 |
 | [GROWTH_PLAN_v1.0_TECH_DESIGN.md](./GROWTH_PLAN_v1.0_TECH_DESIGN.md) | 增长计划技术设计 |
-| [AGENTLOG_DAILY_REPORT_DESIGN_v1.0.md](./AGENTLOG_DAILY_REPORT_DESIGN_v1.0.md) | 每日日报自动填充方案 |
+| [AGENTLOG_DAILY_REPORT_DESIGN_v2.0.md](./AGENTLOG_DAILY_REPORT_DESIGN_v2.0.md) | 每日日报自动填充方案（通用版） | v2.0 |
+| [AGENTLOG_DAILY_REPORT_DESIGN_v1.0.md](./AGENTLOG_DAILY_REPORT_DESIGN_v1.0.md) | 每日日报自动填充方案（Growth-Hacker 专用版，已废弃） | v1.0 |
 | [Change_arch.md](./Change_arch.md) | 架构变更记录 |
 
 ---
