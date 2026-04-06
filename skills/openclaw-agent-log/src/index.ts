@@ -704,4 +704,13 @@ export const skillMetadata = {
   ],
 };
 
-export default skillMetadata;
+export default {
+  ...skillMetadata,
+  hooks: {
+    'session:start': onSessionStart,
+    'tool:before_call': beforeToolCall,
+    'tool:after_call': afterToolCall,
+    'agent:end': onAgentEnd,
+    'session:end': onSessionEnd,
+  },
+};
