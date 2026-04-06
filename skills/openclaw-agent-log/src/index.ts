@@ -203,34 +203,59 @@ async function apiRequest<T>(
 // MCP Request (for log_turn/log_intent spans)
 // ─────────────────────────────────────────────
 
-async function mcpRequest(
-  tool: string,
-  args: Record<string, unknown>
-): Promise<{ sessionId?: string; success: boolean; error?: string }> {
+// Create span via REST API (replaces log_turn MCP call)
+async function createSpan(traceId: string, span: {
+  role: string;
+  content: string;
+  tool_name?: string;
+  duration_ms?: number;
+  timestamp?: string;
+}): Promise<boolean> {
   try {
-    const response = await fetch(`${config.mcpUrl}/mcp`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: randomUUID(),
-        method: `tools/call`,
-        params: {
-          name: tool,
-          arguments: args,
+    const result = await apiRequest<{ success: boolean }>(
+      "POST",
+      `/api/traces/${traceId}/spans`,
+      {
+        actorType: span.role === "tool" ? "agent" : span.role,
+        actorName: span.tool_name || "agent",
+        payload: {
+          event: span.role,
+          content: span.content,
+          toolName: span.tool_name,
+          durationMs: span.duration_ms,
+          timestamp: span.timestamp || new Date().toISOString(),
         },
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const data = await response.json();
-    return { success: true, sessionId: data.sessionId };
+      }
+    );
+    return result.success;
   } catch (error) {
-    console.error("[openclaw-agent-log] MCP request failed:", error);
-    return { success: false, error: String(error) };
+    console.error("[openclaw-agent-log] Failed to create span:", error);
+    return false;
+  }
+}
+
+// Update trace status via REST API (replaces log_intent MCP call)
+async function finalizeTrace(
+  traceId: string,
+  taskGoal: string,
+  affectedFiles: string[],
+  reasoning: string[]
+): Promise<boolean> {
+  try {
+    const result = await apiRequest<{ success: boolean }>(
+      "PATCH",
+      `/api/traces/${traceId}`,
+      {
+        status: "completed",
+        taskGoal,
+        affectedFiles,
+        reasoningSummary: reasoning.join("\n\n"),
+      }
+    );
+    return result.success;
+  } catch (error) {
+    console.error("[openclaw-agent-log] Failed to finalize trace:", error);
+    return false;
   }
 }
 
@@ -340,9 +365,8 @@ export async function afterToolCall(params: {
 
   currentSession.toolCalls.push(toolCall);
 
-  // Call MCP log_turn to create span
-  await mcpRequest("log_turn", {
-    trace_id: currentSession.traceId,
+  // Create span via REST API
+  await createSpan(currentSession.traceId, {
     role: "tool",
     content: JSON.stringify({ tool: params.toolName, input: params.toolInput, output: params.toolOutput }),
     tool_name: params.toolName,
@@ -439,18 +463,13 @@ export async function onAgentEnd(params: {
 
   await tryBindCommit();
 
-  // Call log_intent via MCP
-  await mcpRequest("log_intent", {
-    trace_id: currentSession.traceId,
-    task: currentSession.taskGoal,
-    model: currentSession.model,
-    session_id: currentSession.sessionId,
-    workspace_path: currentSession.workspacePath,
-    tool_calls: currentSession.toolCalls.map((t) => t.name),
-  });
-
-  // Update trace status to completed
-  await updateTraceStatus(currentSession.traceId, "completed");
+  // Finalize trace via REST API (replaces log_intent)
+  await finalizeTrace(
+    currentSession.traceId,
+    currentSession.taskGoal,
+    currentSession.toolCalls.map((t) => String(t.input._agentlog_file || "")),
+    currentSession.reasoning
+  );
 
   console.log(`[openclaw-agent-log] Session ${currentSession.sessionId} finalized, trace ${currentSession.traceId} marked completed`);
   currentSession = null;
