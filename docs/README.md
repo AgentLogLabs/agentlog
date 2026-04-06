@@ -96,7 +96,8 @@
 |------|------|------|
 | [E2E_TEST_CASES.md](./E2E_TEST_CASES.md) | 端到端测试用例 | ✅ 已完成 |
 | [TESTING.md](./TESTING.md) | 测试文档 | ✅ 已完成 |
-| [E2E_TEST_OPENCLAW_AGENT_LOG.md](./E2E_TEST_OPENCLAW_AGENT_LOG.md) | OpenClaw Agent Log E2E 测试用例 | ✅ 已完成（v1.0） |
+| [E2E_TEST_OPENCLAW_AGENT_LOG.md](./E2E_TEST_OPENCLAW_AGENT_LOG.md) | OpenClaw Agent Log E2E 测试用例（REST API） | ✅ 已完成（v1.0） |
+| [E2E_TEST_MCP_FULL_FLOW.md](./E2E_TEST_MCP_FULL_FLOW.md) | MCP 完整链路 E2E 测试用例 | ✅ 新增（v1.0） |
 
 ---
 
@@ -131,7 +132,7 @@
 
 | 状态 | 数量 |
 |------|------|
-| ✅ 已完成 | 29 |
+| ✅ 已完成 | 30 |
 | 🔄 讨论中 | 2 |
 | ⚠️ 已废弃 | 4 |
 
