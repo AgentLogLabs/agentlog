@@ -8,6 +8,15 @@
     "build": "tsc",
     "dev": "tsc --watch"
   },
+  "openclaw": {
+    "hooks": {
+      "session:start": true,
+      "tool:before_call": true,
+      "tool:after_call": true,
+      "agent:end": true,
+      "session:end": true
+    }
+  },
   "dependencies": {
     "@agentlog/shared": "workspace:*"
   },
