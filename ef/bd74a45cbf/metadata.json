@@ -16,6 +16,12 @@
       "transcript": "/ef/bd74a45cbf/0/full.jsonl",
       "content_hash": "/ef/bd74a45cbf/0/content_hash.txt",
       "prompt": ""
+    },
+    {
+      "metadata": "/ef/bd74a45cbf/1/metadata.json",
+      "transcript": "/ef/bd74a45cbf/1/full.jsonl",
+      "content_hash": "/ef/bd74a45cbf/1/content_hash.txt",
+      "prompt": ""
     }
   ]
 }
