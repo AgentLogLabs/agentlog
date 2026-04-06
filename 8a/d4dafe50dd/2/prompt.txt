@@ -1,0 +1,17 @@
+然后暂停
+
+---
+
+帮我跟踪myclaw主机上的tail -f /tmp/openclaw/openclaw-2026-04-07.log 文件，查看是否有session_start日志
+
+---
+
+帮我一直监听myclaw主机的openclaw日志是否有session_start hook fired! 有的话告诉我
+
+---
+
+帮我一直监听myclaw主机的openclaw日志是否有session_start hook fired! 有的话告诉我
+
+---
+
+有了吗
