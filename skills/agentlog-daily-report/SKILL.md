@@ -38,6 +38,78 @@ agentlog-daily-report:
 
 ## Commands
 
+### query-and-fill
+
+Generate a daily report by querying AgentLog sessions and filling a template.
+
+**Standalone Script:** `query_and_fill.mjs` (ES Module, no external dependencies)
+
+**Parameters:**
+```bash
+node query_and_fill.mjs [options]
+
+Options:
+  --workspace-path <path>    Workspace path to filter sessions
+  --start-date <YYYY-MM-DD>  Start date (required)
+  --end-date <YYYY-MM-DD>    End date (required)
+  --source <source>          Agent source filter (e.g., opencode, cursor)
+  --template <file>          Template file path (default: stdin)
+  --output <file>            Output file path (default: stdout)
+  --dry-run                  Only output parsed results, don't generate file
+  --help                     Show this help message
+```
+
+**Environment Variables:**
+```bash
+AGENTLOG_BACKEND_URL=http://localhost:7892  # Backend URL (optional)
+```
+
+**Template Placeholders:**
+| Placeholder | Description | Fill Logic |
+|-------------|-------------|------------|
+| `{{TASK_TYPE}}` | Task type with emoji | Auto-detected: 📋任务 / 🔧文档更新 / ✅Code Review / 🚀Git操作 |
+| `{{TASK_STATUS}}` | Task completion status | > 5min = ✅完成, otherwise 🔄进行中 |
+| `{{TASK_SUMMARY}}` | Task summary | Extracted from transcript/response |
+| `{{AFFECTED_FILES}}` | Changed files | From `affectedFiles` field (up to 20) |
+| `{{DATE_RANGE}}` | Date range | `startDate ~ endDate` |
+| `{{SESSION_COUNT}}` | Number of sessions | Count of queried sessions |
+| Other `{{...}}` | Other placeholders | Stay unchanged |
+
+**Task Type Detection:**
+- 🚀Git操作: Contains git commit/push/pull/merge/rebase or git commands (git add, git status, git diff)
+- ✅Code Review: Contains code review, PR review, approve, or comment on PR keywords
+- 🔧文档更新: Contains doc/md/readme/changelog/docs/document in combination with read/write/edit
+- 📋任务: Default type for other tasks (implement, feature, fix, bug, analyze, etc.)
+
+**Usage:**
+```bash
+# Query sessions and output to stdout (uses default template)
+node query_and_fill.mjs --start-date 2026-04-06 --end-date 2026-04-06
+
+# With custom template file
+node query_and_fill.mjs --start-date 2026-04-06 --end-date 2026-04-06 --template my-template.md
+
+# Dry run to see parsed results
+node query_and_fill.mjs --start-date 2026-04-06 --end-date 2026-04-06 --dry-run
+
+# Filter by workspace and source
+node query_and_fill.mjs --start-date 2026-04-06 --end-date 2026-04-06 --workspace-path /path/to/project --source opencode
+
+# Output to file
+node query_and_fill.mjs --start-date 2026-04-06 --end-date 2026-04-06 --output daily-report.md
+
+# Pipe template from stdin
+cat template.md | node query_and_fill.mjs --start-date 2026-04-06 --end-date 2026-04-06
+```
+
+**Exit Codes:**
+- 0: Success
+- 1: Error (missing required params, API error, etc.)
+
+**Errors:**
+- Backend not running: `Cannot connect to AgentLog backend at http://localhost:7892. Is the server running?`
+- Missing dates: `Error: --start-date and --end-date are required`
+
 ### submit-daily-report
 
 Submit a daily work report.
