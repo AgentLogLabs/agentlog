@@ -153,54 +153,86 @@ async function apiRequest<T>(
 // MCP Request (for Auto-Logging)
 // ─────────────────────────────────────────────
 
-async function mcpRequest(
-  tool: string,
-  args: Record<string, unknown>
-): Promise<{ sessionId?: string; success: boolean; error?: string }> {
+// Use REST API instead of MCP for better compatibility
+async function createSessionApi(args: {
+  model: string;
+  source: string;
+  workspacePath: string;
+  prompt: string;
+  response?: string;
+}): Promise<{ sessionId?: string; success: boolean; error?: string }> {
   try {
-    // The backend MCP endpoint /mcp/messages expects:
-    // { method: "tools/call", params: { tool_name: "...", arguments: {...} } }
-    const response = await fetch(`${config.mcpUrl}/mcp/messages`, {
+    const response = await fetch(`${BACKEND_URL}/api/sessions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: randomUUID(),
-        method: "tools/call",
-        params: {
-          tool_name: tool,
-          arguments: args,
-        },
+        provider: "openclaw",
+        model: args.model,
+        source: args.source,
+        workspacePath: args.workspacePath,
+        prompt: args.prompt,
+        response: args.response ?? "",
       }),
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+      return { success: false, error: `HTTP ${response.status}` };
     }
 
     const data = await response.json();
-    
-    // Check for JSON-RPC error
-    if (data.error) {
-      return { success: false, error: data.error.message || String(data.error) };
+    if (data.success && data.data?.id) {
+      return { success: true, sessionId: data.data.id };
     }
-    
-    // Try to extract sessionId from result
-    let sessionId: string | undefined;
-    if (data.result?.content) {
-      try {
-        const resultObj = JSON.parse(data.result.content[0].text);
-        if (resultObj.session_id) {
-          sessionId = resultObj.session_id;
-        }
-      } catch {
-        // Ignore parse errors
-      }
-    }
-    
-    return { success: true, sessionId };
+    return { success: false, error: data.error || "Unknown error" };
   } catch (error) {
-    console.error("[openclaw-agent-log] MCP request failed:", error);
+    return { success: false, error: String(error) };
+  }
+}
+
+async function updateSessionApi(
+  sessionId: string,
+  fields: {
+    response?: string;
+    affectedFiles?: string[];
+    durationMs?: number;
+  }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/sessions/${sessionId}/intent`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(fields),
+    });
+
+    if (!response.ok) {
+      return { success: false, error: `HTTP ${response.status}` };
+    }
+
+    const data = await response.json();
+    return data.success ? { success: true } : { success: false, error: data.error };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+}
+
+async function appendTranscriptApi(
+  sessionId: string,
+  turns: Array<{ role: string; content: string; tool_name?: string }>
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/sessions/${sessionId}/transcript`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ turns }),
+    });
+
+    if (!response.ok) {
+      return { success: false, error: `HTTP ${response.status}` };
+    }
+
+    const data = await response.json();
+    return data.success ? { success: true } : { success: false, error: data.error };
+  } catch (error) {
     return { success: false, error: String(error) };
   }
 }
@@ -382,12 +414,14 @@ export async function onAgentEnd(params: {
 
   await tryBindCommit();
 
-  // Call log_intent
-  await mcpRequest("log_intent", {
-    task: "Agent task completed",
-    model: currentSession.model,
-    session_id: currentSession.sessionId,
-    workspace_path: currentSession.workspacePath,
+  // Build the final response from reasoning and responses
+  const finalResponse = currentSession.reasoning.length > 0
+    ? `[Reasoning]\n${currentSession.reasoning.join("\n\n")}`
+    : currentSession.responses.map(r => r.content).join("\n");
+
+  // Update session with final response using REST API
+  await updateSessionApi(currentSession.sessionId, {
+    response: finalResponse,
   });
 
   console.log(`[openclaw-agent-log] Session ${currentSession.sessionId} finalized`);
