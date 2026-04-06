@@ -142,6 +142,11 @@ let currentSession: SessionState | null = null;
 const sessionByTraceId: Map<string, SessionState> = new Map();
 const toolCallTimings: Map<string, number> = new Map();
 
+// Pre-flight trace ID：在 onSessionStart 同步阶段生成，写入 process.env.AGENTLOG_TRACE_ID
+// 供 buildResetSessionNoticeText（dist）在发送飞书消息时读取。
+// 当 startSession() 拿到真实后端 ULID 后会覆盖此值。
+let preflightTraceId: string | null = null;
+
 // ─────────────────────────────────────────────
 // sessions.json Operations (for Trace Handoff)
 // ─────────────────────────────────────────────
@@ -306,6 +311,10 @@ async function startSession(model: string, source: string, workspacePath: string
   const trace = await createTrace(taskGoal, workspacePath);
   const traceId = trace?.id || `trace_${Date.now()}`;
 
+  // 拿到真实后端 ULID 后，更新 env var 供调试使用（覆盖 onSessionStart 写入的 pre-flight ID）
+  process.env.AGENTLOG_TRACE_ID = traceId;
+  preflightTraceId = null;
+
   currentSession = {
     traceId,
     sessionId,
@@ -373,9 +382,19 @@ export async function onSessionStart(
   event: { sessionId: string; sessionKey?: string; resumedFrom?: string },
   ctx: { agentId?: string; sessionId: string; sessionKey?: string }
 ): Promise<void> {
-  console.log(`[openclaw-agentlog][DEBUG] session_start hook fired! event=`, JSON.stringify(event), 'ctx=', JSON.stringify(ctx));
-  const sessionKey = event.sessionKey || ctx.sessionKey || event.sessionId;
+  // ─── 同步区域（在第一个 await 之前）────────────────────────────────────────
+  // 此处代码在 runSessionStart() 被 fire-and-forget 调用后、sendResetSessionNotice()
+  // 执行之前同步运行，因此可以安全地向 process.env 写入 trace ID 供消息模板读取。
   const agentId = ctx.agentId || detectAgentType();
+  const sessionKey = event.sessionKey || ctx.sessionKey || event.sessionId;
+  if (!preflightTraceId && !currentSession) {
+    // 生成短格式 pre-flight ID（可读性优先，后续会被真实 ULID 覆盖）
+    preflightTraceId = `agentlog-${Date.now().toString(36).slice(-6)}`;
+    process.env.AGENTLOG_TRACE_ID = preflightTraceId;
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
+  console.log(`[openclaw-agentlog][DEBUG] session_start hook fired! event=`, JSON.stringify(event), 'ctx=', JSON.stringify(ctx));
   const source = `openclaw:${agentId}`;
   const workspace = process.cwd();
   const model = agentId;
@@ -384,8 +403,10 @@ export async function onSessionStart(
   // 若当前已有 session（before_agent_start 已建立），则跳过，避免重复创建 trace。
   if (!currentSession) {
     await startSession(model, source, workspace);
-    console.log(`[openclaw-agentlog] Session started via session_start for ${sessionKey}, agent: ${agentId}`);
+    // startSession() 完成后 AGENTLOG_TRACE_ID 已更新为真实 ULID
+    console.log(`[openclaw-agentlog] Session started via session_start for ${sessionKey}, agent: ${agentId}, trace: ${process.env.AGENTLOG_TRACE_ID}`);
   } else {
+    preflightTraceId = null; // 已有 session，清理 pre-flight ID
     console.log(`[openclaw-agentlog] session_start: session already exists (created by before_agent_start), skipping trace creation for ${sessionKey}`);
   }
 }

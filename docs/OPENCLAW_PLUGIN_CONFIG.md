@@ -10,8 +10,9 @@
 2. [openclaw.json 配置](#openclawjson-配置)
 3. [飞书群组命令权限配置](#飞书群组命令权限配置)
 4. [Trace / Span 追踪原理](#trace--span-追踪原理)
-5. [Hook 行为说明](#hook-行为说明)
-6. [故障排查](#故障排查)
+5. [飞书消息与 Trace ID](#飞书消息与-trace-id)
+6. [Hook 行为说明](#hook-行为说明)
+7. [故障排查](#故障排查)
 
 ---
 
@@ -79,6 +80,7 @@ cd ~/.openclaw/extensions/openclaw-agentlog && npm install
 | `AGENTLOG_BACKEND_URL` | `http://localhost:7892` | AgentLog 后端地址 |
 | `AGENTLOG_MCP_URL` | `http://localhost:7892` | MCP 服务地址（当前与后端共用） |
 | `AGENTLOG_AGENT_ID` | 从 workspace 路径自动推断 | Agent 名称，用于 source 字段 |
+| `AGENTLOG_TRACE_ID` | 由插件运行时写入 | 当前活跃 trace 的 ID，供 OpenClaw dist 消息模板读取 |
 
 ---
 
@@ -196,16 +198,26 @@ nohup openclaw-gateway > /tmp/openclaw-restart.log 2>&1 &
     ▼  [检查 @mention、群组 allowFrom 等]
     │
     ▼
-initSessionState()          ← 若 isNewSession=true，触发 session_start hook
+initSessionState()
+    │
+    ├─ 若 isNewSession=true（/new 或首次 session）：
+    │    └─ session_start hook（fire-and-forget）
+    │         ├─ [同步] 生成 pre-flight trace ID → process.env.AGENTLOG_TRACE_ID
+    │         └─ [异步] POST /api/traces，拿到真实 ULID 后更新 env
     │
     ▼
-get-reply-run.ts            ← 构建 prompt，准备 agent 运行
+get-reply-run.ts
+    │
+    ├─ 若 resetTriggered：sendResetSessionNotice()
+    │    └─ 读取 process.env.AGENTLOG_TRACE_ID → 发送至飞书
+    │         "✅ New trace started · model: xxx · trace: agentlog-m7k3p9"
     │
     ▼
 pi-embedded-runner/run.ts
     │
     ├─ before_agent_start hook ──────────────────────────► [1] 创建 Trace
     │                                                       POST /api/traces
+    │                                                       更新 AGENTLOG_TRACE_ID = 真实 ULID
     │
     ├─ LLM 推理循环
     │    │
@@ -242,6 +254,8 @@ before_agent_start 触发
          ├─ POST /api/traces
          │    body: { taskGoal: "Agent session from openclaw:{agentId}",
          │            workspacePath: process.cwd() }
+         │
+         ├─ 更新 process.env.AGENTLOG_TRACE_ID = 真实 ULID
          │
          ├─ 初始化 currentSession 状态:
          │    { traceId, sessionId, startedAt, reasoning: [],
@@ -414,12 +428,12 @@ get-reply.ts
 | 所在层次 | gateway session 管理层 | agent runner 层 |
 | 传入的 `event` | `{ sessionId, sessionKey, resumedFrom? }` | `{ prompt, messages? }` |
 | 传入的 `ctx` | `{ agentId?, sessionKey? }` | `{ agentId?, sessionKey?, sessionId?, workspaceDir?, trigger? }` |
-| 本插件用途 | 兜底：若 `before_agent_start` 未创建 session，则在此创建 | **主要** trace 创建入口 |
+| 本插件用途 | 兜底 + 写入 pre-flight trace ID 到飞书消息 | **主要** trace 创建入口 |
 
 **设计原则**：
 
 - `before_agent_start` 是主要的 trace 创建入口，覆盖所有 agent 运行场景
-- `session_start` 作为兜底，防止极端情况下（如 `/new` 命令不触发 agent 运行）trace 漏记
+- `session_start` 作为兜底，并在其同步阶段写入 pre-flight trace ID 到 `process.env.AGENTLOG_TRACE_ID`，使 `/new` 的飞书回复中可展示 trace ID
 - `agent_end` 对应 `before_agent_start`，每次 agent 运行结束后归档 trace
 
 ---
@@ -432,7 +446,7 @@ get-reply.ts
 用户发消息 1 ──► Trace A (running → completed)
 用户发消息 2 ──► Trace B (running → completed)
 用户发消息 3 ──► Trace C (running → completed)
-用户发 /new  ──► session_start（重置 session，下一条消息开始新 Trace）
+用户发 /new  ──► session_start（重置 session，飞书回复显示 trace ID）
 用户发消息 4 ──► Trace D (running → completed)
 ```
 
@@ -457,14 +471,82 @@ Agent B 启动 → checkAndClaimTrace()
 
 ---
 
+## 飞书消息与 Trace ID
+
+### 重置消息格式
+
+发送 `/new` 或 `/reset` 后，飞书会收到如下格式的回复（需配置好 `allowFrom` 权限）：
+
+```
+✅ New trace started · model: minimax/MiniMax-M2.7 · trace: agentlog-m7k3p9
+```
+
+> **注意**：消息中的 trace ID 为 pre-flight 短格式，真实后端 ULID 记录在 OpenClaw 日志中（见下方）。
+
+### Trace ID 的两个阶段
+
+插件在 `/new` 触发时分两阶段生成 trace ID：
+
+| 阶段 | 格式 | 时机 | 用途 |
+|------|------|------|------|
+| **Pre-flight ID** | `agentlog-xxxxxx`（短格式） | `session_start` 同步部分，在飞书消息发送之前 | 展示在飞书消息中，便于用户肉眼识别 |
+| **真实 ULID** | `01KNXXX...`（26 位） | `startSession()` 异步完成，后端返回后 | AgentLog 数据库中的真实主键，用于 API 查询 |
+
+### 为什么使用两阶段
+
+`session_start` hook 是 fire-and-forget（不阻塞主流程），而 `sendResetSessionNotice`（发送飞书消息）在其之后同步执行。整个时序如下：
+
+```
+session_start 被调用（非 await）
+    │
+    ├─ [同步，立即执行] 生成 preflightTraceId = "agentlog-m7k3p9"
+    │                   写入 process.env.AGENTLOG_TRACE_ID
+    │
+    │   ← 控制权返回主流程 →
+    │
+    ▼
+sendResetSessionNotice()  ← 读取 process.env.AGENTLOG_TRACE_ID
+    └─ 发送飞书消息："... · trace: agentlog-m7k3p9"
+    │
+    │   ← 后续异步继续执行 →
+    │
+    ▼
+session_start 异步部分: POST /api/traces
+    └─ 拿到真实 ULID → process.env.AGENTLOG_TRACE_ID = "01KNXXX..."
+```
+
+### 在日志中查找真实 ULID
+
+```bash
+ssh myclaw "grep 'Session started via session_start' /tmp/openclaw/openclaw-2026-04-07.log | tail -5"
+# 输出示例：
+# [openclaw-agentlog] Session started via session_start for agent:architect:...,
+#                     agent: architect, trace: 01KNXXX...
+```
+
+### 实现细节
+
+相关代码位于 `skills/openclaw-agentlog/src/index.ts`：
+
+- `preflightTraceId`（模块级变量）：暂存 pre-flight ID，`startSession()` 完成后置 null
+- `onSessionStart` 同步区域（第一个 `await` 之前）：生成并写入 pre-flight ID
+- `startSession()`：`POST /api/traces` 完成后覆盖 `process.env.AGENTLOG_TRACE_ID`
+
+OpenClaw dist 修改位于：
+`~/.npm-global/lib/node_modules/openclaw/dist/reply-Bm8VrLQh.js`（`buildResetSessionNoticeText` 函数）
+
+> ⚠️ 此 dist 修改在 OpenClaw npm 包升级时会被覆盖，需重新应用。原始文件已备份为 `reply-Bm8VrLQh.js.bak`。
+
+---
+
 ## Hook 行为说明
 
 ### 触发时机汇总
 
 | Hook | 触发时机 | AgentLog 操作 |
 |------|----------|---------------|
-| `before_agent_start` | 每次 agent 开始处理消息 | `POST /api/traces`（创建 trace） |
-| `session_start` | session 首次创建或 `/new`/`/reset` | 兜底创建 trace（若 `before_agent_start` 未先触发） |
+| `before_agent_start` | 每次 agent 开始处理消息 | `POST /api/traces`（创建 trace），更新 `AGENTLOG_TRACE_ID` |
+| `session_start` | session 首次创建或 `/new`/`/reset` | 同步写入 pre-flight trace ID；兜底创建 trace |
 | `before_tool_call` | 每次工具调用前 | 内存计时（不写后端） |
 | `after_tool_call` | 每次工具调用后 | `POST /api/spans`（写入 span） |
 | `agent_end` | agent 完成本轮运行 | `PATCH /api/traces/:id`（归档，status → completed） |
@@ -493,6 +575,24 @@ grep 'dispatch complete' /tmp/openclaw/openclaw-2026-04-07.log | tail -10
 **3. 验证 `allowFrom` 配置是否正确：**
 - 确认用户 ID（`ou_xxx`）和群组 ID（`oc_xxx`）写在 `channels.feishu.groups` 下，**不是**顶层 `feishu`
 - 修改后重启 gateway
+
+### 飞书消息中没有 trace ID
+
+1. 确认 `session_start` hook 已触发：
+   ```bash
+   grep 'session_start hook fired' /tmp/openclaw/openclaw-2026-04-07.log | tail -3
+   ```
+
+2. 确认 dist 补丁是否存在：
+   ```bash
+   grep 'AGENTLOG_TRACE_ID' ~/.npm-global/lib/node_modules/openclaw/dist/reply-Bm8VrLQh.js
+   ```
+   若无输出，说明 dist 被覆盖（npm 升级），需重新应用补丁。
+
+3. 确认 `process.env.AGENTLOG_TRACE_ID` 是否被写入：
+   ```bash
+   grep 'agentlog-' /tmp/openclaw/openclaw-2026-04-07.log | tail -5
+   ```
 
 ### 插件未加载
 
@@ -545,8 +645,8 @@ curl http://localhost:7892/health
 # 监控所有 hook 触发
 ssh myclaw "tail -f /tmp/openclaw/openclaw-2026-04-07.log | grep --line-buffered 'agentlog.*DEBUG'"
 
-# 仅监控 session_start
-ssh myclaw "tail -f /tmp/openclaw/openclaw-2026-04-07.log | grep --line-buffered 'session_start hook fired'"
+# 仅监控 session_start 及 trace ID
+ssh myclaw "tail -f /tmp/openclaw/openclaw-2026-04-07.log | grep --line-buffered 'session_start hook fired\|Session started via session_start'"
 
 # 监控 trace 创建和归档
 ssh myclaw "tail -f /tmp/openclaw/openclaw-2026-04-07.log | grep --line-buffered 'Session started\|finalized'"
