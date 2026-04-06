@@ -3,7 +3,7 @@
   "checkpoint_id": "61cc0f3bbd85",
   "strategy": "manual-commit",
   "branch": "feat/agentlog-skill-daily-report",
-  "checkpoints_count": 0,
+  "checkpoints_count": 4,
   "files_touched": [
     "docs/OPENCLAW_PLUGIN_CONFIG.md",
     "skills/openclaw-agentlog/src/index.ts"
@@ -26,6 +26,19 @@
       "transcript": "/61/cc0f3bbd85/2/full.jsonl",
       "content_hash": "/61/cc0f3bbd85/2/content_hash.txt",
       "prompt": ""
+    },
+    {
+      "metadata": "/61/cc0f3bbd85/3/metadata.json",
+      "transcript": "/61/cc0f3bbd85/3/full.jsonl",
+      "content_hash": "/61/cc0f3bbd85/3/content_hash.txt",
+      "prompt": "/61/cc0f3bbd85/3/prompt.txt"
     }
-  ]
+  ],
+  "token_usage": {
+    "input_tokens": 0,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 0,
+    "output_tokens": 0,
+    "api_call_count": 0
+  }
 }
