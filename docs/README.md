@@ -67,6 +67,7 @@
 | 文档 | 说明 | 状态 |
 |------|------|------|
 | [AGENTLOG_COMPLETE_AUDIT_v1.0.md](./AGENTLOG_COMPLETE_AUDIT_v1.0.md) | 全量存证完整性设计方案（P0） | 🔄 讨论中 |
+| [TICKET_SPLIT_AUDIT_v1.0.md](./TICKET_SPLIT_AUDIT_v1.0.md) | 工作分解文档（Ticket 拆分） | 🔄 讨论中 |
 
 ---
 
@@ -95,6 +96,7 @@
 |------|------|------|
 | [E2E_TEST_CASES.md](./E2E_TEST_CASES.md) | 端到端测试用例 | ✅ 已完成 |
 | [TESTING.md](./TESTING.md) | 测试文档 | ✅ 已完成 |
+| [E2E_TEST_OPENCLAW_AGENT_LOG.md](./E2E_TEST_OPENCLAW_AGENT_LOG.md) | OpenClaw Agent Log E2E 测试用例 | ✅ 已完成（v1.0） |
 
 ---
 
@@ -129,7 +131,7 @@
 
 | 状态 | 数量 |
 |------|------|
-| ✅ 已完成 | 28 |
+| ✅ 已完成 | 29 |
 | 🔄 讨论中 | 2 |
 | ⚠️ 已废弃 | 4 |
 
