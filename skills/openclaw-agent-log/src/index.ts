@@ -214,8 +214,9 @@ async function createSpan(traceId: string, span: {
   try {
     const result = await apiRequest<{ success: boolean }>(
       "POST",
-      `/api/traces/${traceId}/spans`,
+      "/api/spans",
       {
+        traceId,
         actorType: span.role === "tool" ? "agent" : span.role,
         actorName: span.tool_name || "agent",
         payload: {
