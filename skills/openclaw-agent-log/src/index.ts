@@ -189,11 +189,20 @@ async function mcpRequest(
 // ─────────────────────────────────────────────
 
 function detectAgentSource(): string {
-  // OpenClaw agents use AGENTLOG_AGENT_ID environment variable
+  // 从 workspace 路径推断 agent 类型
+  // 路径格式: /home/hobo/.openclaw/agents/<agent-name>/workspace
+  const workspacePath = process.cwd();
+  const match = workspacePath.match(/\/agents\/([^\/]+)\/workspace/);
+  if (match) {
+    return `openclaw:${match[1]}`;
+  }
+
+  // Fallback: 环境变量
   const agentId = process.env.AGENTLOG_AGENT_ID || process.env.AGENT || "";
   if (agentId) {
     return `openclaw:${agentId}`;
   }
+
   return "unknown";
 }
 
