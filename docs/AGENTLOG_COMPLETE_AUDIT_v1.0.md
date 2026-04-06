@@ -88,20 +88,20 @@
 │       └──────────────┴──────────────┴──────────────┘        │
 │                              │                               │
 │                    ┌─────────▼─────────┐                    │
-│                    │  agentlog-auto    │                    │
-│                    │  (Global Skill)   │                    │
-│                    └─────────┬─────────┘                    │
-│                              │                               │
-│                    ┌─────────▼─────────┐                    │
-│                    │   OpenClaw Hooks   │                    │
+│                    │  openclaw-agent-log │                    │
+│                    │  (统一技能包)       │                    │
 │                    ├───────────────────┤                    │
-│                    │ session_start     │                    │
-│                    │ before_prompt     │                    │
-│                    │ before_tool_call  │                    │
-│                    │ after_tool_call   │                    │
-│                    │ agent_end         │                    │
-│                    │ session_end       │                    │
-│                    └─────────┬─────────┘                    │
+│                    │ Auto-Logging      │                    │
+│                    │ - session_start   │                    │
+│                    │ - before_tool_call│                    │
+│                    │ - after_tool_call │                    │
+│                    │ - agent_end       │                    │
+│                    ├───────────────────┤                    │
+│                    │ Trace Handoff     │                    │
+│                    │ - checkAndClaim   │                    │
+│                    │ - claimTrace      │                    │
+│                    │ - completeSession │                    │
+│                    └───────────────────┘                    │
 │                              │                               │
 └──────────────────────────────┼───────────────────────────────┘
                                │
@@ -113,6 +113,7 @@
                                │
                     ┌──────────▼──────────┐
                     │    SQLite DB         │
+                    │  traces + spans      │
                     │  ~/.agentlog/        │
                     └─────────────────────┘
 ```
@@ -166,9 +167,9 @@ function inferSource(clientName: string): string {
 
 | # | 检查项 | 检查方法 | 预期结果 |
 |---|--------|----------|----------|
-| 1 | agentlog-auto skill 已安装 | `ls skills/agentlog-auto/` | 目录存在 |
-| 2 | agentlog-auto skill 已启用 | `openclaw agents config list` | 显示 agentlog-auto |
-| 3 | 所有 Agent 启用 agentlog-auto | 检查每个 Agent 配置 | 全部启用 |
+| 1 | openclaw-agent-log skill 已安装 | `ls skills/openclaw-agent-log/` | 目录存在 |
+| 2 | openclaw-agent-log skill 已启用 | `openclaw agents config list` | 显示 openclaw-agent-log |
+| 3 | 所有 Agent 启用 openclaw-agent-log | 检查每个 Agent 配置 | 全部启用 |
 | 4 | MCP client 配置正确 | `cat config/mcporter.json` | 包含 agentlog server |
 | 5 | AGENTLOG_AGENT_ID 环境变量 | `echo $AGENTLOG_AGENT_ID` | `openclaw:<agent-name>` |
 | 6 | AgentLog backend 运行中 | `curl localhost:7892/health` | 返回 200 |
@@ -269,8 +270,8 @@ openclaw agents list
 # 查看单个 agent 配置
 openclaw agents config get <agent>
 
-# 设置 agent skills
-openclaw agents config set <agent> skills+="agentlog-auto"
+# 设置 agent skills（启用统一技能包）
+openclaw agents config set <agent> skills+="openclaw-agent-log"
 
 # 查看运行状态
 openclaw status
