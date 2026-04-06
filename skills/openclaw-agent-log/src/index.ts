@@ -1,10 +1,15 @@
 /**
- * OpenClaw Agent Log Skill - Merged Version
- * 
+ * OpenClaw Agent Log Skill - Trace/Span Based Version
+ *
  * 合并了:
  * - agentlog-auto: 自动存证 Hooks
  * - openclaw-agent: Trace Handoff 功能
- * 
+ *
+ * 使用 trace/span API 而非 sessions API：
+ * - POST /api/traces - 创建 trace
+ * - MCP log_turn - 创建 span
+ * - PATCH /api/traces/:id - 更新 trace 状态
+ *
  * 提供给 OpenClaw Agent 使用。
  */
 
@@ -22,6 +27,68 @@ const BACKEND_URL = process.env.AGENTLOG_BACKEND_URL ?? "http://localhost:7892";
 const MCP_URL = process.env.AGENTLOG_MCP_URL ?? "http://localhost:7892";
 
 // ─────────────────────────────────────────────
+// Trace/Span Types
+// ─────────────────────────────────────────────
+
+interface Trace {
+  id: string;
+  parentTraceId: string | null;
+  taskGoal: string;
+  status: "running" | "pending_handoff" | "in_progress" | "completed" | "failed" | "paused";
+  workspacePath: string | null;
+  affectedFiles: string[];
+  createdAt: string;
+  updatedAt: string;
+  hasCommit: boolean;
+}
+
+interface TraceHandoffResult {
+  success: boolean;
+  traceId?: string;
+  sessionId?: string;
+  error?: string;
+}
+
+interface TraceSearchResult {
+  traceId: string;
+  taskGoal: string;
+  targetAgent: string;
+  createdAt: string;
+  score?: number;
+}
+
+// ─────────────────────────────────────────────
+// Agent Source Detection
+// ─────────────────────────────────────────────
+
+function detectAgentSource(): string {
+  // 从 workspace 路径推断 agent 类型
+  // 路径格式: /home/hobo/.openclaw/agents/<agent-name>/workspace
+  const workspacePath = process.cwd();
+  const match = workspacePath.match(/\/agents\/([^\/]+)\/workspace/);
+  if (match) {
+    return `openclaw:${match[1]}`;
+  }
+
+  // Fallback: 环境变量
+  const agentId = process.env.AGENTLOG_AGENT_ID || process.env.AGENT || "";
+  if (agentId) {
+    return `openclaw:${agentId}`;
+  }
+
+  return "unknown";
+}
+
+function detectAgentType(): string {
+  const workspacePath = process.cwd();
+  const match = workspacePath.match(/\/agents\/([^\/]+)\/workspace/);
+  if (match) {
+    return match[1];
+  }
+  return process.env.AGENTLOG_AGENT_ID || "unknown";
+}
+
+// ─────────────────────────────────────────────
 // Auto-Logging Types
 // ─────────────────────────────────────────────
 
@@ -34,6 +101,7 @@ interface AgentLogConfig {
 }
 
 interface SessionState {
+  traceId: string;
   sessionId: string;
   startedAt: string;
   reasoning: string[];
@@ -42,6 +110,7 @@ interface SessionState {
   model: string;
   agentSource: string;
   workspacePath: string;
+  taskGoal: string;
 }
 
 interface ToolCall {
@@ -72,26 +141,7 @@ let config: AgentLogConfig = {
 let currentSession: SessionState | null = null;
 
 // ─────────────────────────────────────────────
-// Trace Handoff Types
-// ─────────────────────────────────────────────
-
-export interface HandoffResult {
-  success: boolean;
-  traceId?: string;
-  sessionId?: string;
-  error?: string;
-}
-
-export interface TraceSearchResult {
-  traceId: string;
-  taskGoal: string;
-  targetAgent: string;
-  createdAt: string;
-  score?: number;
-}
-
-// ─────────────────────────────────────────────
-// sessions.json Operations (from openclaw-agent)
+// sessions.json Operations (for Trace Handoff)
 // ─────────────────────────────────────────────
 
 async function getSessionsJsonPath(workspacePath: string): Promise<string> {
@@ -150,123 +200,86 @@ async function apiRequest<T>(
 }
 
 // ─────────────────────────────────────────────
-// MCP Request (for Auto-Logging)
+// MCP Request (for log_turn/log_intent spans)
 // ─────────────────────────────────────────────
 
-// Use REST API instead of MCP for better compatibility
-async function createSessionApi(args: {
-  model: string;
-  source: string;
-  workspacePath: string;
-  prompt: string;
-  response?: string;
-}): Promise<{ sessionId?: string; success: boolean; error?: string }> {
+async function mcpRequest(
+  tool: string,
+  args: Record<string, unknown>
+): Promise<{ sessionId?: string; success: boolean; error?: string }> {
   try {
-    const response = await fetch(`${BACKEND_URL}/api/sessions`, {
+    const response = await fetch(`${config.mcpUrl}/mcp`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        provider: "openclaw",
-        model: args.model,
-        source: args.source,
-        workspacePath: args.workspacePath,
-        prompt: args.prompt,
-        response: args.response ?? "",
+        jsonrpc: "2.0",
+        id: randomUUID(),
+        method: `tools/call`,
+        params: {
+          name: tool,
+          arguments: args,
+        },
       }),
     });
 
     if (!response.ok) {
-      return { success: false, error: `HTTP ${response.status}` };
+      throw new Error(`HTTP ${response.status}`);
     }
 
     const data = await response.json();
-    if (data.success && data.data?.id) {
-      return { success: true, sessionId: data.data.id };
-    }
-    return { success: false, error: data.error || "Unknown error" };
+    return { success: true, sessionId: data.sessionId };
   } catch (error) {
+    console.error("[openclaw-agent-log] MCP request failed:", error);
     return { success: false, error: String(error) };
   }
 }
 
-async function updateSessionApi(
-  sessionId: string,
-  fields: {
-    response?: string;
-    affectedFiles?: string[];
-    durationMs?: number;
-  }
-): Promise<{ success: boolean; error?: string }> {
+// ─────────────────────────────────────────────
+// Trace Operations (using REST API)
+// ─────────────────────────────────────────────
+
+async function createTrace(taskGoal: string, workspacePath: string): Promise<Trace | null> {
   try {
-    const response = await fetch(`${BACKEND_URL}/api/sessions/${sessionId}/intent`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(fields),
-    });
-
-    if (!response.ok) {
-      return { success: false, error: `HTTP ${response.status}` };
-    }
-
-    const data = await response.json();
-    return data.success ? { success: true } : { success: false, error: data.error };
+    const result = await apiRequest<{ success: boolean; data: Trace }>(
+      "POST",
+      "/api/traces",
+      { taskGoal, workspacePath }
+    );
+    return result.data;
   } catch (error) {
-    return { success: false, error: String(error) };
+    console.error("[openclaw-agent-log] Failed to create trace:", error);
+    return null;
   }
 }
 
-async function appendTranscriptApi(
-  sessionId: string,
-  turns: Array<{ role: string; content: string; tool_name?: string }>
-): Promise<{ success: boolean; error?: string }> {
+async function updateTraceStatus(traceId: string, status: string): Promise<boolean> {
   try {
-    const response = await fetch(`${BACKEND_URL}/api/sessions/${sessionId}/transcript`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ turns }),
-    });
-
-    if (!response.ok) {
-      return { success: false, error: `HTTP ${response.status}` };
-    }
-
-    const data = await response.json();
-    return data.success ? { success: true } : { success: false, error: data.error };
+    const result = await apiRequest<{ success: boolean }>(
+      "PATCH",
+      `/api/traces/${traceId}`,
+      { status }
+    );
+    return result.success;
   } catch (error) {
-    return { success: false, error: String(error) };
+    console.error("[openclaw-agent-log] Failed to update trace status:", error);
+    return false;
   }
 }
 
 // ─────────────────────────────────────────────
-// Agent Source Detection
+// Session Management (Auto-Logging with Traces)
 // ─────────────────────────────────────────────
 
-function detectAgentSource(): string {
-  // 从 workspace 路径推断 agent 类型
-  // 路径格式: /home/hobo/.openclaw/agents/<agent-name>/workspace
-  const workspacePath = process.cwd();
-  const match = workspacePath.match(/\/agents\/([^\/]+)\/workspace/);
-  if (match) {
-    return `openclaw:${match[1]}`;
-  }
-
-  // Fallback: 环境变量
-  const agentId = process.env.AGENTLOG_AGENT_ID || process.env.AGENT || "";
-  if (agentId) {
-    return `openclaw:${agentId}`;
-  }
-
-  return "unknown";
-}
-
-// ─────────────────────────────────────────────
-// Session Management (Auto-Logging)
-// ─────────────────────────────────────────────
-
-function startSession(model: string, source: string, workspacePath: string): string {
+async function startSession(model: string, source: string, workspacePath: string): Promise<string> {
   const sessionId = `sess_${Date.now()}_${randomUUID().slice(0, 8)}`;
+  const taskGoal = `Agent session from ${source}`;
+
+  // Create trace via REST API
+  const trace = await createTrace(taskGoal, workspacePath);
+  const traceId = trace?.id || `trace_${Date.now()}`;
 
   currentSession = {
+    traceId,
     sessionId,
     startedAt: new Date().toISOString(),
     reasoning: [],
@@ -275,9 +288,10 @@ function startSession(model: string, source: string, workspacePath: string): str
     model,
     agentSource: source,
     workspacePath,
+    taskGoal,
   };
 
-  console.log(`[openclaw-agent-log] Session started: ${sessionId} (source: ${source})`);
+  console.log(`[openclaw-agent-log] Session started: ${sessionId}, trace: ${traceId} (source: ${source})`);
   return sessionId;
 }
 
@@ -291,7 +305,8 @@ export async function onSessionStart(params: {
   workspacePath?: string;
 }): Promise<void> {
   const source = detectAgentSource();
-  startSession(params.model, source, params.workspacePath || process.cwd());
+  const workspace = params.workspacePath || process.cwd();
+  await startSession(params.model, source, workspace);
   console.log(`[openclaw-agent-log] Session started for ${params.sessionKey}`);
 }
 
@@ -310,19 +325,30 @@ export async function afterToolCall(params: {
   error?: string;
 }): Promise<void> {
   if (!config.toolCallCapture) return;
+  if (!currentSession) return;
 
   const startTime = params.toolInput._agentlog_startTime as number || Date.now();
   const durationMs = Date.now() - startTime;
 
-  if (currentSession) {
-    currentSession.toolCalls.push({
-      name: params.toolName,
-      input: params.toolInput,
-      output: params.error || params.toolOutput,
-      durationMs,
-      timestamp: new Date().toISOString(),
-    });
-  }
+  const toolCall: ToolCall = {
+    name: params.toolName,
+    input: params.toolInput,
+    output: params.error || params.toolOutput,
+    durationMs,
+    timestamp: new Date().toISOString(),
+  };
+
+  currentSession.toolCalls.push(toolCall);
+
+  // Call MCP log_turn to create span
+  await mcpRequest("log_turn", {
+    trace_id: currentSession.traceId,
+    role: "tool",
+    content: JSON.stringify({ tool: params.toolName, input: params.toolInput, output: params.toolOutput }),
+    tool_name: params.toolName,
+    duration_ms: durationMs,
+    timestamp: toolCall.timestamp,
+  });
 }
 
 function extractReasoningFromMessages(
@@ -394,7 +420,6 @@ async function tryBindCommit(): Promise<void> {
     }).trim();
 
     if (commitHash) {
-      currentSession.commitHash = commitHash;
       console.log(`[openclaw-agent-log] Bound session to commit ${commitHash.slice(0, 7)}`);
     }
   } catch {
@@ -414,24 +439,21 @@ export async function onAgentEnd(params: {
 
   await tryBindCommit();
 
-  // Build the final response from reasoning and responses
-  const finalResponse = currentSession.reasoning.length > 0
-    ? `[Reasoning]\n${currentSession.reasoning.join("\n\n")}`
-    : currentSession.responses.map(r => r.content).join("\n");
-
-  // Update session with final response using REST API
-  await updateSessionApi(currentSession.sessionId, {
-    response: finalResponse,
+  // Call log_intent via MCP
+  await mcpRequest("log_intent", {
+    trace_id: currentSession.traceId,
+    task: currentSession.taskGoal,
+    model: currentSession.model,
+    session_id: currentSession.sessionId,
+    workspace_path: currentSession.workspacePath,
+    tool_calls: currentSession.toolCalls.map((t) => t.name),
   });
 
-  console.log(`[openclaw-agent-log] Session ${currentSession.sessionId} finalized`);
-  currentSession = null;
-}
+  // Update trace status to completed
+  await updateTraceStatus(currentSession.traceId, "completed");
 
-// session:end hook - called when session truly ends
-// Cleanup is already handled in onAgentEnd, so this is a no-op to avoid double-cleanup
-export async function onSessionEnd(_params: Record<string, unknown>): Promise<void> {
-  // No-op: actual cleanup happens in onAgentEnd
+  console.log(`[openclaw-agent-log] Session ${currentSession.sessionId} finalized, trace ${currentSession.traceId} marked completed`);
+  currentSession = null;
 }
 
 // ─────────────────────────────────────────────
@@ -441,7 +463,7 @@ export async function onSessionEnd(_params: Record<string, unknown>): Promise<vo
 export async function checkAndClaimTrace(
   workspacePath: string,
   agentType: string
-): Promise<HandoffResult> {
+): Promise<TraceHandoffResult> {
   try {
     const sessionsJsonPath = await getSessionsJsonPath(workspacePath);
     const sessions = readSessionsJson(sessionsJsonPath);
@@ -467,6 +489,9 @@ export async function checkAndClaimTrace(
         writeSessionsJson(sessionsJsonPath, sessions);
 
         process.env.AGENTLOG_TRACE_ID = traceId;
+
+        // Update trace status to in_progress
+        await updateTraceStatus(traceId, "in_progress");
 
         console.log(`[openclaw-agent-log] Claimed trace: ${traceId} (agent: ${agentType})`);
 
@@ -526,7 +551,7 @@ export async function claimTrace(
   traceId: string,
   agentType: string,
   workspacePath: string
-): Promise<HandoffResult> {
+): Promise<TraceHandoffResult> {
   try {
     const sessionsJsonPath = await getSessionsJsonPath(workspacePath);
     const sessions = readSessionsJson(sessionsJsonPath);
@@ -550,6 +575,10 @@ export async function claimTrace(
 
     process.env.AGENTLOG_TRACE_ID = traceId;
 
+    // Update trace status to in_progress
+    await updateTraceStatus(traceId, "in_progress");
+
+    // Also notify backend via API
     try {
       await apiRequest("POST", `/api/traces/${traceId}/resume`, {
         agentType,
@@ -591,8 +620,14 @@ export async function completeActiveSession(workspacePath: string): Promise<bool
     }
 
     const sessionId = activeEntries[0].sessionId;
+    const traceId = activeEntries[0].traceId;
     delete sessions.active[sessionId];
     writeSessionsJson(sessionsJsonPath, sessions);
+
+    // Update trace status to completed
+    if (traceId) {
+      await updateTraceStatus(traceId, "completed");
+    }
 
     console.log(`[openclaw-agent-log] Completed session: ${sessionId}`);
     return true;
@@ -607,8 +642,8 @@ export async function completeActiveSession(workspacePath: string): Promise<bool
 
 export const skillMetadata = {
   name: "openclaw-agent-log",
-  description: "OpenClaw Agent 自动存证与 Trace 生命周期管理",
-  version: "1.0.0",
+  description: "OpenClaw Agent 自动存证与 Trace 生命周期管理 - 使用 trace/span API",
+  version: "2.0.0",
   functions: [
     {
       name: "checkAndClaimTrace",
