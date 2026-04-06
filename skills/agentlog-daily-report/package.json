@@ -1,0 +1,25 @@
+{
+  "name": "@agentlog/agentlog-daily-report",
+  "version": "1.0.0",
+  "description": "AgentLog Daily Report Skill for OpenClaw - daily work reports and summaries",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test"
+  },
+  "keywords": [
+    "openclaw",
+    "agentlog",
+    "daily-report",
+    "reporting"
+  ],
+  "author": "AgentLog Team",
+  "license": "Apache-2.0",
+  "peerDependencies": {
+    "openclaw": ">=1.0.0"
+  },
+  "dependencies": {
+    "typescript": "^5.0.0"
+  }
+}

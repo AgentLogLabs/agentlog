@@ -1,0 +1,36 @@
+{
+  "$schema": "https://openclaw.ai/schemas/plugin.json",
+  "id": "agentlog-daily-report",
+  "name": "AgentLog Daily Report",
+  "version": "1.0.0",
+  "description": "Daily report functionality for OpenClaw agents - submit, query, and generate daily work reports",
+  "skills": [
+    {
+      "id": "agentlog-daily-report",
+      "path": "./src/index.ts",
+      "enabled": true
+    }
+  ],
+  "commands": [
+    "submit-daily-report",
+    "query-daily-reports",
+    "generate-daily-report"
+  ],
+  "config": {
+    "mcpUrl": {
+      "type": "string",
+      "default": "http://localhost:7892",
+      "description": "AgentLog MCP Server URL"
+    },
+    "defaultAgentId": {
+      "type": "string",
+      "default": "opencode",
+      "description": "Default agent identifier"
+    }
+  },
+  "requires": {
+    "openclaw": ">=1.0.0"
+  },
+  "author": "AgentLog Team",
+  "license": "Apache-2.0"
+}
