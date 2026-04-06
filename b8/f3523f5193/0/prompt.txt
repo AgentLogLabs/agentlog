@@ -1,0 +1,1 @@
+Search the file at `/tmp/openclaw/openclaw-2026-04-07.log` on the LOCAL machine (not SSH) for all lines containing "session_start" or "session_end". Also search for any lines containing "agentlog][DEBUG]". Return up to 30 matching lines with their content. The file is very large so use grep tool.
