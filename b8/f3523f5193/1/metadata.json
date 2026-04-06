@@ -1,0 +1,34 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "b8f3523f5193",
+  "session_id": "ses_29c85ddd8ffeqXxr5IstyIhv5Q",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-06T16:10:40.329121Z",
+  "branch": "feat/agentlog-skill-daily-report",
+  "checkpoints_count": 5,
+  "files_touched": [
+    "skills/openclaw-agentlog/src/index.ts"
+  ],
+  "agent": "OpenCode",
+  "model": "claude-sonnet-4-6",
+  "turn_id": "50878607be67",
+  "token_usage": {
+    "input_tokens": 7,
+    "cache_creation_tokens": 31092,
+    "cache_read_tokens": 133784,
+    "output_tokens": 907,
+    "api_call_count": 7
+  },
+  "session_metrics": {
+    "turn_count": 7
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-06T16:10:40.310777Z",
+    "agent_lines": 128,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 128,
+    "agent_percentage": 100
+  }
+}

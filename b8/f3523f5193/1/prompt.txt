@@ -1,0 +1,17 @@
+请评估@skills/openclaw-agentlog/ 插件的hook功能是否正确，现在该插件加载之后 hook方法没有被调用
+
+---
+
+我需要评估myclaw host上的openclaw，而不是本机的
+
+---
+
+我需要评估myclaw host上的openclaw，而不是本机的
+
+---
+
+继续，现在具体是session_start hook无法触发
+
+---
+
+是否可以参考myclaw 主机上feishu插件的实现，看他是否有session start的类似用法？
