@@ -234,10 +234,9 @@ async function createSpan(traceId: string, span: {
           toolName: span.tool_name,
           durationMs: span.duration_ms,
           timestamp: span.timestamp || new Date().toISOString(),
+          toolInput: span.toolInput,
+          toolResult: span.toolResult,
         },
-        toolName: span.tool_name,
-        toolInput: span.toolInput,
-        toolResult: span.toolResult,
       }
     );
     return result.success;
@@ -425,9 +424,11 @@ export async function beforeToolCall(
   const toolName = event.toolName || 'unknown';
   const key = `${toolName}:${Date.now()}`;
   toolCallTimings.set(key, Date.now());
-  // Store the key in the event for afterToolCall to use
+  // Store the key and current session traceId in the event for afterToolCall to use.
+  // ctx.traceId may be undefined for some tools (e.g. sessions_send) that run after
+  // the agent session has nominally ended. We use currentSession.traceId as fallback.
   (event as Record<string, unknown>)._agentlog_key = key;
-  (event as Record<string, unknown>)._agentlog_traceId = ctx.traceId;
+  (event as Record<string, unknown>)._agentlog_traceId = ctx.traceId || currentSession?.traceId;
 }
 
 export async function afterToolCall(
@@ -453,15 +454,20 @@ export async function afterToolCall(
   toolCallTimings.delete(key); // Clean up
   const durationMs = Date.now() - startTime;
 
-  // Try to find session
+  // Try to find session — check event-stored traceId first (for tools like sessions_send
+  // that fire after currentSession has been cleaned up), then ctx.traceId, then currentSession.
+  const eventTraceId = (event as Record<string, unknown>)._agentlog_traceId as string | undefined;
   let session = currentSession;
-  if (!session && ctx.traceId) {
-    session = sessionByTraceId.get(ctx.traceId) || null;
+  if (!session) {
+    session = eventTraceId ? sessionByTraceId.get(eventTraceId) || null : null;
+  }
+  if (!session) {
+    session = ctx.traceId ? sessionByTraceId.get(ctx.traceId) || null : null;
   }
 
   // If still no session, skip
   if (!session) {
-    console.log(`[openclaw-agentlog][DEBUG] after_tool_call: no session found for traceId=${ctx.traceId}`);
+    console.log(`[openclaw-agentlog][DEBUG] after_tool_call: no session found for eventTraceId=${eventTraceId} ctxTraceId=${ctx.traceId}`);
     return;
   }
 

@@ -13,6 +13,7 @@
 5. [飞书消息与 Trace ID](#飞书消息与-trace-id)
 6. [Hook 行为说明](#hook-行为说明)
 7. [故障排查](#故障排查)
+8. [已知局限性](#已知局限性)
 
 ---
 
@@ -296,13 +297,16 @@ traces 表:
 
 ```
 before_tool_call 触发
-    │
-    ├─ 若 config.toolCallCapture = false → 跳过
-    │
-    ├─ 生成计时 key: "{toolName}:{timestamp}"
-    ├─ toolCallTimings.set(key, Date.now())   ← 记录开始时间
-    └─ 将 key 挂载到 event 对象供 after_tool_call 读取:
-         event._agentlog_key = key
+     │
+     ├─ 若 config.toolCallCapture = false → 跳过
+     │
+     ├─ 生成计时 key: "{toolName}:{timestamp}"
+     ├─ toolCallTimings.set(key, Date.now())   ← 记录开始时间
+     └─ 将关键信息存入 event 对象供 after_tool_call 使用:
+          event._agentlog_key     = key
+          event._agentlog_traceId = ctx.traceId || currentSession?.traceId
+                                        ↑ ctx.traceId 可能为 undefined（如 sessions_send）
+                                        ↑ fallback 到 currentSession，保存 traceId 供 after_tool_call 使用
 ```
 
 此时不写入 AgentLog，仅在内存中记录计时。
@@ -313,33 +317,55 @@ before_tool_call 触发
 
 **触发时机**：工具执行完成后（无论成功还是失败）。
 
+**Session 查找优先级（三层 fallback）**：
+
+```
+after_tool_call 触发
+     │
+     ├─ [1] event._agentlog_traceId → sessionByTraceId.get()
+     │    （before_tool_call 时从 currentSession.traceId 存入 event）
+     │    用于 sessions_send 等在 agent_end 之后才触发 after_tool_call 的工具
+     │
+     ├─ [2] ctx.traceId → sessionByTraceId.get()
+     │    （OpenClaw 传入，通常在 agent 运行期间有效）
+     │
+     ├─ [3] currentSession
+     │    （正常路径，agent 运行期间的常规工具调用）
+     │
+     └─ 找不到 → 跳过（无 session 时不记录）
+```
+
+> ⚠️ **重要**：`sessions_send` 工具在 agent_run 循环结束后才触发 `after_tool_call`，此时 `currentSession` 已被 `agent_end` 清除。因此 `before_tool_call` 会将 `currentSession?.traceId` 存入 `event._agentlog_traceId` 供后续使用。
+
 **插件行为**：
 
 ```
 after_tool_call 触发
-    │
-    ├─ 从 toolCallTimings 取出开始时间，计算 durationMs
-    ├─ 清理计时 Map（防内存泄漏）
-    │
-    ├─ 查找 session：currentSession → ctx.traceId → sessionByTraceId
-    │    └─ 找不到 → 跳过（无 session 时不记录）
-    │
-    ├─ 将 ToolCall 记录追加到 session.toolCalls[]
-    │    { name, input, output, durationMs, timestamp }
-    │
-    └─ POST /api/spans
-         body: {
-           traceId,
-           actorType: "agent",
-           actorName: toolName,
-           payload: {
-             event: "tool",
-             content: JSON.stringify({ tool, input, output }),
-             toolName,
-             durationMs,
-             timestamp
-           }
-         }
+     │
+     ├─ 从 toolCallTimings 取出开始时间，计算 durationMs
+     ├─ 清理计时 Map（防内存泄漏）
+     │
+     ├─ 按优先级查找 session（见上方）
+     │    └─ 找不到 → 跳过
+     │
+     ├─ 将 ToolCall 记录追加到 session.toolCalls[]
+     │    { name, input, output, durationMs, timestamp }
+     │
+     └─ POST /api/spans
+          body: {
+            traceId,
+            actorType: "agent",
+            actorName: toolName,
+            payload: {
+              event: "tool",
+              content: JSON.stringify({ tool: toolName }),
+              toolName,
+              durationMs,
+              timestamp
+            },
+            toolInput: input || undefined,   ← 独立字段，后端存储在 payload.toolInput
+            toolResult: error || toolOutput  ← 独立字段，后端存储在 payload.toolResult
+          }
 ```
 
 **AgentLog 后端写入**：
@@ -351,10 +377,15 @@ spans 表:
   actor_name = "bash"         ← 工具名
   payload    = {
     event: "tool",
-    content: '{"tool":"bash","input":{...},"output":"..."}',
-    durationMs: 1234
+    content: '{"tool":"bash"}',
+    toolName: "bash",
+    durationMs: 1234,
+    toolInput: { command: "ls -la", cwd: "/project" },  ← 独立字段
+    toolResult: "total 12\ndrwxr-xr-x ..."               ← 独立字段
   }
 ```
+
+> `toolInput` 和 `toolResult` 作为顶级字段传入 `POST /api/spans`，由后端 `hookAdapter` 写入 `payload`，支持按字段查询。
 
 ---
 
@@ -547,8 +578,8 @@ OpenClaw dist 修改位于：
 |------|----------|---------------|
 | `before_agent_start` | 每次 agent 开始处理消息 | `POST /api/traces`（创建 trace），更新 `AGENTLOG_TRACE_ID` |
 | `session_start` | session 首次创建或 `/new`/`/reset` | 同步写入 pre-flight trace ID；兜底创建 trace |
-| `before_tool_call` | 每次工具调用前 | 内存计时（不写后端） |
-| `after_tool_call` | 每次工具调用后 | `POST /api/spans`（写入 span） |
+| `before_tool_call` | 每次工具调用前 | 内存计时；将 `currentSession.traceId` 存入 `event._agentlog_traceId` |
+| `after_tool_call` | 每次工具调用后（部分工具如 `sessions_send` 在 `agent_end` 之后触发） | `POST /api/spans`，通过 `event._agentlog_traceId` 查找 session；写入 `toolInput`/`toolResult` |
 | `agent_end` | agent 完成本轮运行 | `PATCH /api/traces/:id`（归档，status → completed） |
 | `session_end` | session 结束（与 `session_start` 对应） | 兜底清理残留 `currentSession` |
 
@@ -651,3 +682,54 @@ ssh myclaw "tail -f /tmp/openclaw/openclaw-2026-04-07.log | grep --line-buffered
 # 监控 trace 创建和归档
 ssh myclaw "tail -f /tmp/openclaw/openclaw-2026-04-07.log | grep --line-buffered 'Session started\|finalized'"
 ```
+
+### span 数量为 0（tool call 未被记录）
+
+**排查步骤：**
+
+1. 确认 `before_tool_call` 和 `after_tool_call` 是否触发：
+   ```bash
+   grep 'before_tool_call.*hook fired\|after_tool_call.*hook fired' /tmp/openclaw/openclaw-2026-04-07.log | tail -10
+   ```
+
+2. 确认 `after_tool_call` 是否因"无 session"而跳过：
+   ```bash
+   grep 'after_tool_call: no session found' /tmp/openclaw/openclaw-2026-04-07.log
+   ```
+   - 若出现此日志，说明 `session_start` → `before_agent_start` → `agent_end` 流程中 session 未被正确建立
+   - 正常路径：`before_tool_call` 在 `agent_end` 之前触发，此时 `currentSession` 存在
+
+3. **`sessions_send` 的特殊性**：`sessions_send` 是在 `agent_end` 之后才触发 `after_tool_call` 的工具（用于向飞书发送消息）。此时 `currentSession` 已被清除。插件通过 `event._agentlog_traceId`（由 `before_tool_call` 存入）来找到对应的 session。如果 `before_tool_call` 未触发（工具类型不在 hook 列表中），则 `after_tool_call` 无法找到 session。
+
+4. **确认 `toolInput` 是否为空**：
+   ```bash
+   grep 'after_tool_call.*hasInput' /tmp/openclaw/openclaw-2026-04-07.log | tail -10
+   ```
+   - `hasInput: false` 说明 OpenClaw 传递给 hook 的 `event.toolInput` 为空，这是 OpenClaw 层面的问题，插件层面无法修复
+   - 可通过增加 `console.log` 输出完整 `event` 对象来进一步诊断（注意：生产环境频繁输出可能影响性能）
+
+### hasInput: false（工具输入未被捕获）
+
+`before_tool_call` / `after_tool_call` 的 `event.toolInput` 为空，说明 OpenClaw 本身没有将工具参数传递给 hook。这是 OpenClaw 版本或特定工具类型的限制，插件无法自行修复。
+
+**验证方法**：在 `beforeToolCall` 中输出完整 `event` 对象：
+
+```typescript
+console.log('[openclaw-agentlog][DEBUG] before_tool_call full event=', JSON.stringify(event));
+```
+
+观察输出的 `event` 是否包含 `toolInput` 字段。如果所有工具都没有 `toolInput`，则属于 OpenClaw 限制；如果只有特定工具没有，则可能是该工具类型未实现参数传递。
+
+---
+
+## 已知局限性
+
+### 1. `toolInput` / `toolOutput` 依赖 OpenClaw 传递
+
+插件通过 `event.toolInput` 和 `event.toolOutput` 获取工具参数和返回值，但 OpenClaw 并非所有工具类型都会传递这些字段。`hasInput: false` 表示 OpenClaw 层面未传递参数，这是插件无法自行修复的 OpenClaw 限制。
+
+**当前已知**：
+- `exec`、`sessions_send`、`process` 等工具的 `event.toolInput` 通常为空对象 `{}`
+- OpenClaw 内部工具参数传递机制因工具类型而异
+
+**建议**：如需完整捕获工具 I/O，可通过 OpenClaw 源码层面修改工具参数传递逻辑（`src/plugins/hooks.ts` 或 `src/agents/tools/` 相关文件），或等待 OpenClaw 版本更新支持。
