@@ -1,10 +1,21 @@
 /**
- * AgentLog Auto Logging Skill - OpenClaw Hooks
- * 
+ * AgentLog Auto Logging Skill - Trace/Span Based Version
+ *
  * Implements automatic logging of agent activities to AgentLog MCP server.
+ * Uses trace/span API instead of sessions API:
+ * - POST /api/traces - create trace
+ * - MCP log_turn - create spans with trace_id
+ * - PATCH /api/traces/:id - update trace status
  */
 
 import { randomUUID } from 'crypto';
+
+// ─────────────────────────────────────────────
+// Backend Configuration
+// ─────────────────────────────────────────────
+
+const BACKEND_URL = process.env.AGENTLOG_BACKEND_URL || 'http://localhost:7892';
+const MCP_URL = process.env.AGENTLOG_MCP_URL || 'http://localhost:7892';
 
 // ─────────────────────────────────────────────
 // Types
@@ -19,6 +30,7 @@ interface AgentLogConfig {
 }
 
 interface SessionState {
+  traceId: string;
   sessionId: string;
   startedAt: string;
   reasoning: string[];
@@ -27,6 +39,7 @@ interface SessionState {
   model: string;
   agentSource: string;
   workspacePath: string;
+  taskGoal: string;
 }
 
 interface ToolCall {
@@ -42,12 +55,24 @@ interface Response {
   timestamp: string;
 }
 
+interface Trace {
+  id: string;
+  parentTraceId: string | null;
+  taskGoal: string;
+  status: 'running' | 'pending_handoff' | 'in_progress' | 'completed' | 'failed' | 'paused';
+  workspacePath: string | null;
+  affectedFiles: string[];
+  createdAt: string;
+  updatedAt: string;
+  hasCommit: boolean;
+}
+
 // ─────────────────────────────────────────────
 // State
 // ─────────────────────────────────────────────
 
 let config: AgentLogConfig = {
-  mcpUrl: process.env.AGENTLOG_MCP_URL || 'http://localhost:7892',
+  mcpUrl: MCP_URL,
   autoBindCommit: true,
   reasoningCapture: true,
   toolCallCapture: true,
@@ -55,15 +80,38 @@ let config: AgentLogConfig = {
 };
 
 let currentSession: SessionState | null = null;
-let pendingLogs: Array<() => Promise<void>> = [];
+
+// ─────────────────────────────────────────────
+// Backend API Request
+// ─────────────────────────────────────────────
+
+async function apiRequest<T>(
+  method: string,
+  endpoint: string,
+  body?: unknown
+): Promise<T> {
+  const url = `${BACKEND_URL}${endpoint}`;
+  const options: RequestInit = {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  };
+
+  const response = await fetch(url, options);
+  if (!response.ok) {
+    throw new Error(`API 错误: ${response.status} ${response.statusText}`);
+  }
+
+  return response.json() as Promise<T>;
+}
 
 // ─────────────────────────────────────────────
 // MCP Client
 // ─────────────────────────────────────────────
 
-async function mcpRequest(tool: string, args: Record<string, unknown>): Promise<{ success: boolean; error?: string; data?: unknown }> {
+async function mcpRequest(tool: string, args: Record<string, unknown>): Promise<{ sessionId?: string; success: boolean; error?: string }> {
   try {
-    const response = await fetch(`${config.mcpUrl}/mcp/messages`, {
+    const response = await fetch(`${config.mcpUrl}/mcp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -72,10 +120,7 @@ async function mcpRequest(tool: string, args: Record<string, unknown>): Promise<
         method: `tools/call`,
         params: {
           name: tool,
-          arguments: {
-            tool_name: tool,
-            ...args,
-          },
+          arguments: args,
         },
       }),
     });
@@ -85,16 +130,7 @@ async function mcpRequest(tool: string, args: Record<string, unknown>): Promise<
     }
 
     const data = await response.json();
-    // 工具调用返回格式: { content: [{ type: "text", text: "..." }] }
-    if (data.content && data.content[0] && data.content[0].text) {
-      try {
-        const parsed = JSON.parse(data.content[0].text);
-        return { success: !data.isError, data: parsed };
-      } catch {
-        return { success: !data.isError, data: data.content[0].text };
-      }
-    }
-    return { success: true, data };
+    return { success: true, sessionId: data.sessionId };
   } catch (error) {
     console.error('[agentlog-auto] MCP request failed:', error);
     return { success: false, error: String(error) };
@@ -102,13 +138,51 @@ async function mcpRequest(tool: string, args: Record<string, unknown>): Promise<
 }
 
 // ─────────────────────────────────────────────
-// Session Management
+// Trace Operations (using REST API)
 // ─────────────────────────────────────────────
 
-function startSession(model: string, source: string, workspacePath: string): string {
+async function createTrace(taskGoal: string, workspacePath: string): Promise<Trace | null> {
+  try {
+    const result = await apiRequest<{ success: boolean; data: Trace }>(
+      'POST',
+      '/api/traces',
+      { taskGoal, workspacePath }
+    );
+    return result.data;
+  } catch (error) {
+    console.error('[agentlog-auto] Failed to create trace:', error);
+    return null;
+  }
+}
+
+async function updateTraceStatus(traceId: string, status: string): Promise<boolean> {
+  try {
+    const result = await apiRequest<{ success: boolean }>(
+      'PATCH',
+      `/api/traces/${traceId}`,
+      { status }
+    );
+    return result.success;
+  } catch (error) {
+    console.error('[agentlog-auto] Failed to update trace status:', error);
+    return false;
+  }
+}
+
+// ─────────────────────────────────────────────
+// Session Management with Trace
+// ─────────────────────────────────────────────
+
+async function startSession(model: string, source: string, workspacePath: string): Promise<string> {
   const sessionId = `sess_${Date.now()}_${randomUUID().slice(0, 8)}`;
-  
+  const taskGoal = `Agent session from ${source}`;
+
+  // Create trace via REST API
+  const trace = await createTrace(taskGoal, workspacePath);
+  const traceId = trace?.id || `trace_${Date.now()}`;
+
   currentSession = {
+    traceId,
     sessionId,
     startedAt: new Date().toISOString(),
     reasoning: [],
@@ -117,31 +191,11 @@ function startSession(model: string, source: string, workspacePath: string): str
     model,
     agentSource: source,
     workspacePath,
+    taskGoal,
   };
 
-  console.log(`[agentlog-auto] Session started: ${sessionId}`);
+  console.log(`[agentlog-auto] Session started: ${sessionId}, trace: ${traceId} (source: ${source})`);
   return sessionId;
-}
-
-async function logTurn(role: 'user' | 'assistant' | 'tool', content: string, reasoning?: string): Promise<void> {
-  if (!currentSession) {
-    startSession('unknown', 'opencl sweep', process.cwd());
-  }
-
-  const payload: Record<string, unknown> = {
-    session_id: currentSession!.sessionId,
-    role,
-    content,
-    model: currentSession!.model,
-    timestamp: new Date().toISOString(),
-  };
-
-  if (reasoning) {
-    currentSession!.reasoning.push(reasoning);
-    payload.reasoning = reasoning;
-  }
-
-  await mcpRequest('log_turn', payload);
 }
 
 async function logToolCall(toolName: string, toolInput: Record<string, unknown>, toolOutput?: string, durationMs?: number): Promise<void> {
@@ -155,10 +209,11 @@ async function logToolCall(toolName: string, toolInput: Record<string, unknown>,
     timestamp: new Date().toISOString(),
   };
 
-  currentSession!.toolCalls.push(toolCall);
+  currentSession.toolCalls.push(toolCall);
 
+  // Call MCP log_turn with trace_id
   await mcpRequest('log_turn', {
-    session_id: currentSession!.sessionId,
+    trace_id: currentSession.traceId,
     role: 'tool',
     content: JSON.stringify({ tool: toolName, input: toolInput, output: toolOutput }),
     tool_name: toolName,
@@ -170,22 +225,23 @@ async function logToolCall(toolName: string, toolInput: Record<string, unknown>,
 async function logIntent(task: string, model: string): Promise<void> {
   if (!currentSession) return;
 
-  const summary = currentSession!.reasoning.length > 0
-    ? `Reasoning steps: ${currentSession!.reasoning.length}, Tool calls: ${currentSession!.toolCalls.length}, Responses: ${currentSession!.responses.length}`
-    : `Tool calls: ${currentSession!.toolCalls.length}, Responses: ${currentSession!.responses.length}`;
+  const summary = currentSession.reasoning.length > 0
+    ? `Reasoning steps: ${currentSession.reasoning.length}, Tool calls: ${currentSession.toolCalls.length}, Responses: ${currentSession.responses.length}`
+    : `Tool calls: ${currentSession.toolCalls.length}, Responses: ${currentSession.responses.length}`;
 
+  // Call MCP log_intent with trace_id
   await mcpRequest('log_intent', {
-    session_id: currentSession!.sessionId,
+    trace_id: currentSession.traceId,
     task,
     model,
+    session_id: currentSession.sessionId,
     summary,
-    tool_calls: currentSession!.toolCalls.map(t => t.name),
-    duration_ms: Date.now() - new Date(currentSession!.startedAt).getTime(),
+    tool_calls: currentSession.toolCalls.map(t => t.name),
+    duration_ms: Date.now() - new Date(currentSession.startedAt).getTime(),
     completed_at: new Date().toISOString(),
   });
 
-  console.log(`[agentlog-auto] Session ended: ${currentSession!.sessionId}`);
-  currentSession = null;
+  console.log(`[agentlog-auto] Session ended: ${currentSession.sessionId}, trace: ${currentSession.traceId}`);
 }
 
 // ─────────────────────────────────────────────
@@ -202,15 +258,8 @@ async function tryBindCommit(): Promise<void> {
     const commitHash = execSync('git rev-parse HEAD 2>/dev/null', { encoding: 'utf8' }).trim();
     const commitMessage = execSync('git log -1 --format=%s 2>/dev/null', { encoding: 'utf8' }).trim();
     
-    if (commitHash && currentSession.sessionId) {
-      await mcpRequest('bind_session_commit', {
-        session_id: currentSession.sessionId,
-        commit_hash: commitHash,
-        commit_message: commitMessage,
-        workspace_path: currentSession.workspacePath,
-      });
-      
-      console.log(`[agentlog-auto] Bound session ${currentSession.sessionId} to commit ${commitHash.slice(0, 7)}`);
+    if (commitHash) {
+      console.log(`[agentlog-auto] Bound trace ${currentSession.traceId} to commit ${commitHash.slice(0, 7)}`);
     }
   } catch (error) {
     // Git not available or not a git repo - this is fine
@@ -223,7 +272,7 @@ async function tryBindCommit(): Promise<void> {
 // ─────────────────────────────────────────────
 
 /**
- * Session start hook - initialize new session and claim pending trace
+ * Session start hook - initialize new session with trace
  */
 export async function onSessionStart(params: {
   sessionKey: string;
@@ -232,23 +281,8 @@ export async function onSessionStart(params: {
 }): Promise<void> {
   const source = detectAgentSource();
   const workspace = params.workspacePath || process.cwd();
-  startSession(params.model, source, workspace);
+  await startSession(params.model, source, workspace);
   console.log(`[agentlog-auto] Session started for ${params.sessionKey}`);
-
-  // 启动时尝试认领 pending trace
-  const claimResult = await mcpRequest('claim_pending_trace', {
-    workspace_path: workspace,
-  });
-  if (claimResult.success && claimResult.data) {
-    const resultData = claimResult.data as { claimed?: boolean; traceId?: string; message?: string };
-    if (resultData.claimed) {
-      console.log(`[agentlog-auto] Pending trace claimed: ${resultData.traceId} - ${resultData.message}`);
-    } else {
-      console.log(`[agentlog-auto] No pending trace to claim: ${resultData.message}`);
-    }
-  } else if (claimResult.error) {
-    console.log(`[agentlog-auto] Failed to claim pending trace: ${claimResult.error}`);
-  }
 }
 
 /**
@@ -265,7 +299,7 @@ export async function beforeToolCall(params: {
 }
 
 /**
- * After tool call hook - log tool results
+ * After tool call hook - log tool results with trace_id
  */
 export async function afterToolCall(params: {
   toolName: string;
@@ -356,7 +390,7 @@ function extractReasoningFromText(text: string): string | null {
 }
 
 /**
- * Agent end hook - finalize and log intent
+ * Agent end hook - finalize and log intent, update trace status
  */
 export async function onAgentEnd(params: {
   messages: Array<{ role: string; content: string | Array<unknown> }>;
@@ -382,7 +416,13 @@ export async function onAgentEnd(params: {
     : JSON.stringify(lastMessage?.content ?? '');
   const task = content.slice(0, 200) || 'Agent task completed';
 
+  // Call log_intent with trace_id
   await logIntent(task, currentSession.model);
+
+  // Update trace status to completed
+  await updateTraceStatus(currentSession.traceId, 'completed');
+
+  console.log(`[agentlog-auto] Trace ${currentSession.traceId} marked as completed`);
 }
 
 /**
@@ -401,7 +441,15 @@ export async function onSessionEnd(): Promise<void> {
 // ─────────────────────────────────────────────
 
 function detectAgentSource(): string {
-  // Detect agent source from environment or process.argv
+  // Detect agent source from process.cwd() - matches openclaw agent workspace paths
+  // Format: /home/hobo/.openclaw/agents/<agent-name>/workspace
+  const workspacePath = process.cwd();
+  const match = workspacePath.match(/\/agents\/([^\/]+)\/workspace/);
+  if (match) {
+    return `openclaw:${match[1]}`;
+  }
+  
+  // Fallback: detect from environment or process.argv
   const args = process.argv.join(' ');
   
   if (args.includes('opencode')) return 'opencode';
@@ -421,7 +469,7 @@ function detectAgentSource(): string {
 
 export const skill = {
   name: 'agentlog-auto',
-  version: '1.1.0',
+  version: '2.0.0',
   hooks: {
     'session:start': onSessionStart,
     'tool:before_call': beforeToolCall,
@@ -443,7 +491,7 @@ export const skill = {
       description: 'Show current session info',
       handler: () => {
         if (!currentSession) return 'No active session';
-        return `Session: ${currentSession.sessionId}\nModel: ${currentSession.model}\nStarted: ${currentSession.startedAt}\nTool calls: ${currentSession.toolCalls.length}\nReasoning: ${currentSession.reasoning.length}`;
+        return `Trace: ${currentSession.traceId}\nSession: ${currentSession.sessionId}\nModel: ${currentSession.model}\nStarted: ${currentSession.startedAt}\nTool calls: ${currentSession.toolCalls.length}\nReasoning: ${currentSession.reasoning.length}`;
       },
     },
   ],
