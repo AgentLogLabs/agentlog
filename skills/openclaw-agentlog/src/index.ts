@@ -215,7 +215,7 @@ async function createSpan(traceId: string, span: {
   role: string;
   content: string;
   tool_name?: string;
-  toolInput?: Record<string, unknown>;
+  params?: Record<string, unknown>;
   toolResult?: unknown;
   duration_ms?: number;
   timestamp?: string;
@@ -234,7 +234,7 @@ async function createSpan(traceId: string, span: {
           toolName: span.tool_name,
           durationMs: span.duration_ms,
           timestamp: span.timestamp || new Date().toISOString(),
-          args: span.toolInput,  // renamed to args for clarity
+          args: span.params,  // renamed to args for clarity
           result: span.toolResult,
         },
       }
@@ -416,10 +416,10 @@ export async function onSessionStart(
 }
 
 export async function beforeToolCall(
-  event: { toolName?: string; toolInput?: Record<string, unknown>; input?: Record<string, unknown> },
+  event: { toolName?: string; params?: Record<string, unknown> },
   ctx: { traceId?: string }
 ): Promise<void> {
-  console.log(`[openclaw-agentlog][DEBUG] before_tool_call hook fired! event=`, JSON.stringify({toolName: event.toolName, hasInput: !!(event.toolInput || event.input)}));
+  console.log(`[openclaw-agentlog][DEBUG] before_tool_call hook fired! event=`, JSON.stringify({toolName: event.toolName, hasInput: !!event.params}));
   if (!config.toolCallCapture) return;
   const toolName = event.toolName || 'unknown';
   const key = `${toolName}:${Date.now()}`;
@@ -434,17 +434,16 @@ export async function beforeToolCall(
 export async function afterToolCall(
   event: {
     toolName?: string;
-    toolInput?: Record<string, unknown>;
-    input?: Record<string, unknown>;
-    toolOutput?: string;
+    params?: Record<string, unknown>;
+    result?: string;
     error?: string;
   },
   ctx: { sessionId?: string; traceId?: string }
 ): Promise<void> {
-  console.log(`[openclaw-agentlog][DEBUG] after_tool_call hook fired! event=`, JSON.stringify({toolName: event.toolName, hasInput: !!(event.toolInput || event.input), hasOutput: !!(event.toolOutput || event.error)}));
+  console.log(`[openclaw-agentlog][DEBUG] after_tool_call hook fired! event=`, JSON.stringify({toolName: event.toolName, hasInput: !!event.params, hasOutput: !!(event.result || event.error)}));
   if (!config.toolCallCapture) return;
 
-  const input = event.toolInput || event.input;
+  const input = event.params;
   const toolName = event.toolName || 'unknown';
   const timestamp = new Date().toISOString();
   
@@ -474,7 +473,7 @@ export async function afterToolCall(
   const toolCallRecord: ToolCall = {
     name: toolName,
     input: input || {},
-    output: event.error || event.toolOutput,
+    output: event.error || event.result,
     durationMs,
     timestamp,
   };
@@ -485,15 +484,15 @@ export async function afterToolCall(
   const contentObj = {
     tool: event.toolName,
     args: input || {},
-    result: event.error || event.toolOutput || null,
+    result: event.error || event.result || null,
   };
 
   await createSpan(session.traceId, {
     role: "tool",
     content: JSON.stringify(contentObj),  // Include args and result in content
     tool_name: event.toolName,
-    toolInput: input || undefined,
-    toolResult: event.error || event.toolOutput,
+    params: input,
+    toolResult: event.error || event.result,
     duration_ms: durationMs,
     timestamp,
   });
