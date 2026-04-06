@@ -9,6 +9,9 @@
     "dev": "tsc --watch"
   },
   "openclaw": {
+    "extensions": [
+      "./src/index.ts"
+    ],
     "hooks": {
       "session:start": true,
       "tool:before_call": true,
