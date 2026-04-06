@@ -74,22 +74,41 @@ running → pending_handoff → in_progress → completed/failed
 paused ───────────────────────────────────────┘
 ```
 
-### 2.4 session 与 trace 的关系
+### 2.5 数据存储说明
 
-| 概念 | 说明 |
-|------|------|
-| **Trace** | 一次任务的生命周期（从创建到完成） |
-| **Span** | Trace 下的具体操作单元（如一次工具调用） |
-| **session** | Agent 的会话（一个 session 包含多个 turn） |
-| **turn** | 单次交互（一次 user → assistant） |
+⚠️ **不再使用 `agent_sessions` 表**，统一使用 `traces` + `spans` 表。
 
-**关系**：Trace → Span → (session/turn)
-- 一个 Trace 可包含多个 Span
-- 一个 Span 可对应一个 session 或 turn
+| 旧（已废弃） | 新 |
+|-------------|-----|
+| `agent_sessions` 表 | `traces` + `spans` 表 |
+| `session_id` | `trace_id` |
+
+**关系**：Trace → Span
+- 一个 Trace 包含多个 Span
+- 每个 Span 对应一次操作（如工具调用）
 
 ---
 
-## 🔍 3. 现状分析
+## 🔍 3. API 接口
+
+### 3.1 REST API（主推）
+
+| 方法 | 端点 | 说明 |
+|------|------|------|
+| POST | `/api/traces` | 创建 trace |
+| GET | `/api/traces` | 查询 trace 列表 |
+| GET | `/api/traces/:id` | 获取 trace 详情 |
+| POST | `/api/traces/:id/spans` | 创建 span |
+| GET | `/api/traces/:id/spans` | 获取 trace 的所有 span |
+| PATCH | `/api/traces/:id/status` | 更新 trace 状态 |
+
+### 3.2 MCP Protocol（可选）
+
+MCP `log_turn` / `log_intent` 也可使用，但推荐使用 REST API 以获得更好的兼容性。
+
+---
+
+## 🔍 4. 现状分析
 
 ### 3.1 当前 Agent 列表
 
