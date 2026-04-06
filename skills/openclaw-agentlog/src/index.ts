@@ -139,6 +139,8 @@ let config: AgentLogConfig = {
 };
 
 let currentSession: SessionState | null = null;
+const sessionByTraceId: Map<string, SessionState> = new Map();
+const toolCallTimings: Map<string, number> = new Map();
 
 // ─────────────────────────────────────────────
 // sessions.json Operations (for Trace Handoff)
@@ -316,6 +318,8 @@ async function startSession(model: string, source: string, workspacePath: string
     workspacePath,
     taskGoal,
   };
+  
+  sessionByTraceId.set(traceId, currentSession);
 
   console.log(`[openclaw-agentlog] Session started: ${sessionId}, trace: ${traceId} (source: ${source})`);
   return sessionId;
@@ -325,54 +329,107 @@ async function startSession(model: string, source: string, workspacePath: string
 // OpenClaw Hooks Implementation (Auto-Logging)
 // ─────────────────────────────────────────────
 
-export async function onSessionStart(params: {
-  sessionKey: string;
-  model: string;
-  workspacePath?: string;
-}): Promise<void> {
-  const source = detectAgentSource();
-  const workspace = params.workspacePath || process.cwd();
-  await startSession(params.model, source, workspace);
-  console.log(`[openclaw-agentlog] Session started for ${params.sessionKey}`);
+export async function onBeforeAgentStart(
+  event: { sessionId?: string; sessionKey?: string },
+  ctx: { agentId?: string; sessionId?: string; sessionKey?: string; traceId?: string }
+): Promise<void> {
+  console.log(`[openclaw-agentlog][DEBUG] before_agent_start hook fired! event=`, JSON.stringify(event), 'ctx=', JSON.stringify(ctx));
+  const agentId = ctx.agentId || detectAgentType();
+  const source = `openclaw:${agentId}`;
+  const workspace = process.cwd();
+  const model = agentId;
+  
+  // Check if we already have a session for this traceId
+  if (ctx.traceId && sessionByTraceId.has(ctx.traceId)) {
+    currentSession = sessionByTraceId.get(ctx.traceId) || null;
+    return;
+  }
+  
+  if (!currentSession) {
+    await startSession(model, source, workspace);
+    console.log(`[openclaw-agentlog] Created session via before_agent_start, agent: ${agentId}`);
+  }
 }
 
-export async function beforeToolCall(params: {
-  toolName: string;
-  toolInput: Record<string, unknown>;
-}): Promise<void> {
-  if (!config.toolCallCapture) return;
-  params.toolInput._agentlog_startTime = Date.now();
+export async function onSessionStart(
+  event: { sessionId: string; sessionKey?: string; resumedFrom?: string },
+  ctx: { agentId?: string; sessionId: string; sessionKey?: string }
+): Promise<void> {
+  console.log(`[openclaw-agentlog][DEBUG] session_start hook fired! event=`, JSON.stringify(event), 'ctx=', JSON.stringify(ctx));
+  const sessionKey = event.sessionKey || ctx.sessionKey || event.sessionId;
+  const agentId = ctx.agentId || detectAgentType();
+  const source = `openclaw:${agentId}`;
+  const workspace = process.cwd();
+  const model = agentId;
+  await startSession(model, source, workspace);
+  console.log(`[openclaw-agentlog] Session started for ${sessionKey}, agent: ${agentId}`);
 }
 
-export async function afterToolCall(params: {
-  toolName: string;
-  toolInput: Record<string, unknown>;
-  toolOutput?: string;
-  error?: string;
-}): Promise<void> {
+export async function beforeToolCall(
+  event: { toolName?: string; toolInput?: Record<string, unknown>; input?: Record<string, unknown> },
+  ctx: { traceId?: string }
+): Promise<void> {
+  console.log(`[openclaw-agentlog][DEBUG] before_tool_call hook fired! event=`, JSON.stringify({toolName: event.toolName, hasInput: !!(event.toolInput || event.input)}));
   if (!config.toolCallCapture) return;
-  if (!currentSession) return;
+  const toolName = event.toolName || 'unknown';
+  const key = `${toolName}:${Date.now()}`;
+  toolCallTimings.set(key, Date.now());
+  // Store the key in the event for afterToolCall to use
+  (event as Record<string, unknown>)._agentlog_key = key;
+  (event as Record<string, unknown>)._agentlog_traceId = ctx.traceId;
+}
 
-  const startTime = params.toolInput._agentlog_startTime as number || Date.now();
+export async function afterToolCall(
+  event: {
+    toolName?: string;
+    toolInput?: Record<string, unknown>;
+    input?: Record<string, unknown>;
+    toolOutput?: string;
+    error?: string;
+  },
+  ctx: { sessionId?: string; traceId?: string }
+): Promise<void> {
+  console.log(`[openclaw-agentlog][DEBUG] after_tool_call hook fired! event=`, JSON.stringify({toolName: event.toolName, hasInput: !!(event.toolInput || event.input), hasOutput: !!(event.toolOutput || event.error)}));
+  if (!config.toolCallCapture) return;
+
+  const input = event.toolInput || event.input;
+  const toolName = event.toolName || 'unknown';
+  const timestamp = new Date().toISOString();
+  
+  // Get start time from Map using the key stored in beforeToolCall
+  const key = (event as Record<string, unknown>)._agentlog_key as string || `${toolName}:unknown`;
+  const startTime = toolCallTimings.get(key) || Date.now();
+  toolCallTimings.delete(key); // Clean up
   const durationMs = Date.now() - startTime;
 
-  const toolCall: ToolCall = {
-    name: params.toolName,
-    input: params.toolInput,
-    output: params.error || params.toolOutput,
+  // Try to find session
+  let session = currentSession;
+  if (!session && ctx.traceId) {
+    session = sessionByTraceId.get(ctx.traceId) || null;
+  }
+
+  // If still no session, skip
+  if (!session) {
+    console.log(`[openclaw-agentlog][DEBUG] after_tool_call: no session found for traceId=${ctx.traceId}`);
+    return;
+  }
+
+  const toolCallRecord: ToolCall = {
+    name: toolName,
+    input: input || {},
+    output: event.error || event.toolOutput,
     durationMs,
-    timestamp: new Date().toISOString(),
+    timestamp,
   };
 
-  currentSession.toolCalls.push(toolCall);
+  session.toolCalls.push(toolCallRecord);
 
-  // Create span via REST API
-  await createSpan(currentSession.traceId, {
+  await createSpan(session.traceId, {
     role: "tool",
-    content: JSON.stringify({ tool: params.toolName, input: params.toolInput, output: params.toolOutput }),
-    tool_name: params.toolName,
+    content: JSON.stringify({ tool: event.toolName, input, output: event.toolOutput }),
+    tool_name: event.toolName,
     duration_ms: durationMs,
-    timestamp: toolCall.timestamp,
+    timestamp,
   });
 }
 
@@ -452,28 +509,46 @@ async function tryBindCommit(): Promise<void> {
   }
 }
 
-export async function onAgentEnd(params: {
-  messages: Array<{ role: string; content: string | Array<unknown> }>;
-  usage?: { promptTokens?: number; completionTokens?: number };
-}): Promise<void> {
-  if (!currentSession) return;
+export async function onAgentEnd(
+  event: {
+    messages: Array<{ role: string; content: string | Array<unknown> }>;
+    usage?: { promptTokens?: number; completionTokens?: number };
+  },
+  ctx: { traceId?: string }
+): Promise<void> {
+  console.log(`[openclaw-agentlog][DEBUG] agent_end hook fired! hasMessages=${event.messages?.length}, hasUsage=${!!event.usage}`);
+  
+  // Try to find session
+  let session = currentSession;
+  if (!session && ctx.traceId) {
+    session = sessionByTraceId.get(ctx.traceId) || null;
+  }
+  
+  if (!session) {
+    console.log(`[openclaw-agentlog][DEBUG] agent_end skipped: no currentSession`);
+    return;
+  }
 
   if (config.reasoningCapture) {
-    extractReasoningFromMessages(params.messages);
+    extractReasoningFromMessages(event.messages);
   }
 
   await tryBindCommit();
 
-  // Finalize trace via REST API (replaces log_intent)
   await finalizeTrace(
-    currentSession.traceId,
-    currentSession.taskGoal,
-    currentSession.toolCalls.map((t) => String(t.input._agentlog_file || "")),
-    currentSession.reasoning
+    session.traceId,
+    session.taskGoal,
+    session.toolCalls.map((t) => String(t.input._agentlog_file || "")),
+    session.reasoning
   );
 
-  console.log(`[openclaw-agentlog] Session ${currentSession.sessionId} finalized, trace ${currentSession.traceId} marked completed`);
-  currentSession = null;
+  console.log(`[openclaw-agentlog] Session ${session.sessionId} finalized, trace ${session.traceId} marked completed`);
+  
+  // Clean up
+  sessionByTraceId.delete(session.traceId);
+  if (currentSession === session) {
+    currentSession = null;
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -705,7 +780,11 @@ export const skillMetadata = {
 };
 
 // onSessionEnd hook
-export async function onSessionEnd(): Promise<void> {
+export async function onSessionEnd(
+  _event: unknown,
+  _ctx: unknown
+): Promise<void> {
+  console.log('[openclaw-agentlog][DEBUG] session_end hook fired!');
   console.log('[openclaw-agentlog] Session cleanup completed');
 }
 
@@ -713,6 +792,7 @@ export function register(api: {
   on(event: string, handler: (...args: unknown[]) => unknown, opts?: { priority?: number }): void;
   registerHook(event: string, handler: (...args: unknown[]) => unknown, opts?: { name?: string; description?: string }): void;
 }): void {
+  api.on('before_agent_start', onBeforeAgentStart);
   api.on('session_start', onSessionStart);
   api.on('before_tool_call', beforeToolCall);
   api.on('after_tool_call', afterToolCall);
@@ -721,6 +801,7 @@ export function register(api: {
 }
 
 export default { register, skillMetadata, hooks: {
+  before_agent_start: onBeforeAgentStart,
   session_start: onSessionStart,
   before_tool_call: beforeToolCall,
   after_tool_call: afterToolCall,
