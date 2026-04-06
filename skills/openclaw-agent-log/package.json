@@ -1,0 +1,18 @@
+{
+  "name": "openclaw-agent-log",
+  "version": "1.0.0",
+  "description": "OpenClaw Agent 自动存证与 Trace 生命周期管理 Skill",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@agentlog/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}

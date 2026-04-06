@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0",
+  "name": "openclaw-agent-log",
+  "version": "1.0.0",
+  "description": "OpenClaw Agent 自动存证与 Trace 生命周期管理 Skill",
+  "main": "src/index.ts",
+  "hooks": {
+    "session_start": "onSessionStart",
+    "before_tool_call": "beforeToolCall",
+    "after_tool_call": "afterToolCall",
+    "agent_end": "onAgentEnd"
+  },
+  "skills": [
+    {
+      "name": "checkAndClaimTrace",
+      "description": "启动时检查并认领 pending traces",
+      "parameters": {
+        "workspacePath": "string",
+        "agentType": "string"
+      }
+    },
+    {
+      "name": "claimTrace",
+      "description": "认领 trace",
+      "parameters": {
+        "traceId": "string",
+        "agentType": "string",
+        "workspacePath": "string"
+      }
+    },
+    {
+      "name": "completeActiveSession",
+      "description": "完成当前 session",
+      "parameters": {
+        "workspacePath": "string"
+      }
+    }
+  ],
+  "deprecated": [
+    "agentlog-auto",
+    "openclaw-agent"
+  ]
+}

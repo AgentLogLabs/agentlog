@@ -45,6 +45,16 @@
 
 ---
 
+## 🛠️ Skills
+
+| Skill | 说明 | 状态 |
+|-------|------|------|
+| [openclaw-agent-log](../skills/openclaw-agent-log/) | OpenClaw Agent 统一存证 + Trace Handoff | ✅ 正常 |
+| [agentlog-auto](../skills/agentlog-auto/) | 自动存证 Hooks | ⚠️ 已废弃（合并到 openclaw-agent-log） |
+| [agentlog-daily-report](../skills/agentlog-daily-report/) | 每日日报自动填充 | 开发中 |
+
+---
+
 ## 🔍 生命周期追踪
 
 | 文档 | 说明 |
