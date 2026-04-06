@@ -158,15 +158,17 @@ async function mcpRequest(
   args: Record<string, unknown>
 ): Promise<{ sessionId?: string; success: boolean; error?: string }> {
   try {
-    const response = await fetch(`${config.mcpUrl}/mcp`, {
+    // The backend MCP endpoint /mcp/messages expects:
+    // { method: "tools/call", params: { tool_name: "...", arguments: {...} } }
+    const response = await fetch(`${config.mcpUrl}/mcp/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         jsonrpc: "2.0",
         id: randomUUID(),
-        method: `tools/call`,
+        method: "tools/call",
         params: {
-          name: tool,
+          tool_name: tool,
           arguments: args,
         },
       }),
@@ -177,7 +179,26 @@ async function mcpRequest(
     }
 
     const data = await response.json();
-    return { success: true, sessionId: data.sessionId };
+    
+    // Check for JSON-RPC error
+    if (data.error) {
+      return { success: false, error: data.error.message || String(data.error) };
+    }
+    
+    // Try to extract sessionId from result
+    let sessionId: string | undefined;
+    if (data.result?.content) {
+      try {
+        const resultObj = JSON.parse(data.result.content[0].text);
+        if (resultObj.session_id) {
+          sessionId = resultObj.session_id;
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    }
+    
+    return { success: true, sessionId };
   } catch (error) {
     console.error("[openclaw-agent-log] MCP request failed:", error);
     return { success: false, error: String(error) };
@@ -371,6 +392,12 @@ export async function onAgentEnd(params: {
 
   console.log(`[openclaw-agent-log] Session ${currentSession.sessionId} finalized`);
   currentSession = null;
+}
+
+// session:end hook - called when session truly ends
+// Cleanup is already handled in onAgentEnd, so this is a no-op to avoid double-cleanup
+export async function onSessionEnd(_params: Record<string, unknown>): Promise<void> {
+  // No-op: actual cleanup happens in onAgentEnd
 }
 
 // ─────────────────────────────────────────────
