@@ -703,4 +703,18 @@ export const skillMetadata = {
   ],
 };
 
-export default skillMetadata;
+// onSessionEnd hook
+export async function onSessionEnd(): Promise<void> {
+  console.log('[openclaw-agent-log] Session cleanup completed');
+}
+
+export default {
+  ...skillMetadata,
+  hooks: {
+    'session:start': onSessionStart,
+    'tool:before_call': beforeToolCall,
+    'tool:after_call': afterToolCall,
+    'agent:end': onAgentEnd,
+    'session:end': onSessionEnd,
+  },
+};
