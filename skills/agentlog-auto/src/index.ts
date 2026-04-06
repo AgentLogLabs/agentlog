@@ -2,10 +2,12 @@
  * AgentLog Auto Logging Skill - Trace/Span Based Version
  *
  * Implements automatic logging of agent activities to AgentLog MCP server.
- * Uses trace/span API instead of sessions API:
- * - POST /api/traces - create trace
- * - MCP log_turn - create spans with trace_id
- * - PATCH /api/traces/:id - update trace status
+ * Uses MCP protocol for trace/span storage:
+ * 
+ * Flow:
+ * 1. log_turn(role="user") → creates trace, returns trace_id
+ * 2. log_turn(role="tool", trace_id="xxx") → creates span
+ * 3. log_intent(trace_id="xxx") → marks trace as completed
  */
 
 import { randomUUID } from 'crypto';
@@ -14,7 +16,6 @@ import { randomUUID } from 'crypto';
 // Backend Configuration
 // ─────────────────────────────────────────────
 
-const BACKEND_URL = process.env.AGENTLOG_BACKEND_URL || 'http://localhost:7892';
 const MCP_URL = process.env.AGENTLOG_MCP_URL || 'http://localhost:7892';
 
 // ─────────────────────────────────────────────
@@ -30,7 +31,7 @@ interface AgentLogConfig {
 }
 
 interface SessionState {
-  traceId: string;
+  traceId: string | null;
   sessionId: string;
   startedAt: string;
   reasoning: string[];
@@ -55,16 +56,12 @@ interface Response {
   timestamp: string;
 }
 
-interface Trace {
-  id: string;
-  parentTraceId: string | null;
-  taskGoal: string;
-  status: 'running' | 'pending_handoff' | 'in_progress' | 'completed' | 'failed' | 'paused';
-  workspacePath: string | null;
-  affectedFiles: string[];
-  createdAt: string;
-  updatedAt: string;
-  hasCommit: boolean;
+interface McpResponse {
+  success: boolean;
+  sessionId?: string;
+  trace_id?: string;
+  data?: unknown;
+  error?: string;
 }
 
 // ─────────────────────────────────────────────
@@ -82,34 +79,10 @@ let config: AgentLogConfig = {
 let currentSession: SessionState | null = null;
 
 // ─────────────────────────────────────────────
-// Backend API Request
-// ─────────────────────────────────────────────
-
-async function apiRequest<T>(
-  method: string,
-  endpoint: string,
-  body?: unknown
-): Promise<T> {
-  const url = `${BACKEND_URL}${endpoint}`;
-  const options: RequestInit = {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    ...(body ? { body: JSON.stringify(body) } : {}),
-  };
-
-  const response = await fetch(url, options);
-  if (!response.ok) {
-    throw new Error(`API 错误: ${response.status} ${response.statusText}`);
-  }
-
-  return response.json() as Promise<T>;
-}
-
-// ─────────────────────────────────────────────
 // MCP Client
 // ─────────────────────────────────────────────
 
-async function mcpRequest(tool: string, args: Record<string, unknown>): Promise<{ sessionId?: string; success: boolean; error?: string }> {
+async function mcpRequest(tool: string, args: Record<string, unknown>): Promise<McpResponse> {
   try {
     const response = await fetch(`${config.mcpUrl}/mcp`, {
       method: 'POST',
@@ -130,7 +103,22 @@ async function mcpRequest(tool: string, args: Record<string, unknown>): Promise<
     }
 
     const data = await response.json();
-    return { success: true, sessionId: data.sessionId };
+    
+    // Extract trace_id from MCP response if present
+    // The MCP returns trace_id in the content text or in the result
+    let traceId: string | undefined;
+    if (typeof data.result?.content === 'string') {
+      const match = data.result.content.match(/trace[_-]?id[:\s=]+([A-Z0-9]+)/i);
+      if (match) traceId = match[1];
+    }
+    if (data.result?.trace_id) traceId = data.result.trace_id;
+    
+    return { 
+      success: true, 
+      sessionId: data.sessionId,
+      trace_id: traceId,
+      data: data.result 
+    };
   } catch (error) {
     console.error('[agentlog-auto] MCP request failed:', error);
     return { success: false, error: String(error) };
@@ -138,51 +126,15 @@ async function mcpRequest(tool: string, args: Record<string, unknown>): Promise<
 }
 
 // ─────────────────────────────────────────────
-// Trace Operations (using REST API)
-// ─────────────────────────────────────────────
-
-async function createTrace(taskGoal: string, workspacePath: string): Promise<Trace | null> {
-  try {
-    const result = await apiRequest<{ success: boolean; data: Trace }>(
-      'POST',
-      '/api/traces',
-      { taskGoal, workspacePath }
-    );
-    return result.data;
-  } catch (error) {
-    console.error('[agentlog-auto] Failed to create trace:', error);
-    return null;
-  }
-}
-
-async function updateTraceStatus(traceId: string, status: string): Promise<boolean> {
-  try {
-    const result = await apiRequest<{ success: boolean }>(
-      'PATCH',
-      `/api/traces/${traceId}`,
-      { status }
-    );
-    return result.success;
-  } catch (error) {
-    console.error('[agentlog-auto] Failed to update trace status:', error);
-    return false;
-  }
-}
-
-// ─────────────────────────────────────────────
-// Session Management with Trace
+// Session Management with MCP Protocol
 // ─────────────────────────────────────────────
 
 async function startSession(model: string, source: string, workspacePath: string): Promise<string> {
   const sessionId = `sess_${Date.now()}_${randomUUID().slice(0, 8)}`;
   const taskGoal = `Agent session from ${source}`;
 
-  // Create trace via REST API
-  const trace = await createTrace(taskGoal, workspacePath);
-  const traceId = trace?.id || `trace_${Date.now()}`;
-
   currentSession = {
-    traceId,
+    traceId: null,  // Will be set by first log_turn call
     sessionId,
     startedAt: new Date().toISOString(),
     reasoning: [],
@@ -194,7 +146,23 @@ async function startSession(model: string, source: string, workspacePath: string
     taskGoal,
   };
 
-  console.log(`[agentlog-auto] Session started: ${sessionId}, trace: ${traceId} (source: ${source})`);
+  // First log_turn(role="user") creates the trace and returns trace_id
+  const result = await mcpRequest('log_turn', {
+    role: 'user',
+    content: taskGoal,
+    model: model,
+    workspace_path: workspacePath,
+  });
+
+  // Extract trace_id from response
+  if (result.trace_id) {
+    currentSession.traceId = result.trace_id;
+  } else if (typeof result.data === 'object' && result.data !== null) {
+    const data = result.data as Record<string, unknown>;
+    if (data.trace_id) currentSession.traceId = String(data.trace_id);
+  }
+
+  console.log(`[agentlog-auto] Session started: ${sessionId}, trace: ${currentSession.traceId || '(pending)'} (source: ${source})`);
   return sessionId;
 }
 
@@ -211,7 +179,7 @@ async function logToolCall(toolName: string, toolInput: Record<string, unknown>,
 
   currentSession.toolCalls.push(toolCall);
 
-  // Call MCP log_turn with trace_id
+  // Call MCP log_turn with trace_id (span creation)
   await mcpRequest('log_turn', {
     trace_id: currentSession.traceId,
     role: 'tool',
@@ -219,29 +187,8 @@ async function logToolCall(toolName: string, toolInput: Record<string, unknown>,
     tool_name: toolName,
     duration_ms: durationMs,
     timestamp: toolCall.timestamp,
+    workspace_path: currentSession.workspacePath,
   });
-}
-
-async function logIntent(task: string, model: string): Promise<void> {
-  if (!currentSession) return;
-
-  const summary = currentSession.reasoning.length > 0
-    ? `Reasoning steps: ${currentSession.reasoning.length}, Tool calls: ${currentSession.toolCalls.length}, Responses: ${currentSession.responses.length}`
-    : `Tool calls: ${currentSession.toolCalls.length}, Responses: ${currentSession.responses.length}`;
-
-  // Call MCP log_intent with trace_id
-  await mcpRequest('log_intent', {
-    trace_id: currentSession.traceId,
-    task,
-    model,
-    session_id: currentSession.sessionId,
-    summary,
-    tool_calls: currentSession.toolCalls.map(t => t.name),
-    duration_ms: Date.now() - new Date(currentSession.startedAt).getTime(),
-    completed_at: new Date().toISOString(),
-  });
-
-  console.log(`[agentlog-auto] Session ended: ${currentSession.sessionId}, trace: ${currentSession.traceId}`);
 }
 
 // ─────────────────────────────────────────────
@@ -254,15 +201,13 @@ async function tryBindCommit(): Promise<void> {
   try {
     const { execSync } = await import('child_process');
     
-    // Get recent commit hash
     const commitHash = execSync('git rev-parse HEAD 2>/dev/null', { encoding: 'utf8' }).trim();
     const commitMessage = execSync('git log -1 --format=%s 2>/dev/null', { encoding: 'utf8' }).trim();
     
     if (commitHash) {
-      console.log(`[agentlog-auto] Bound trace ${currentSession.traceId} to commit ${commitHash.slice(0, 7)}`);
+      console.log(`[agentlog-auto] Bound session ${currentSession.sessionId} to commit ${commitHash.slice(0, 7)}`);
     }
   } catch (error) {
-    // Git not available or not a git repo - this is fine
     console.log('[agentlog-auto] No git commit to bind (or not a git repo)');
   }
 }
@@ -293,8 +238,6 @@ export async function beforeToolCall(params: {
   toolInput: Record<string, unknown>;
 }): Promise<void> {
   if (!config.toolCallCapture) return;
-  
-  // Store tool call start time for duration calculation
   params.toolInput._agentlog_startTime = Date.now();
 }
 
@@ -322,7 +265,6 @@ export async function afterToolCall(params: {
 
 /**
  * Phase 2: Extract reasoning from message content
- * Supports models with thinking blocks (DeepSeek-R1, Claude extended thinking, etc.)
  */
 function extractReasoningFromMessages(
   messages: Array<{ role: string; content: string | Array<unknown> }>,
@@ -332,7 +274,6 @@ function extractReasoningFromMessages(
   for (const msg of messages) {
     if (msg.role !== 'assistant') continue;
 
-    // Handle string content
     if (typeof msg.content === 'string') {
       const reasoning = extractReasoningFromText(msg.content);
       if (reasoning) {
@@ -341,12 +282,10 @@ function extractReasoningFromMessages(
       continue;
     }
 
-    // Handle structured content (thinking blocks, etc.)
     if (Array.isArray(msg.content)) {
       for (const block of msg.content) {
         if (typeof block !== 'object' || block === null) continue;
         const b = block as Record<string, unknown>;
-        // Thinking block type (Anthropic, OpenAI, etc.)
         if (b.type === 'thinking' || b.type === 'thought' || b.type === 'reasoning') {
           const thinking = typeof b.thinking === 'string' ? b.thinking
             : typeof b.content === 'string' ? b.content
@@ -356,7 +295,6 @@ function extractReasoningFromMessages(
             currentSession.reasoning.push(thinking.slice(0, 4000));
           }
         }
-        // Text block that might contain <thinking> tags
         if (b.type === 'text' && typeof b.text === 'string') {
           const reasoning = extractReasoningFromText(b.text);
           if (reasoning) {
@@ -376,12 +314,10 @@ function extractReasoningFromMessages(
  * Extract <thinking>...</thinking> tags from text content
  */
 function extractReasoningFromText(text: string): string | null {
-  // Match XML-style thinking tags
   const thinkingMatch = text.match(/<thinking>([\s\S]*?)<\/thinking>/i);
   if (thinkingMatch && thinkingMatch[1].trim()) {
     return thinkingMatch[1].trim().slice(0, 4000);
   }
-  // Match [REASONING]...[/REASONING] tags
   const reasoningMatch = text.match(/\[REASONING\]([\s\S]*?)\[\/REASONING\]/i);
   if (reasoningMatch && reasoningMatch[1].trim()) {
     return reasoningMatch[1].trim().slice(0, 4000);
@@ -390,7 +326,8 @@ function extractReasoningFromText(text: string): string | null {
 }
 
 /**
- * Agent end hook - finalize and log intent, update trace status
+ * Agent end hook - finalize and log intent
+ * log_intent marks trace as completed via MCP
  */
 export async function onAgentEnd(params: {
   messages: Array<{ role: string; content: string | Array<unknown> }>;
@@ -401,28 +338,31 @@ export async function onAgentEnd(params: {
 }): Promise<void> {
   if (!currentSession) return;
 
-  // Phase 2: Extract reasoning from messages
   if (config.reasoningCapture) {
     extractReasoningFromMessages(params.messages);
   }
 
-  // Try to bind the session to recent commit
   await tryBindCommit();
 
-  // Generate task summary from messages
   const lastMessage = params.messages[params.messages.length - 1];
   const content = typeof lastMessage?.content === 'string'
     ? lastMessage.content
     : JSON.stringify(lastMessage?.content ?? '');
   const task = content.slice(0, 200) || 'Agent task completed';
 
-  // Call log_intent with trace_id
-  await logIntent(task, currentSession.model);
+  // Call log_intent with trace_id - this marks trace as completed
+  await mcpRequest('log_intent', {
+    trace_id: currentSession.traceId,
+    task: currentSession.taskGoal,
+    model: currentSession.model,
+    session_id: currentSession.sessionId,
+    tool_calls: currentSession.toolCalls.map(t => t.name),
+    duration_ms: Date.now() - new Date(currentSession.startedAt).getTime(),
+    completed_at: new Date().toISOString(),
+  });
 
-  // Update trace status to completed
-  await updateTraceStatus(currentSession.traceId, 'completed');
-
-  console.log(`[agentlog-auto] Trace ${currentSession.traceId} marked as completed`);
+  console.log(`[agentlog-auto] Session ended: ${currentSession.sessionId}, trace: ${currentSession.traceId}`);
+  currentSession = null;
 }
 
 /**
@@ -442,14 +382,12 @@ export async function onSessionEnd(): Promise<void> {
 
 function detectAgentSource(): string {
   // Detect agent source from process.cwd() - matches openclaw agent workspace paths
-  // Format: /home/hobo/.openclaw/agents/<agent-name>/workspace
   const workspacePath = process.cwd();
   const match = workspacePath.match(/\/agents\/([^\/]+)\/workspace/);
   if (match) {
     return `openclaw:${match[1]}`;
   }
   
-  // Fallback: detect from environment or process.argv
   const args = process.argv.join(' ');
   
   if (args.includes('opencode')) return 'opencode';
@@ -491,7 +429,7 @@ export const skill = {
       description: 'Show current session info',
       handler: () => {
         if (!currentSession) return 'No active session';
-        return `Trace: ${currentSession.traceId}\nSession: ${currentSession.sessionId}\nModel: ${currentSession.model}\nStarted: ${currentSession.startedAt}\nTool calls: ${currentSession.toolCalls.length}\nReasoning: ${currentSession.reasoning.length}`;
+        return `Trace: ${currentSession.traceId || '(pending)'}\nSession: ${currentSession.sessionId}\nModel: ${currentSession.model}\nStarted: ${currentSession.startedAt}\nTool calls: ${currentSession.toolCalls.length}\nReasoning: ${currentSession.reasoning.length}`;
       },
     },
   ],
