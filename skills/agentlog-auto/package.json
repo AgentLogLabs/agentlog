@@ -15,6 +15,15 @@
     "audit",
     "logging"
   ],
+  "openclaw": {
+    "hooks": {
+      "session:start": true,
+      "tool:before_call": true,
+      "tool:after_call": true,
+      "agent:end": true,
+      "session:end": true
+    }
+  },
   "author": "AgentLog Team",
   "license": "Apache-2.0",
   "peerDependencies": {
