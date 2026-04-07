@@ -1,0 +1,23 @@
+主机 ssh hobo@100.105.222.68 的openclaw无法启动，请检查
+
+---
+
+执行opeclaw logs --follow 报错：[Pastgateway connect failed: Error: gateway closed (1000):
+Config warnings:\n- plugins.entries.feishu: plugin feishu: duplicate plugin id detected; later plugin may be overridden (/home/hobo/.openclaw/extensions/feishu/index.ts)
+Gateway not reachable. Is it running and accessible?
+
+---
+
+继续
+
+---
+
+继续
+
+---
+
+很可能是openclaw-agentlog插件有问题，因为这个插件正在开发测试
+
+---
+
+按照解决方案执行
