@@ -7,7 +7,8 @@
   "files_touched": [
     "skills/openclaw-agentlog/openclaw.plugin.json",
     "skills/openclaw-agentlog/package.json",
-    "skills/openclaw-agentlog/src/index.ts"
+    "skills/openclaw-agentlog/src/index.ts",
+    "skills/openclaw-agentlog/src/types/openclaw-sdk.d.ts"
   ],
   "sessions": [
     {
@@ -15,6 +16,12 @@
       "transcript": "/3f/723415d40c/0/full.jsonl",
       "content_hash": "/3f/723415d40c/0/content_hash.txt",
       "prompt": "/3f/723415d40c/0/prompt.txt"
+    },
+    {
+      "metadata": "/3f/723415d40c/1/metadata.json",
+      "transcript": "/3f/723415d40c/1/full.jsonl",
+      "content_hash": "/3f/723415d40c/1/content_hash.txt",
+      "prompt": ""
     }
   ],
   "token_usage": {
