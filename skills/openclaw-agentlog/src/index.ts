@@ -215,10 +215,8 @@ async function createSpan(traceId: string, span: {
   role: string;
   content: string;
   tool_name?: string;
-  params?: Record<string, unknown>;      // OpenClaw hook field (data source)
-  toolInput?: Record<string, unknown>;  // VS Code display compatibility
-  toolResult?: unknown;                  // OpenClaw hook field (data source)
-  toolOutput?: string;                   // VS Code display compatibility
+  toolInput?: Record<string, unknown>;   // OpenClaw params → toolInput
+  toolOutput?: string;                  // OpenClaw result → toolOutput
   duration_ms?: number;
   timestamp?: string;
 }): Promise<boolean> {
@@ -236,10 +234,8 @@ async function createSpan(traceId: string, span: {
           toolName: span.tool_name,
           durationMs: span.duration_ms,
           timestamp: span.timestamp || new Date().toISOString(),
-          args: span.params,              // OpenClaw data source
-          result: span.toolResult,        // OpenClaw data source
-          toolInput: span.toolInput,      // VS Code display compatibility
-          toolOutput: span.toolOutput,    // VS Code display compatibility
+          toolInput: span.toolInput,      // OpenClaw params → VS Code display
+          toolOutput: span.toolOutput,    // OpenClaw result → VS Code display
         },
       }
     );
@@ -495,10 +491,8 @@ export async function afterToolCall(
     role: "tool",
     content: JSON.stringify(contentObj),  // Include args and result in content
     tool_name: event.toolName,
-    params: input,           // OpenClaw hook field (data source)
-    toolInput: input,         // VS Code display compatibility
-    toolResult: event.error || event.result,  // OpenClaw hook field
-    toolOutput: String(event.result ?? event.error ?? ""),  // VS Code display compatibility
+    toolInput: input,                              // event.params → toolInput
+    toolOutput: String(event.result ?? event.error ?? ""),  // event.result → toolOutput
     duration_ms: durationMs,
     timestamp,
   });
