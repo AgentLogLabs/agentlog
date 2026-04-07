@@ -276,12 +276,12 @@ async function finalizeTrace(
 // Trace Operations (using REST API)
 // ─────────────────────────────────────────────
 
-async function createTrace(taskGoal: string, workspacePath: string): Promise<Trace | null> {
+async function createTrace(taskGoal: string, workspacePath: string, parentTraceId?: string): Promise<Trace | null> {
   try {
     const result = await apiRequest<{ success: boolean; data: Trace }>(
       "POST",
       "/api/traces",
-      { taskGoal, workspacePath }
+      { taskGoal, workspacePath, parentTraceId }
     );
     return result.data;
   } catch (error) {
@@ -302,6 +302,27 @@ async function updateTraceStatus(traceId: string, status: string): Promise<boole
     console.error("[openclaw-agentlog] Failed to update trace status:", error);
     return false;
   }
+}
+
+// ─────────────────────────────────────────────
+// Command Parser (Ticket #1)
+// ─────────────────────────────────────────────
+
+interface ParsedCommand {
+  type: "new" | "handoff" | "unknown";
+  handoffTraceId?: string;
+}
+
+function parseCommand(message: string): ParsedCommand {
+  const trimmed = message.trim();
+  if (trimmed === "/new") {
+    return { type: "new" };
+  }
+  const handoffMatch = trimmed.match(/^\/handoff\s+(.+)$/i);
+  if (handoffMatch) {
+    return { type: "handoff", handoffTraceId: handoffMatch[1].trim() };
+  }
+  return { type: "unknown" };
 }
 
 // ─────────────────────────────────────────────
@@ -347,7 +368,7 @@ async function startSession(model: string, source: string, workspacePath: string
 // ─────────────────────────────────────────────
 
 export async function onBeforeAgentStart(
-  event: { sessionId?: string; sessionKey?: string },
+  event: { sessionId?: string; sessionKey?: string; message?: string },
   ctx: { agentId?: string; sessionId?: string; sessionKey?: string; traceId?: string }
 ): Promise<void> {
   console.log(`[openclaw-agentlog][DEBUG] before_agent_start hook fired! event=`, JSON.stringify(event), 'ctx=', JSON.stringify(ctx));
@@ -355,7 +376,91 @@ export async function onBeforeAgentStart(
   const source = `openclaw:${agentId}`;
   const workspace = process.cwd();
   const model = agentId;
-  
+  const message = event.message || "";
+
+  // Ticket #3 & #5: Command parsing and state machine
+  const command = parseCommand(message);
+
+  // /new command → force create new Trace
+  if (command.type === "new") {
+    if (currentSession) {
+      sessionByTraceId.delete(currentSession.traceId);
+      currentSession = null;
+    }
+    await startSession(model, source, workspace, "running");
+    console.log(`[openclaw-agentlog] /new command: created new session, agent: ${agentId}`);
+    return;
+  }
+
+  // /handoff <traceId> command
+  if (command.type === "handoff" && command.handoffTraceId) {
+    const handoffTraceId = command.handoffTraceId;
+
+    // Query parent trace status from backend
+    const parentTrace = await getTraceByIdFromBackend(handoffTraceId);
+
+    if (parentTrace) {
+      if (parentTrace.status === "completed") {
+        // completed → create child Trace with parentTraceId
+        if (currentSession) {
+          sessionByTraceId.delete(currentSession.traceId);
+          currentSession = null;
+        }
+        const trace = await createTrace(`Handoff from ${handoffTraceId}`, workspace, handoffTraceId);
+        const traceId = trace?.id || `trace_${Date.now()}`;
+        process.env.AGENTLOG_TRACE_ID = traceId;
+
+        currentSession = {
+          traceId,
+          sessionId: `sess_${Date.now()}_${randomUUID().slice(0, 8)}`,
+          startedAt: new Date().toISOString(),
+          reasoning: [],
+          toolCalls: [],
+          responses: [],
+          model,
+          agentSource: source,
+          workspacePath: workspace,
+          taskGoal: `Handoff from ${handoffTraceId}`,
+          taskStatus: "running",
+        };
+        sessionByTraceId.set(traceId, currentSession);
+        console.log(`[openclaw-agentlog] /handoff ${handoffTraceId}: created child trace ${traceId}`);
+        return;
+      } else if (parentTrace.status === "running" || parentTrace.status === "in_progress") {
+        // running/in_progress → reuse that trace
+        process.env.AGENTLOG_TRACE_ID = handoffTraceId;
+        if (currentSession) {
+          sessionByTraceId.delete(currentSession.traceId);
+        }
+        currentSession = {
+          traceId: handoffTraceId,
+          sessionId: `sess_${Date.now()}_${randomUUID().slice(0, 8)}`,
+          startedAt: new Date().toISOString(),
+          reasoning: [],
+          toolCalls: [],
+          responses: [],
+          model,
+          agentSource: source,
+          workspacePath: workspace,
+          taskGoal: parentTrace.taskGoal,
+          taskStatus: "running",
+        };
+        sessionByTraceId.set(handoffTraceId, currentSession);
+        console.log(`[openclaw-agentlog] /handoff ${handoffTraceId}: reused running trace`);
+        return;
+      }
+    }
+    // Parent trace not found or invalid status → create new trace
+    console.log(`[openclaw-agentlog] /handoff ${handoffTraceId}: parent not found or invalid status, creating new`);
+    if (currentSession) {
+      sessionByTraceId.delete(currentSession.traceId);
+      currentSession = null;
+    }
+    await startSession(model, source, workspace, "running");
+    return;
+  }
+
+  // Normal message: existing state machine logic
   // Check if we already have a running session for this traceId
   if (ctx.traceId && sessionByTraceId.has(ctx.traceId)) {
     const existingSession = sessionByTraceId.get(ctx.traceId);
@@ -364,7 +469,7 @@ export async function onBeforeAgentStart(
       return;
     }
   }
-  
+
   // If currentSession exists but is completed (task finished), start new trace
   // If no currentSession, start new trace
   if (!currentSession || currentSession.taskStatus === "completed") {
@@ -374,6 +479,19 @@ export async function onBeforeAgentStart(
     // Idle session exists, mark as running
     currentSession.taskStatus = "running";
     console.log(`[openclaw-agentlog] Resumed idle session, taskStatus: running`);
+  }
+}
+
+async function getTraceByIdFromBackend(traceId: string): Promise<Trace | null> {
+  try {
+    const result = await apiRequest<{ success: boolean; data: Trace }>(
+      "GET",
+      `/api/traces/${traceId}`
+    );
+    return result.data;
+  } catch (error) {
+    console.error(`[openclaw-agentlog] Failed to get trace ${traceId}:`, error);
+    return null;
   }
 }
 
