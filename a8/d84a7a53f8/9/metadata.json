@@ -1,0 +1,39 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "a8d84a7a53f8",
+  "session_id": "ses_29c85ddd8ffeqXxr5IstyIhv5Q",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-07T14:41:12.577108Z",
+  "branch": "feat/agentlog-skill-daily-report",
+  "checkpoints_count": 21,
+  "files_touched": [
+    "docs/OPENCLAW_PLUGIN_CONFIG.md",
+    "packages/backend/src/routes/traces.ts",
+    "skills/openclaw-agentlog/patch_dist.py",
+    "skills/openclaw-agentlog/src/index.ts"
+  ],
+  "agent": "OpenCode",
+  "model": "MiniMax-M2.7",
+  "turn_id": "d6a251a1e582",
+  "checkpoint_transcript_start": 9,
+  "transcript_lines_at_start": 9,
+  "token_usage": {
+    "input_tokens": 0,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 0,
+    "output_tokens": 0,
+    "api_call_count": 0
+  },
+  "session_metrics": {
+    "turn_count": 38
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-07T14:41:12.543305Z",
+    "agent_lines": 1082,
+    "human_added": 832,
+    "human_modified": 1,
+    "human_removed": 0,
+    "total_committed": 1915,
+    "agent_percentage": 56.501305483028716
+  }
+}
