@@ -1,5 +1,18 @@
 #!/usr/bin/env python3
 """
+⚠️ DEPRECATED FOR OpenClaw v4.5+ ⚠️
+
+OpenClaw v4.5 removed the sendResetSessionNotice function and buildResetSessionNoticeText,
+so this patch script no longer applies. The "New session started" message no longer exists
+as a separate routeReply call.
+
+For v4.5+, trace ID is injected via before_agent_start hook's prependContext return value,
+causing the agent to naturally carry trace ID in its reply.
+
+This script is kept for reference only and will NOT work on v4.5+ dist bundles.
+
+---
+
 Patch all OpenClaw dist bundle files to show "New trace started" instead of "New session started"
 and include AGENTLOG_TRACE_ID in the message.
 

@@ -392,10 +392,17 @@ async function getTraceByIdFromBackend(traceId: string): Promise<Trace | null> {
   }
 }
 
+function buildTracePrependContext(traceId?: string): { prependContext: string } {
+  const id = traceId || currentSession?.traceId || process.env.AGENTLOG_TRACE_ID || "unknown";
+  return {
+    prependContext: `\n[Trace: ${id}]\n`,
+  };
+}
+
 export async function onBeforeAgentStart(
   event: { sessionId?: string; sessionKey?: string; prompt?: string },
   ctx: { agentId?: string; sessionId?: string; sessionKey?: string; traceId?: string; runId?: string }
-): Promise<void> {
+): Promise<{ prependContext?: string } | void> {
   console.log(`[openclaw-agentlog][DEBUG] before_agent_start hook fired! event=`, JSON.stringify(event), 'ctx=', JSON.stringify(ctx));
   const agentId = ctx.agentId || detectAgentType();
   const source = `openclaw:${agentId}`;
@@ -413,7 +420,7 @@ export async function onBeforeAgentStart(
     }
     await startSession(model, source, workspace, "running");
     console.log(`[openclaw-agentlog] /new command: created new session, agent: ${agentId}`);
-    return;
+    return buildTracePrependContext();
   }
 
   // /handoff <traceId> command
@@ -446,7 +453,7 @@ export async function onBeforeAgentStart(
         };
         sessionByTraceId.set(traceId, currentSession);
         console.log(`[openclaw-agentlog] /handoff ${handoffTraceId}: created child trace ${traceId}`);
-        return;
+        return buildTracePrependContext(traceId);
       } else if (parentTrace.status === "running" || parentTrace.status === "in_progress") {
         process.env.AGENTLOG_TRACE_ID = handoffTraceId;
         if (currentSession) {
@@ -467,7 +474,7 @@ export async function onBeforeAgentStart(
         };
         sessionByTraceId.set(handoffTraceId, currentSession);
         console.log(`[openclaw-agentlog] /handoff ${handoffTraceId}: reused running trace`);
-        return;
+        return buildTracePrependContext(handoffTraceId);
       }
     }
     console.log(`[openclaw-agentlog] /handoff ${handoffTraceId}: parent not found or invalid status, creating new`);
@@ -476,7 +483,7 @@ export async function onBeforeAgentStart(
       currentSession = null;
     }
     await startSession(model, source, workspace, "running");
-    return;
+    return buildTracePrependContext();
   }
 
   // Normal message: existing state machine logic
@@ -484,16 +491,18 @@ export async function onBeforeAgentStart(
     const existingSession = sessionByTraceId.get(ctx.traceId);
     if (existingSession && existingSession.taskStatus === "running") {
       currentSession = existingSession;
-      return;
+      return buildTracePrependContext();
     }
   }
 
   if (!currentSession || currentSession.taskStatus === "completed") {
     await startSession(model, source, workspace, "running");
     console.log(`[openclaw-agentlog] Created new session via before_agent_start, agent: ${agentId}, taskStatus: running`);
+    return buildTracePrependContext();
   } else if (currentSession.taskStatus === "idle") {
     currentSession.taskStatus = "running";
     console.log(`[openclaw-agentlog] Resumed idle session, taskStatus: running`);
+    return buildTracePrependContext();
   }
 }
 

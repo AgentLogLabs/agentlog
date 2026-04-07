@@ -477,7 +477,7 @@ get-reply.ts
 用户发消息 1 ──► Trace A (running → completed)
 用户发消息 2 ──► Trace B (running → completed)
 用户发消息 3 ──► Trace C (running → completed)
-用户发 /new  ──► session_start（重置 session，飞书回复显示 trace ID）
+用户发 /new  ──► before_agent_start 返回 prependContext，agent 回复携带 trace ID
 用户发消息 4 ──► Trace D (running → completed)
 ```
 
@@ -504,15 +504,17 @@ Agent B 启动 → checkAndClaimTrace()
 
 ## 飞书消息与 Trace ID
 
-### 重置消息格式
+### 重置消息格式（v4.5+）
 
-发送 `/new` 或 `/reset` 后，飞书会收到如下格式的回复（需配置好 `allowFrom` 权限）：
+发送 `/new` 或 `/reset` 后，**agent 的首条回复会携带 trace ID**（通过 `prependContext` 注入到 prompt）：
 
 ```
-✅ New trace started · model: minimax/MiniMax-M2.7 · trace: agentlog-m7k3p9
+🚀 Growth Hacker 上线了！本次 session trace: 01KNJ1PTEBPQK4YGSA0016CCD2，有什么需要我处理的吗？
 ```
 
-> **注意**：消息中的 trace ID 为 pre-flight 短格式，真实后端 ULID 记录在 OpenClaw 日志中（见下方）。
+这是因为 `before_agent_start` hook 返回 `{ prependContext: "[Trace: {id}]" }`，OpenClaw 将其拼接到 agent 的 system prompt 前面，agent 在生成回复时自然携带 trace ID。
+
+> **注意**：v4.5 移除了独立的 `sendResetSessionNotice` 消息（旧的 `✅ New session started · model: ...` 格式），trace ID 现在由 agent 自身在回复中携带。
 
 ### Trace ID 的两个阶段
 
@@ -520,7 +522,8 @@ Agent B 启动 → checkAndClaimTrace()
 
 | 阶段 | 格式 | 时机 | 用途 |
 |------|------|------|------|
-| **Pre-flight ID** | `agentlog-xxxxxx`（短格式） | `session_start` 同步部分，在飞书消息发送之前 | 展示在飞书消息中，便于用户肉眼识别 |
+| **Pre-flight ID** | `agentlog-xxxxxx`（短格式） | `session_start` 同步部分，`await startSession()` 之前 | 早期写入 `process.env.AGENTLOG_TRACE_ID`，供 `buildTracePrependContext` fallback 使用 |
+| **真实 ULID** | `01KNXXX...`（26 位） | `startSession()` 异步完成，后端返回后 | AgentLog 数据库真实主键，用于 API 查询；`prependContext` 实际使用的是这个 |
 | **真实 ULID** | `01KNXXX...`（26 位） | `startSession()` 异步完成，后端返回后 | AgentLog 数据库中的真实主键，用于 API 查询 |
 
 ### 为什么使用两阶段
@@ -549,24 +552,19 @@ session_start 异步部分: POST /api/traces
 ### 在日志中查找真实 ULID
 
 ```bash
-ssh myclaw "grep 'Session started via session_start' /tmp/openclaw/openclaw-2026-04-07.log | tail -5"
+ssh myclaw "grep 'Session started' /tmp/openclaw/openclaw-2026-04-07.log | tail -5"
 # 输出示例：
-# [openclaw-agentlog] Session started via session_start for agent:architect:...,
-#                     agent: architect, trace: 01KNXXX...
+# [openclaw-agentlog] Session started: sess_1775501010503_xxx, trace: 01KNXXX... (source: openclaw:architect)
 ```
 
 ### 实现细节
 
 相关代码位于 `skills/openclaw-agentlog/src/index.ts`：
 
-- `preflightTraceId`（模块级变量）：暂存 pre-flight ID，`startSession()` 完成后置 null
-- `onSessionStart` 同步区域（第一个 `await` 之前）：生成并写入 pre-flight ID
-- `startSession()`：`POST /api/traces` 完成后覆盖 `process.env.AGENTLOG_TRACE_ID`
+- `onBeforeAgentStart` 返回 `{ prependContext: "[Trace: {id}]" }`，由 OpenClaw 注入到 agent 的 prompt 前面
+- `startSession()`：`POST /api/traces` 完成后设置 `process.env.AGENTLOG_TRACE_ID`
 
-OpenClaw dist 修改位于：
-`~/.npm-global/lib/node_modules/openclaw/dist/reply-Bm8VrLQh.js`（`buildResetSessionNoticeText` 函数）
-
-> ⚠️ 此 dist 修改在 OpenClaw npm 包升级时会被覆盖，需重新应用。原始文件已备份为 `reply-Bm8VrLQh.js.bak`。
+> ⚠️ **v4.5+ 变更**：OpenClaw v4.5 移除了 `sendResetSessionNotice` 函数和 `buildResetSessionNoticeText` dist 补丁。v4.5 不再通过 `routeReply` 发送独立的 "New session started" 消息。改为通过 `before_agent_start` hook 返回 `prependContext`，使 agent 在回复中自然携带 trace ID。
 
 ---
 
