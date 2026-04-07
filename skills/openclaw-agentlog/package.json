@@ -14,11 +14,13 @@
       "./src/index.ts"
     ],
     "hooks": {
+      "before_agent_start": true,
       "session_start": true,
       "before_tool_call": true,
       "after_tool_call": true,
       "agent_end": true,
-      "session_end": true
+      "session_end": true,
+      "llm_output": true
     }
   },
   "dependencies": {

@@ -11,6 +11,8 @@
  * - PATCH /api/traces/:id - 更新 trace 状态
  *
  * 提供给 OpenClaw Agent 使用。
+ *
+ * 迁移到 OpenClaw v3.22+ definePluginEntry() 模式
  */
 
 import { randomUUID } from "crypto";
@@ -18,6 +20,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { nanoid } from "nanoid";
 import type { PendingTraceEntry, ActiveSessionEntry, SessionsJson } from "@agentlog/shared";
+import { definePluginEntry, type OpenClawPluginApi } from "./types/openclaw-sdk.js";
 
 // ─────────────────────────────────────────────
 // Backend Configuration
@@ -112,6 +115,15 @@ interface SessionState {
   workspacePath: string;
   taskGoal: string;
   taskStatus: "idle" | "running" | "completed";
+  llmUsage?: {
+    provider: string;
+    model: string;
+    inputTokens?: number;
+    outputTokens?: number;
+    cacheReadTokens?: number;
+    cacheWriteTokens?: number;
+    totalTokens?: number;
+  };
 }
 
 interface ToolCall {
@@ -381,15 +393,15 @@ async function getTraceByIdFromBackend(traceId: string): Promise<Trace | null> {
 }
 
 export async function onBeforeAgentStart(
-  event: { sessionId?: string; sessionKey?: string; message?: string },
-  ctx: { agentId?: string; sessionId?: string; sessionKey?: string; traceId?: string }
+  event: { sessionId?: string; sessionKey?: string; prompt?: string },
+  ctx: { agentId?: string; sessionId?: string; sessionKey?: string; traceId?: string; runId?: string }
 ): Promise<void> {
   console.log(`[openclaw-agentlog][DEBUG] before_agent_start hook fired! event=`, JSON.stringify(event), 'ctx=', JSON.stringify(ctx));
   const agentId = ctx.agentId || detectAgentType();
   const source = `openclaw:${agentId}`;
   const workspace = process.cwd();
   const model = agentId;
-  const message = event.message || "";
+  const message = event.prompt || "";
 
   const command = parseCommand(message);
 
@@ -536,10 +548,10 @@ export async function onSessionStart(
 }
 
 export async function beforeToolCall(
-  event: { toolName?: string; toolInput?: Record<string, unknown>; input?: Record<string, unknown> },
+  event: { toolName?: string; params?: Record<string, unknown> },
   ctx: { traceId?: string }
 ): Promise<void> {
-  console.log(`[openclaw-agentlog][DEBUG] before_tool_call hook fired! event=`, JSON.stringify({toolName: event.toolName, hasInput: !!(event.toolInput || event.input)}));
+  console.log(`[openclaw-agentlog][DEBUG] before_tool_call hook fired! event=`, JSON.stringify({toolName: event.toolName, hasInput: !!event.params}));
   if (!config.toolCallCapture) return;
   const toolName = event.toolName || 'unknown';
   const key = `${toolName}:${Date.now()}`;
@@ -554,17 +566,17 @@ export async function beforeToolCall(
 export async function afterToolCall(
   event: {
     toolName?: string;
-    toolInput?: Record<string, unknown>;
-    input?: Record<string, unknown>;
-    toolOutput?: string;
+    params?: Record<string, unknown>;
+    result?: unknown;
     error?: string;
+    durationMs?: number;
   },
   ctx: { sessionId?: string; traceId?: string }
 ): Promise<void> {
-  console.log(`[openclaw-agentlog][DEBUG] after_tool_call hook fired! event=`, JSON.stringify({toolName: event.toolName, hasInput: !!(event.toolInput || event.input), hasOutput: !!(event.toolOutput || event.error)}));
+  console.log(`[openclaw-agentlog][DEBUG] after_tool_call hook fired! event=`, JSON.stringify({toolName: event.toolName, hasInput: !!event.params, hasOutput: !!(event.result || event.error)}));
   if (!config.toolCallCapture) return;
 
-  const input = event.toolInput || event.input;
+  const input = event.params;
   const toolName = event.toolName || 'unknown';
   const timestamp = new Date().toISOString();
   
@@ -572,7 +584,7 @@ export async function afterToolCall(
   const key = (event as Record<string, unknown>)._agentlog_key as string || `${toolName}:unknown`;
   const startTime = toolCallTimings.get(key) || Date.now();
   toolCallTimings.delete(key); // Clean up
-  const durationMs = Date.now() - startTime;
+  const durationMs = event.durationMs ?? (Date.now() - startTime);
 
   // Try to find session — check event-stored traceId first (for tools like sessions_send
   // that fire after currentSession has been cleaned up), then ctx.traceId, then currentSession.
@@ -594,25 +606,27 @@ export async function afterToolCall(
   const toolCallRecord: ToolCall = {
     name: toolName,
     input: input || {},
-    output: event.error || event.toolOutput,
+    output: event.error || String(event.result ?? ''),
     durationMs,
     timestamp,
   };
 
   session.toolCalls.push(toolCallRecord);
 
+  // Build content with actual tool call details including args
   const contentObj = {
     tool: event.toolName,
     args: input || {},
-    result: event.error ? `Error: ${event.error}` : (event.toolOutput || null),
+    result: event.error ? `Error: ${event.error}` : event.result,
   };
 
+  // Store with toolInput/toolOutput for VSCode compatibility
   await createSpan(session.traceId, {
     role: "tool",
     content: JSON.stringify(contentObj),
     tool_name: event.toolName,
     toolInput: input,
-    toolOutput: event.error ? `Error: ${event.error}` : (event.toolOutput || null),
+    toolOutput: event.error ? `Error: ${event.error}` : event.result,
     duration_ms: durationMs,
     timestamp,
   });
@@ -732,6 +746,56 @@ export async function onAgentEnd(
   // Mark task as completed instead of cleaning up session
   // This allows onBeforeAgentStart to detect completed tasks and create new traces
   session.taskStatus = "completed";
+}
+
+// ─────────────────────────────────────────────
+// LLM Output Hook (for precise token usage)
+// ─────────────────────────────────────────────
+
+export async function onLlmOutput(
+  event: {
+    runId: string;
+    sessionId: string;
+    provider: string;
+    model: string;
+    assistantTexts: string[];
+    lastAssistant?: unknown;
+    usage?: {
+      input?: number;
+      output?: number;
+      cacheRead?: number;
+      cacheWrite?: number;
+      total?: number;
+    };
+  },
+  ctx: { agentId?: string; sessionId?: string; sessionKey?: string; runId?: string }
+): Promise<void> {
+  console.log(`[openclaw-agentlog][DEBUG] llm_output hook fired! model=${event.model}, usage=`, JSON.stringify(event.usage));
+  
+  // Find session
+  let session = currentSession;
+  if (!session && ctx.sessionId) {
+    session = sessionByTraceId.get(ctx.sessionId) || null;
+  }
+  
+  if (!session) {
+    console.log(`[openclaw-agentlog][DEBUG] llm_output skipped: no currentSession`);
+    return;
+  }
+
+  // Store precise token usage in session for later use
+  if (event.usage) {
+    session.llmUsage = {
+      provider: event.provider,
+      model: event.model,
+      inputTokens: event.usage.input,
+      outputTokens: event.usage.output,
+      cacheReadTokens: event.usage.cacheRead,
+      cacheWriteTokens: event.usage.cacheWrite,
+      totalTokens: event.usage.total,
+    };
+    console.log(`[openclaw-agentlog] LLM usage captured: ${event.model} - input=${event.usage.input}, output=${event.usage.output}, total=${event.usage.total}`);
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -985,23 +1049,23 @@ export async function onSessionEnd(
   }
 }
 
-export function register(api: {
-  on(event: string, handler: (...args: unknown[]) => unknown, opts?: { priority?: number }): void;
-  registerHook(event: string, handler: (...args: unknown[]) => unknown, opts?: { name?: string; description?: string }): void;
-}): void {
-  api.on('before_agent_start', onBeforeAgentStart);
-  api.on('session_start', onSessionStart);
-  api.on('before_tool_call', beforeToolCall);
-  api.on('after_tool_call', afterToolCall);
-  api.on('agent_end', onAgentEnd);
-  api.on('session_end', onSessionEnd);
-}
+/**
+ * Plugin entry point using OpenClaw v3.22+ definePluginEntry pattern
+ */
+const pluginDefinition = definePluginEntry({
+  id: "openclaw-agentlog",
+  name: "OpenClaw Agent Log",
+  description: "OpenClaw Agent 自动存证与 Trace 生命周期管理 - 使用 trace/span API",
+  register(api: OpenClawPluginApi) {
+    api.on('before_agent_start', onBeforeAgentStart);
+    api.on('session_start', onSessionStart);
+    api.on('before_tool_call', beforeToolCall);
+    api.on('after_tool_call', afterToolCall);
+    api.on('agent_end', onAgentEnd);
+    api.on('session_end', onSessionEnd);
+    api.on('llm_output', onLlmOutput);
+  },
+});
 
-export default { register, skillMetadata, hooks: {
-  before_agent_start: onBeforeAgentStart,
-  session_start: onSessionStart,
-  before_tool_call: beforeToolCall,
-  after_tool_call: afterToolCall,
-  agent_end: onAgentEnd,
-  session_end: onSessionEnd,
-}};
+export default pluginDefinition;
+export { register, skillMetadata };

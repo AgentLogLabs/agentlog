@@ -13,11 +13,13 @@
     }
   ],
   "hooks": [
+    "before_agent_start",
     "session_start",
     "before_tool_call",
     "after_tool_call",
     "agent_end",
-    "session_end"
+    "session_end",
+    "llm_output"
   ],
   "configSchema": {
     "type": "object",
