@@ -20,7 +20,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { nanoid } from "nanoid";
 import type { PendingTraceEntry, ActiveSessionEntry, SessionsJson } from "@agentlog/shared";
-import { definePluginEntry, type OpenClawPluginApi } from "./types/openclaw-sdk.js";
+import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 
 // ─────────────────────────────────────────────
 // Backend Configuration
@@ -1059,9 +1059,10 @@ export async function onSessionEnd(
 }
 
 /**
- * Plugin entry point using OpenClaw v3.22+ definePluginEntry pattern
+ * OpenClaw Agent Log Plugin
+ * OpenClaw Agent 自动存证与 Trace 生命周期管理 - 使用 trace/span API
  */
-const pluginDefinition = definePluginEntry({
+const plugin = {
   id: "openclaw-agentlog",
   name: "OpenClaw Agent Log",
   description: "OpenClaw Agent 自动存证与 Trace 生命周期管理 - 使用 trace/span API",
@@ -1074,7 +1075,6 @@ const pluginDefinition = definePluginEntry({
     api.on('session_end', onSessionEnd);
     api.on('llm_output', onLlmOutput);
   },
-});
+};
 
-export default pluginDefinition;
-export { register, skillMetadata };
+export default plugin;
