@@ -75,25 +75,8 @@ jobs:
       - name: Build shared package
         run: pnpm build:shared
 
-      # Clean native module build artifacts (same as local package.sh)
-      - name: Clean native modules before rebuild
-        run: |
-          npm_config_arch=x64
-          npm_config_platform=darwin
-          for entry in $(find packages -name "node_modules" -type d); do
-            rm -rf "$entry/build"
-            rm -rf "$entry/.node-gyp"
-            rm -rf "$entry/binding.gyp"
-          done
-        env:
-          npm_config_arch: ${{ matrix.arch }}
-          npm_config_platform: ${{ matrix.platform }}
-
-      - name: Build backend (rebuilds native modules from source)
+      - name: Build backend
         run: pnpm build:backend
-        env:
-          npm_config_arch: ${{ matrix.arch }}
-          npm_config_platform: ${{ matrix.platform }}
 
       - name: Build VSCode extension
         run: pnpm build:ext

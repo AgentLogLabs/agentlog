@@ -1,0 +1,33 @@
+{
+  "name": "openclaw-agentlog",
+  "version": "1.0.0",
+  "description": "OpenClaw Agent 自动存证与 Trace 生命周期管理 Skill",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "postinstall": "node scripts/postinstall.js"
+  },
+  "openclaw": {
+    "extensions": [
+      "./src/index.ts"
+    ],
+    "hooks": {
+      "before_agent_start": true,
+      "session_start": true,
+      "before_tool_call": true,
+      "after_tool_call": true,
+      "agent_end": true,
+      "session_end": true,
+      "llm_output": true
+    }
+  },
+  "dependencies": {
+    "nanoid": "^5.1.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}

@@ -1,7 +1,7 @@
 {
-  "name": "@agentlog/agentlog-auto",
-  "version": "1.1.0",
-  "description": "AgentLog Auto Logging Skill for OpenClaw - automatic compliance logging",
+  "name": "@agentlog/agentlog-daily-report",
+  "version": "1.0.0",
+  "description": "AgentLog Daily Report Skill for OpenClaw - daily work reports and summaries",
   "main": "src/index.ts",
   "type": "module",
   "scripts": {
@@ -11,9 +11,8 @@
   "keywords": [
     "openclaw",
     "agentlog",
-    "compliance",
-    "audit",
-    "logging"
+    "daily-report",
+    "reporting"
   ],
   "author": "AgentLog Team",
   "license": "Apache-2.0",
