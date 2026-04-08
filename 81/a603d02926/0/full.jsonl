@@ -1,0 +1,950 @@
+{
+  "info": {
+    "id": "ses_29252abcfffeLDJEOuxIqCRaxB",
+    "slug": "nimble-planet",
+    "projectID": "bf4c3e099400a06715a042f25f06edf8caeff610",
+    "directory": "/Users/hobo/Projects/AgentLog",
+    "title": "VSCode插件changelog未更新",
+    "version": "1.3.7",
+    "summary": {
+      "additions": 13,
+      "deletions": 0,
+      "files": 1
+    },
+    "time": {
+      "created": 1775661569072,
+      "updated": 1775661606791
+    }
+  },
+  "messages": [
+    {
+      "info": {
+        "role": "user",
+        "time": {
+          "created": 1775661569102
+        },
+        "summary": {
+          "diffs": [
+            {
+              "file": "packages/vscode-extension/CHANGELOG.md",
+              "before": "# Changelog\n\nAll notable changes to the \"AgentLog — AI 编程行车记录仪\" extension will be documented in this file.\n\nCheck [Keep a Changelog](https://keepachangelog.com/) for recommendations on how to structure this file.\n\n## [1.1.0] - 2026-04-04\n\n### Added\n- **Phase 1 架构升级** — 全新 Trace/Span 可观测性标准\n- **T1**: traces/spans 表 + ULID 主键机制（工业级可观测性标准）\n- **T2**: SSE 广播 + MCP 双轨通信层（支持大模型 IDE 持久化连接）\n- **T3**: POST /api/spans 高性能写入接口（高频无阻塞，专供探针）\n- **T4**: OpenClaw Hook 探针（TelemetryProbe，旁路拦截 Agent 原生 Hook）\n- **T5**: Git Hook post-commit 拦截（捕获人类提交流程，关联 AI 会话）\n- **T6**: Trace summary API（`get_trace_summary` MCP 工具）\n- **T7**: Trace diff API（对比两个 Trace 差异）\n- **T8**: SSE 实时刷新 + VS Code 树状视图（探针数据实时推送）\n\n### Changed\n- 底层数据模型重构（废弃 agent_sessions 表）\n- 版本升级至 v1.1.0\n\n### Fixed\n- 修复多 worktree 场景下的会话绑定问题\n\n## [1.0.1] - 2026-04-01\n\n### Added\n- **关键字优化**：插件描述增加 DeepSeek、Git、编程助手等关键字，提升 marketplace 搜索曝光\n- **Trae IDE 支持**：新增对字节跳动 Trae AI 编程 IDE 的支持\n- **用户增长支持**：优化产品说明文档\n\n### Changed\n- 版本升级至 v1.0.1\n\n## [0.1.6]\n\n### Added\n- GitHub feedback command in sidebar (opens Issues page)\n- Issue templates for bug reports and feature requests\n\n## [0.1.5] - 2026-03-30\n\n### Fixed\n- Native module cross-arch build support\n- darwin-x64 architecture detection for better-sqlite3\n- macOS runner for darwin-x64 builds\n- package.sh multi-target support\n\n## [0.1.4] - 2026-03-30\n\n### Changed\n- License updated to Apache 2.0\n\n## [0.1.3] - 2026-03-30\n\n### Changed\n- VSIX packaging workflow improvements\n\n## [0.1.2] - 2026-03-30\n\n### Fixed\n- better-sqlite3 native module rebuild in CI (use Node.js 22 to match VS Code extension host)\n\n## [0.1.1] - 2026-03-30\n\n### Added\n- Multi-platform VSIX build workflow (Windows, macOS, Linux)\n\n### Fixed\n- VSIX package workflow YAML indentation and vsce path\n- vsce --target flag auto-detection\n- macos-latest runner for darwin-x64 (macos-13 deprecated)\n- vsce@2.24.0 to avoid macos runner bug\n\n## [0.1.0] - 2026-03-29\n\n### Added\n- Initial public release of AgentLog AI Programming Driving Recorder\n- Automatic capture of AI agent interaction logs (DeepSeek/Qwen/Kimi/etc.)\n- Git Commit automatic binding and manual binding\n- VS Code sidebar panel: session list + Commit binding view\n- One-click export: Chinese weekly report, PR/Code Review description, JSONL, CSV\n- Commit context document generation (Markdown/JSON/XML)\n- Commit AI interaction explanation summary\n- MCP server integration: supports automatic reporting from AI clients like OpenCode/Cursor\n- Local SQLite storage, completely offline available\n- Support for domestic mainstream models: DeepSeek, Qwen, Kimi, ChatGLM, etc.\n- Support for AI programming tools: Cline, Cursor, Continue, etc.\n- HTTP interceptor for API call interception\n- Git post-commit hook injection\n- VS Code chat participant integration\n- Configuration options for backend URL, auto-capture, retention days, etc.\n- Debug logging and output panel integration\n",
+              "after": "# Changelog\n\nAll notable changes to the \"AgentLog — AI 编程行车记录仪\" extension will be documented in this file.\n\nCheck [Keep a Changelog](https://keepachangelog.com/) for recommendations on how to structure this file.\n\n## [1.1.2] - 2026-04-08\n\n### Changed\n- 版本升级至 v1.1.2\n\n## [1.1.1] - 2026-04-06\n\n### Changed\n- 导出功能优化：trace 导出时增加 toolInput 和 result 字段展示\n\n### Fixed\n- 版本升级至 v1.1.1\n\n## [1.1.0] - 2026-04-04\n\n### Added\n- **Phase 1 架构升级** — 全新 Trace/Span 可观测性标准\n- **T1**: traces/spans 表 + ULID 主键机制（工业级可观测性标准）\n- **T2**: SSE 广播 + MCP 双轨通信层（支持大模型 IDE 持久化连接）\n- **T3**: POST /api/spans 高性能写入接口（高频无阻塞，专供探针）\n- **T4**: OpenClaw Hook 探针（TelemetryProbe，旁路拦截 Agent 原生 Hook）\n- **T5**: Git Hook post-commit 拦截（捕获人类提交流程，关联 AI 会话）\n- **T6**: Trace summary API（`get_trace_summary` MCP 工具）\n- **T7**: Trace diff API（对比两个 Trace 差异）\n- **T8**: SSE 实时刷新 + VS Code 树状视图（探针数据实时推送）\n\n### Changed\n- 底层数据模型重构（废弃 agent_sessions 表）\n- 版本升级至 v1.1.0\n\n### Fixed\n- 修复多 worktree 场景下的会话绑定问题\n\n## [1.0.1] - 2026-04-01\n\n### Added\n- **关键字优化**：插件描述增加 DeepSeek、Git、编程助手等关键字，提升 marketplace 搜索曝光\n- **Trae IDE 支持**：新增对字节跳动 Trae AI 编程 IDE 的支持\n- **用户增长支持**：优化产品说明文档\n\n### Changed\n- 版本升级至 v1.0.1\n\n## [0.1.6]\n\n### Added\n- GitHub feedback command in sidebar (opens Issues page)\n- Issue templates for bug reports and feature requests\n\n## [0.1.5] - 2026-03-30\n\n### Fixed\n- Native module cross-arch build support\n- darwin-x64 architecture detection for better-sqlite3\n- macOS runner for darwin-x64 builds\n- package.sh multi-target support\n\n## [0.1.4] - 2026-03-30\n\n### Changed\n- License updated to Apache 2.0\n\n## [0.1.3] - 2026-03-30\n\n### Changed\n- VSIX packaging workflow improvements\n\n## [0.1.2] - 2026-03-30\n\n### Fixed\n- better-sqlite3 native module rebuild in CI (use Node.js 22 to match VS Code extension host)\n\n## [0.1.1] - 2026-03-30\n\n### Added\n- Multi-platform VSIX build workflow (Windows, macOS, Linux)\n\n### Fixed\n- VSIX package workflow YAML indentation and vsce path\n- vsce --target flag auto-detection\n- macos-latest runner for darwin-x64 (macos-13 deprecated)\n- vsce@2.24.0 to avoid macos runner bug\n\n## [0.1.0] - 2026-03-29\n\n### Added\n- Initial public release of AgentLog AI Programming Driving Recorder\n- Automatic capture of AI agent interaction logs (DeepSeek/Qwen/Kimi/etc.)\n- Git Commit automatic binding and manual binding\n- VS Code sidebar panel: session list + Commit binding view\n- One-click export: Chinese weekly report, PR/Code Review description, JSONL, CSV\n- Commit context document generation (Markdown/JSON/XML)\n- Commit AI interaction explanation summary\n- MCP server integration: supports automatic reporting from AI clients like OpenCode/Cursor\n- Local SQLite storage, completely offline available\n- Support for domestic mainstream models: DeepSeek, Qwen, Kimi, ChatGLM, etc.\n- Support for AI programming tools: Cline, Cursor, Continue, etc.\n- HTTP interceptor for API call interception\n- Git post-commit hook injection\n- VS Code chat participant integration\n- Configuration options for backend URL, auto-capture, retention days, etc.\n- Debug logging and output panel integration\n",
+              "additions": 13,
+              "deletions": 0,
+              "status": "modified"
+            }
+          ]
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "minimax-cn-coding-plan",
+          "modelID": "MiniMax-M2.7"
+        },
+        "id": "msg_d6dad5445001ltAy5ViYMCCoeb",
+        "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB"
+      },
+      "parts": [
+        {
+          "type": "text",
+          "text": "vscode 插件的changelog没有更新",
+          "id": "prt_d6dad5445002cfEZwH3MDZycO1",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dad5445001ltAy5ViYMCCoeb"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1775661569117,
+          "completed": 1775661573630
+        },
+        "parentID": "msg_d6dad5445001ltAy5ViYMCCoeb",
+        "modelID": "MiniMax-M2.7",
+        "providerID": "minimax-cn-coding-plan",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 16297,
+          "input": 90,
+          "output": 83,
+          "reasoning": 0,
+          "cache": {
+            "write": 16124,
+            "read": 0
+          }
+        },
+        "finish": "tool-calls",
+        "id": "msg_d6dad545d001oKjc3x3WyrFIuE",
+        "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB"
+      },
+      "parts": [
+        {
+          "snapshot": "1cac87c360a8d3f57d677ac65039165dc532b3fe",
+          "type": "step-start",
+          "id": "prt_d6dad62f20010IMQ06JVwbExdR",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dad545d001oKjc3x3WyrFIuE"
+        },
+        {
+          "type": "reasoning",
+          "text": "用户说 VSCode 插件的 changelog 没有更新。我需要先了解一下项目的结构，找到 VSCode 插件的 changelog 文件位置。",
+          "time": {
+            "start": 1775661572851,
+            "end": 1775661572852
+          },
+          "metadata": {
+            "anthropic": {
+              "signature": "27d7844355d83a0eb9dc84146c29fd9ae4c9b23ebb2118a9116af62f6265b4f4"
+            }
+          },
+          "id": "prt_d6dad62f3001GJzIMRX9Of14wh",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dad545d001oKjc3x3WyrFIuE"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "call_function_3kobcdba6s55_1",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "**/CHANGELOG*"
+            },
+            "output": "/Users/hobo/Projects/AgentLog/packages/vscode-extension/CHANGELOG.md",
+            "metadata": {
+              "count": 1,
+              "truncated": false
+            },
+            "title": "",
+            "time": {
+              "start": 1775661573325,
+              "end": 1775661573357
+            }
+          },
+          "id": "prt_d6dad64c2001VUlPKbwuxbC3E9",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dad545d001oKjc3x3WyrFIuE"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "call_function_3kobcdba6s55_2",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "**/changelog*"
+            },
+            "output": "No files found",
+            "metadata": {
+              "count": 0,
+              "truncated": false
+            },
+            "title": "",
+            "time": {
+              "start": 1775661573512,
+              "end": 1775661573532
+            }
+          },
+          "id": "prt_d6dad64d0001okA6RaKvbMo8e0",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dad545d001oKjc3x3WyrFIuE"
+        },
+        {
+          "reason": "tool-calls",
+          "snapshot": "1cac87c360a8d3f57d677ac65039165dc532b3fe",
+          "type": "step-finish",
+          "tokens": {
+            "total": 16297,
+            "input": 90,
+            "output": 83,
+            "reasoning": 0,
+            "cache": {
+              "write": 16124,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_d6dad659f0014WLEumzj6lWIWH",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dad545d001oKjc3x3WyrFIuE"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1775661573634,
+          "completed": 1775661577334
+        },
+        "parentID": "msg_d6dad5445001ltAy5ViYMCCoeb",
+        "modelID": "MiniMax-M2.7",
+        "providerID": "minimax-cn-coding-plan",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 16453,
+          "input": 124,
+          "output": 117,
+          "reasoning": 0,
+          "cache": {
+            "write": 102,
+            "read": 16110
+          }
+        },
+        "finish": "tool-calls",
+        "id": "msg_d6dad6602001Xws6Tqx7X4i2Wr",
+        "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB"
+      },
+      "parts": [
+        {
+          "snapshot": "1cac87c360a8d3f57d677ac65039165dc532b3fe",
+          "type": "step-start",
+          "id": "prt_d6dad6e98001Y7tudFdfDkB8pA",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dad6602001Xws6Tqx7X4i2Wr"
+        },
+        {
+          "type": "reasoning",
+          "text": "找到了 CHANGELOG.md 文件在 vscode-extension 包中。让我读取这个文件看看当前的内容，然后了解项目的 recent commits 来帮助用户更新 changelog。",
+          "time": {
+            "start": 1775661575834,
+            "end": 1775661576401
+          },
+          "metadata": {
+            "anthropic": {
+              "signature": "7105483759ca9da856b2a4feaae157dffc5d75fa289cac4967032de00627ec1b"
+            }
+          },
+          "id": "prt_d6dad6e9a001LNAzTlw6dbrqO1",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dad6602001Xws6Tqx7X4i2Wr"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "call_function_zlukg2h43gvg_1",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/Users/hobo/Projects/AgentLog/packages/vscode-extension/CHANGELOG.md"
+            },
+            "output": "<path>/Users/hobo/Projects/AgentLog/packages/vscode-extension/CHANGELOG.md</path>\n<type>file</type>\n<content>1: # Changelog\n2: \n3: All notable changes to the \"AgentLog — AI 编程行车记录仪\" extension will be documented in this file.\n4: \n5: Check [Keep a Changelog](https://keepachangelog.com/) for recommendations on how to structure this file.\n6: \n7: ## [1.1.0] - 2026-04-04\n8: \n9: ### Added\n10: - **Phase 1 架构升级** — 全新 Trace/Span 可观测性标准\n11: - **T1**: traces/spans 表 + ULID 主键机制（工业级可观测性标准）\n12: - **T2**: SSE 广播 + MCP 双轨通信层（支持大模型 IDE 持久化连接）\n13: - **T3**: POST /api/spans 高性能写入接口（高频无阻塞，专供探针）\n14: - **T4**: OpenClaw Hook 探针（TelemetryProbe，旁路拦截 Agent 原生 Hook）\n15: - **T5**: Git Hook post-commit 拦截（捕获人类提交流程，关联 AI 会话）\n16: - **T6**: Trace summary API（`get_trace_summary` MCP 工具）\n17: - **T7**: Trace diff API（对比两个 Trace 差异）\n18: - **T8**: SSE 实时刷新 + VS Code 树状视图（探针数据实时推送）\n19: \n20: ### Changed\n21: - 底层数据模型重构（废弃 agent_sessions 表）\n22: - 版本升级至 v1.1.0\n23: \n24: ### Fixed\n25: - 修复多 worktree 场景下的会话绑定问题\n26: \n27: ## [1.0.1] - 2026-04-01\n28: \n29: ### Added\n30: - **关键字优化**：插件描述增加 DeepSeek、Git、编程助手等关键字，提升 marketplace 搜索曝光\n31: - **Trae IDE 支持**：新增对字节跳动 Trae AI 编程 IDE 的支持\n32: - **用户增长支持**：优化产品说明文档\n33: \n34: ### Changed\n35: - 版本升级至 v1.0.1\n36: \n37: ## [0.1.6]\n38: \n39: ### Added\n40: - GitHub feedback command in sidebar (opens Issues page)\n41: - Issue templates for bug reports and feature requests\n42: \n43: ## [0.1.5] - 2026-03-30\n44: \n45: ### Fixed\n46: - Native module cross-arch build support\n47: - darwin-x64 architecture detection for better-sqlite3\n48: - macOS runner for darwin-x64 builds\n49: - package.sh multi-target support\n50: \n51: ## [0.1.4] - 2026-03-30\n52: \n53: ### Changed\n54: - License updated to Apache 2.0\n55: \n56: ## [0.1.3] - 2026-03-30\n57: \n58: ### Changed\n59: - VSIX packaging workflow improvements\n60: \n61: ## [0.1.2] - 2026-03-30\n62: \n63: ### Fixed\n64: - better-sqlite3 native module rebuild in CI (use Node.js 22 to match VS Code extension host)\n65: \n66: ## [0.1.1] - 2026-03-30\n67: \n68: ### Added\n69: - Multi-platform VSIX build workflow (Windows, macOS, Linux)\n70: \n71: ### Fixed\n72: - VSIX package workflow YAML indentation and vsce path\n73: - vsce --target flag auto-detection\n74: - macos-latest runner for darwin-x64 (macos-13 deprecated)\n75: - vsce@2.24.0 to avoid macos runner bug\n76: \n77: ## [0.1.0] - 2026-03-29\n78: \n79: ### Added\n80: - Initial public release of AgentLog AI Programming Driving Recorder\n81: - Automatic capture of AI agent interaction logs (DeepSeek/Qwen/Kimi/etc.)\n82: - Git Commit automatic binding and manual binding\n83: - VS Code sidebar panel: session list + Commit binding view\n84: - One-click export: Chinese weekly report, PR/Code Review description, JSONL, CSV\n85: - Commit context document generation (Markdown/JSON/XML)\n86: - Commit AI interaction explanation summary\n87: - MCP server integration: supports automatic reporting from AI clients like OpenCode/Cursor\n88: - Local SQLite storage, completely offline available\n89: - Support for domestic mainstream models: DeepSeek, Qwen, Kimi, ChatGLM, etc.\n90: - Support for AI programming tools: Cline, Cursor, Continue, etc.\n91: - HTTP interceptor for API call interception\n92: - Git post-commit hook injection\n93: - VS Code chat participant integration\n94: - Configuration options for backend URL, auto-capture, retention days, etc.\n95: - Debug logging and output panel integration\n\n(End of file - total 95 lines)\n</content>",
+            "metadata": {
+              "preview": "# Changelog\n\nAll notable changes to the \"AgentLog — AI 编程行车记录仪\" extension will be documented in this file.\n\nCheck [Keep a Changelog](https://keepachangelog.com/) for recommendations on how to structure this file.\n\n## [1.1.0] - 2026-04-04\n\n### Added\n- **Phase 1 架构升级** — 全新 Trace/Span 可观测性标准\n- **T1**: traces/spans 表 + ULID 主键机制（工业级可观测性标准）\n- **T2**: SSE 广播 + MCP 双轨通信层（支持大模型 IDE 持久化连接）\n- **T3**: POST /api/spans 高性能写入接口（高频无阻塞，专供探针）\n- **T4**: OpenClaw Hook 探针（TelemetryProbe，旁路拦截 Agent 原生 Hook）\n- **T5**: Git Hook post-commit 拦截（捕获人类提交流程，关联 AI 会话）\n- **T6**: Trace summary API（`get_trace_summary` MCP 工具）\n- **T7**: Trace diff API（对比两个 Trace 差异）\n- **T8**: SSE 实时刷新 + VS Code 树状视图（探针数据实时推送）\n\n### Changed",
+              "truncated": false,
+              "loaded": []
+            },
+            "title": "packages/vscode-extension/CHANGELOG.md",
+            "time": {
+              "start": 1775661577028,
+              "end": 1775661577054
+            }
+          },
+          "id": "prt_d6dad70d4001khBfg2WTiy74Sf",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dad6602001Xws6Tqx7X4i2Wr"
+        },
+        {
+          "type": "tool",
+          "tool": "bash",
+          "callID": "call_function_zlukg2h43gvg_2",
+          "state": {
+            "status": "completed",
+            "input": {
+              "command": "git log --oneline -20",
+              "description": "Show recent git commits"
+            },
+            "output": "8c36329 chore: bump version to 1.1.2\n1b215ca feat: AgentLog OpenClaw 集成 - 自动存证与日报 Skill (#25)\neee4a31 fix(vscode): remove darwin-x64 from CI - use macos-latest for all platforms\n6258a6a fix(vscode): clean native modules before rebuild + use macos-13 (#24)\n6b19bd6 hotfix: merge phase1-tickets into main for v1.1.1 release\na07b26a chore: bump version to 1.1.1 and update README/extension for hotfix release\ne2e9b02 docs: update README to enhance description and clarify core features\n57a659f feat(builder): Phase 1 - T1~T8 全部完成 (#16)\n5a8c3ca docs: update README to enhance description and clarify core features\nc54287e fix(export): schema validation errors return { success: false }\n59c10ca docs(builder): add Stage1 design docs and missing tickets\n2bdb675 feat: 提取并记录操作的文件路径，增强 Trace 相关功能\n3d5d990 feat: 增加 affected_files 字段以记录交互改动的文件列表，并更新相关功能\nb4e76ad feat: Commit 绑定与 Trace 删除功能\n1373581 feat: OpenCode/OpenClaw Agent 增强\nd100cfb feat(phase1): Trace/Span 核心功能增强\ndb622f7 feat(builder): Trace视图增强 - 每Span显示时间戳和Token\nb73ff06 feat(builder): 废弃Session视图，迁移到Trace视图\n50a0e57 feat(builder): Trace视图增强 - Token统计/时间线/Human内容\nfc7d45c feat(builder): 实现 Trace 详情视图\n",
+            "metadata": {
+              "output": "8c36329 chore: bump version to 1.1.2\n1b215ca feat: AgentLog OpenClaw 集成 - 自动存证与日报 Skill (#25)\neee4a31 fix(vscode): remove darwin-x64 from CI - use macos-latest for all platforms\n6258a6a fix(vscode): clean native modules before rebuild + use macos-13 (#24)\n6b19bd6 hotfix: merge phase1-tickets into main for v1.1.1 release\na07b26a chore: bump version to 1.1.1 and update README/extension for hotfix release\ne2e9b02 docs: update README to enhance description and clarify core features\n57a659f feat(builder): Phase 1 - T1~T8 全部完成 (#16)\n5a8c3ca docs: update README to enhance description and clarify core features\nc54287e fix(export): schema validation errors return { success: false }\n59c10ca docs(builder): add Stage1 design docs and missing tickets\n2bdb675 feat: 提取并记录操作的文件路径，增强 Trace 相关功能\n3d5d990 feat: 增加 affected_files 字段以记录交互改动的文件列表，并更新相关功能\nb4e76ad feat: Commit 绑定与 Trace 删除功能\n1373581 feat: OpenCode/OpenClaw Agent 增强\nd100cfb feat(phase1): Trace/Span 核心功能增强\ndb622f7 feat(builder): Trace视图增强 - 每Span显示时间戳和Token\nb73ff06 feat(builder): 废弃Session视图，迁移到Trace视图\n50a0e57 feat(builder): Trace视图增强 - Token统计/时间线/Human内容\nfc7d45c feat(builder): 实现 Trace 详情视图\n",
+              "exit": 0,
+              "description": "Show recent git commits",
+              "truncated": false
+            },
+            "title": "Show recent git commits",
+            "time": {
+              "start": 1775661577197,
+              "end": 1775661577269
+            }
+          },
+          "id": "prt_d6dad7348001QI6762q1Bciu2P",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dad6602001Xws6Tqx7X4i2Wr"
+        },
+        {
+          "reason": "tool-calls",
+          "snapshot": "1cac87c360a8d3f57d677ac65039165dc532b3fe",
+          "type": "step-finish",
+          "tokens": {
+            "total": 16453,
+            "input": 124,
+            "output": 117,
+            "reasoning": 0,
+            "cache": {
+              "write": 102,
+              "read": 16110
+            }
+          },
+          "cost": 0,
+          "id": "prt_d6dad7436001BJQyTOQ4QvYfio",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dad6602001Xws6Tqx7X4i2Wr"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1775661577336,
+          "completed": 1775661585429
+        },
+        "parentID": "msg_d6dad5445001ltAy5ViYMCCoeb",
+        "modelID": "MiniMax-M2.7",
+        "providerID": "minimax-cn-coding-plan",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 18341,
+          "input": 1649,
+          "output": 324,
+          "reasoning": 0,
+          "cache": {
+            "write": 244,
+            "read": 16124
+          }
+        },
+        "finish": "tool-calls",
+        "id": "msg_d6dad74780017lUm9oGdL5wjfE",
+        "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB"
+      },
+      "parts": [
+        {
+          "snapshot": "1cac87c360a8d3f57d677ac65039165dc532b3fe",
+          "type": "step-start",
+          "id": "prt_d6dad7ed1001t6vQBWexfqzgNL",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dad74780017lUm9oGdL5wjfE"
+        },
+        {
+          "type": "reasoning",
+          "text": "我看到最近一次提交是 `8c36329 chore: bump version to 1.1.2`，但是 changelog 里最新的版本是 `[1.1.0] - 2026-04-04`。看起来 1.1.1 和 1.1.2 的变更没有记录到 changelog 中。\n\n让我查看一下 1.1.1 和 1.1.2 版本的具体变更内容，以便帮用户更新 changelog。\n\n从 git log 来看：\n- `8c36329` - chore: bump version to 1.1.2\n- `6b19bd6` - hotfix: merge phase1-tickets into main for v1.1.1 release\n- `a07b26a` - chore: bump version to 1.1.1 and update README/extension for hotfix release\n\n让我查看这些 commit 的具体内容来确定更新内容。",
+          "time": {
+            "start": 1775661579986,
+            "end": 1775661583303
+          },
+          "metadata": {
+            "anthropic": {
+              "signature": "32ff0b167890db95f49aa4221a1a70d069814792a5dd256a436486f741e25ee4"
+            }
+          },
+          "id": "prt_d6dad7ed2001OWpv0CbbRcX0ch",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dad74780017lUm9oGdL5wjfE"
+        },
+        {
+          "type": "text",
+          "text": "CHANGELOG 最新是 `1.1.0`，但版本已升至 `1.1.2`。让我查看 1.1.1 和 1.1.2 的变更：",
+          "time": {
+            "start": 1775661584202,
+            "end": 1775661584202
+          },
+          "id": "prt_d6dad8bca001ggMO6BbjRY6m57",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dad74780017lUm9oGdL5wjfE"
+        },
+        {
+          "type": "tool",
+          "tool": "bash",
+          "callID": "call_function_gofnw7jwh4pe_1",
+          "state": {
+            "status": "completed",
+            "input": {
+              "command": "git show a07b26a --stat && echo \"---\" && git show 6b19bd6 --stat && echo \"---\" && git show 8c36329 --stat",
+              "description": "Show commit details for 1.1.1 and 1.1.2"
+            },
+            "output": "commit a07b26ad8b89da49cf0f2a02f97e200f950651c3\nAuthor: hobo0cn <hobo0cn@gmail.com>\nDate:   Mon Apr 6 02:16:48 2026 +0800\n\n    chore: bump version to 1.1.1 and update README/extension for hotfix release\n    \n    Entire-Checkpoint: 295c476ed285\n\n README.md                                  | 215 +++++++++++++++++++++++++++--\n package.json                               |   2 +-\n packages/backend/package.json              |   2 +-\n packages/shared/package.json               |   2 +-\n packages/vscode-extension/package.json     |   2 +-\n packages/vscode-extension/src/extension.ts |  16 ++-\n 6 files changed, 225 insertions(+), 14 deletions(-)\n---\ncommit 6b19bd61123b2646c46171ef5586c0d98674857a\nMerge: e2e9b02 a07b26a\nAuthor: hobo0cn <hobo0cn@gmail.com>\nDate:   Mon Apr 6 02:19:09 2026 +0800\n\n    hotfix: merge phase1-tickets into main for v1.1.1 release\n    \n    Entire-Checkpoint: 2c61b4ba09cd\n\n README.md                                  | 215 +++++++++++++++++++++++++++--\n package.json                               |   2 +-\n packages/backend/package.json              |   2 +-\n packages/shared/package.json               |   2 +-\n packages/vscode-extension/package.json     |   2 +-\n packages/vscode-extension/src/extension.ts |  16 ++-\n 6 files changed, 225 insertions(+), 14 deletions(-)\n---\ncommit 8c3632948d17ea835b15e280360225b4229ed040\nAuthor: hobo0cn <hobo0cn@gmail.com>\nDate:   Wed Apr 8 23:12:43 2026 +0800\n\n    chore: bump version to 1.1.2\n    \n    Entire-Checkpoint: 36c0aaac845e\n\n package.json                           | 2 +-\n packages/backend/package.json          | 2 +-\n packages/openclaw-agent/package.json   | 2 +-\n packages/shared/package.json           | 2 +-\n packages/vscode-extension/package.json | 2 +-\n 5 files changed, 5 insertions(+), 5 deletions(-)\n",
+            "metadata": {
+              "output": "commit a07b26ad8b89da49cf0f2a02f97e200f950651c3\nAuthor: hobo0cn <hobo0cn@gmail.com>\nDate:   Mon Apr 6 02:16:48 2026 +0800\n\n    chore: bump version to 1.1.1 and update README/extension for hotfix release\n    \n    Entire-Checkpoint: 295c476ed285\n\n README.md                                  | 215 +++++++++++++++++++++++++++--\n package.json                               |   2 +-\n packages/backend/package.json              |   2 +-\n packages/shared/package.json               |   2 +-\n packages/vscode-extension/package.json     |   2 +-\n packages/vscode-extension/src/extension.ts |  16 ++-\n 6 files changed, 225 insertions(+), 14 deletions(-)\n---\ncommit 6b19bd61123b2646c46171ef5586c0d98674857a\nMerge: e2e9b02 a07b26a\nAuthor: hobo0cn <hobo0cn@gmail.com>\nDate:   Mon Apr 6 02:19:09 2026 +0800\n\n    hotfix: merge phase1-tickets into main for v1.1.1 release\n    \n    Entire-Checkpoint: 2c61b4ba09cd\n\n README.md                                  | 215 +++++++++++++++++++++++++++--\n package.json                               |   2 +-\n packages/backend/package.json              |   2 +-\n packages/shared/package.json               |   2 +-\n packages/vscode-extension/package.json     |   2 +-\n packages/vscode-extension/src/extension.ts |  16 ++-\n 6 files changed, 225 insertions(+), 14 deletions(-)\n---\ncommit 8c3632948d17ea835b15e280360225b4229ed040\nAuthor: hobo0cn <hobo0cn@gmail.com>\nDate:   Wed Apr 8 23:12:43 2026 +0800\n\n    chore: bump version to 1.1.2\n    \n    Entire-Checkpoint: 36c0aaac845e\n\n package.json                           | 2 +-\n packages/backend/package.json          | 2 +-\n packages/openclaw-agent/package.json   | 2 +-\n packages/shared/package.json           | 2 +-\n packages/vscode-extension/package.json | 2 +-\n 5 files changed, 5 insertions(+), 5 deletions(-)\n",
+              "exit": 0,
+              "description": "Show commit details for 1.1.1 and 1.1.2",
+              "truncated": false
+            },
+            "title": "Show commit details for 1.1.1 and 1.1.2",
+            "time": {
+              "start": 1775661585298,
+              "end": 1775661585369
+            }
+          },
+          "id": "prt_d6dad8f4d001sGFFEUjTx67sCc",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dad74780017lUm9oGdL5wjfE"
+        },
+        {
+          "reason": "tool-calls",
+          "snapshot": "1cac87c360a8d3f57d677ac65039165dc532b3fe",
+          "type": "step-finish",
+          "tokens": {
+            "total": 18341,
+            "input": 1649,
+            "output": 324,
+            "reasoning": 0,
+            "cache": {
+              "write": 244,
+              "read": 16124
+            }
+          },
+          "cost": 0,
+          "id": "prt_d6dad93d9002veMhyn73bwpIb2",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dad74780017lUm9oGdL5wjfE"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1775661585430,
+          "completed": 1775661588754
+        },
+        "parentID": "msg_d6dad5445001ltAy5ViYMCCoeb",
+        "modelID": "MiniMax-M2.7",
+        "providerID": "minimax-cn-coding-plan",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 18996,
+          "input": 631,
+          "output": 109,
+          "reasoning": 0,
+          "cache": {
+            "write": 2010,
+            "read": 16246
+          }
+        },
+        "finish": "tool-calls",
+        "id": "msg_d6dad9416001HGuxhTi1U2USBS",
+        "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB"
+      },
+      "parts": [
+        {
+          "snapshot": "1cac87c360a8d3f57d677ac65039165dc532b3fe",
+          "type": "step-start",
+          "id": "prt_d6dad9aaa001Irm2483b9XxTay",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dad9416001HGuxhTi1U2USBS"
+        },
+        {
+          "type": "reasoning",
+          "text": "我看到 1.1.1 主要是在 `extension.ts` 里有 16 行改动，以及 README.md 的大幅更新。让我查看一下 extension.ts 的具体改动，以及 1.1.2 的变更内容。",
+          "time": {
+            "start": 1775661587115,
+            "end": 1775661587759
+          },
+          "metadata": {
+            "anthropic": {
+              "signature": "4068ab52de51ccb3c0830fff3118fa34e541d0b1206ff79fba1cf7be486525e1"
+            }
+          },
+          "id": "prt_d6dad9aab001ZBGzy5ig016kWj",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dad9416001HGuxhTi1U2USBS"
+        },
+        {
+          "type": "tool",
+          "tool": "bash",
+          "callID": "call_function_zn0769v03wn6_1",
+          "state": {
+            "status": "completed",
+            "input": {
+              "command": "git show a07b26a -- packages/vscode-extension/src/extension.ts",
+              "description": "Show extension.ts changes in 1.1.1"
+            },
+            "output": "commit a07b26ad8b89da49cf0f2a02f97e200f950651c3\nAuthor: hobo0cn <hobo0cn@gmail.com>\nDate:   Mon Apr 6 02:16:48 2026 +0800\n\n    chore: bump version to 1.1.1 and update README/extension for hotfix release\n    \n    Entire-Checkpoint: 295c476ed285\n\ndiff --git a/packages/vscode-extension/src/extension.ts b/packages/vscode-extension/src/extension.ts\nindex eb9c1eb..491224a 100644\n--- a/packages/vscode-extension/src/extension.ts\n+++ b/packages/vscode-extension/src/extension.ts\n@@ -1489,10 +1489,22 @@ function registerCommands(\n           const content = (payload.content as string) || \"\";\n           const reasoning = (payload.reasoning as string) || \"\";\n           const toolName = payload.toolName as string | undefined;\n-          \n+          const toolInput = payload.toolInput as Record<string, unknown> | undefined;\n+          const result = payload.result as string | undefined;\n+\n           const roleLabel = role === \"user\" ? \"User\" : role === \"assistant\" ? \"Assistant\" : `Tool(${toolName ?? \"unknown\"})`;\n           parts.push(`### ${roleLabel}`);\n-          if (content) parts.push(content);\n+          if (content) {\n+            parts.push(content);\n+          } else if (toolName) {\n+            if (toolInput) {\n+              parts.push(`Input: ${JSON.stringify(toolInput)}`);\n+            }\n+            if (result) {\n+              parts.push(\"\");\n+              parts.push(`Result: ${result}`);\n+            }\n+          }\n           if (reasoning) {\n             parts.push(\"\");\n             parts.push(\"**推理过程:**\");\n",
+            "metadata": {
+              "output": "commit a07b26ad8b89da49cf0f2a02f97e200f950651c3\nAuthor: hobo0cn <hobo0cn@gmail.com>\nDate:   Mon Apr 6 02:16:48 2026 +0800\n\n    chore: bump version to 1.1.1 and update README/extension for hotfix release\n    \n    Entire-Checkpoint: 295c476ed285\n\ndiff --git a/packages/vscode-extension/src/extension.ts b/packages/vscode-extension/src/extension.ts\nindex eb9c1eb..491224a 100644\n--- a/packages/vscode-extension/src/extension.ts\n+++ b/packages/vscode-extension/src/extension.ts\n@@ -1489,10 +1489,22 @@ function registerCommands(\n           const content = (payload.content as string) || \"\";\n           const reasoning = (payload.reasoning as string) || \"\";\n           const toolName = payload.toolName as string | undefined;\n-          \n+          const toolInput = payload.toolInput as Record<string, unknown> | undefined;\n+          const result = payload.result as string | undefined;\n+\n           const roleLabel = role === \"user\" ? \"User\" : role === \"assistant\" ? \"Assistant\" : `Tool(${toolName ?? \"unknown\"})`;\n           parts.push(`### ${roleLabel}`);\n-          if (content) parts.push(content);\n+          if (content) {\n+            parts.push(content);\n+          } else if (toolName) {\n+            if (toolInput) {\n+              parts.push(`Input: ${JSON.stringify(toolInput)}`);\n+            }\n+            if (result) {\n+              parts.push(\"\");\n+              parts.push(`Result: ${result}`);\n+            }\n+          }\n           if (reasoning) {\n             parts.push(\"\");\n             parts.push(\"**推理过程:**\");\n",
+              "exit": 0,
+              "description": "Show extension.ts changes in 1.1.1",
+              "truncated": false
+            },
+            "title": "Show extension.ts changes in 1.1.1",
+            "time": {
+              "start": 1775661588645,
+              "end": 1775661588685
+            }
+          },
+          "id": "prt_d6dad9feb001ByToz4q7yQ9l4W",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dad9416001HGuxhTi1U2USBS"
+        },
+        {
+          "reason": "tool-calls",
+          "snapshot": "1cac87c360a8d3f57d677ac65039165dc532b3fe",
+          "type": "step-finish",
+          "tokens": {
+            "total": 18996,
+            "input": 631,
+            "output": 109,
+            "reasoning": 0,
+            "cache": {
+              "write": 2010,
+              "read": 16246
+            }
+          },
+          "cost": 0,
+          "id": "prt_d6dada0ce001R677QfWQ0MYnJY",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dad9416001HGuxhTi1U2USBS"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1775661588755,
+          "completed": 1775661592075
+        },
+        "parentID": "msg_d6dad5445001ltAy5ViYMCCoeb",
+        "modelID": "MiniMax-M2.7",
+        "providerID": "minimax-cn-coding-plan",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 19521,
+          "input": 498,
+          "output": 112,
+          "reasoning": 0,
+          "cache": {
+            "write": 984,
+            "read": 17927
+          }
+        },
+        "finish": "tool-calls",
+        "id": "msg_d6dada113001SGCovLJSeVkhim",
+        "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB"
+      },
+      "parts": [
+        {
+          "snapshot": "1cac87c360a8d3f57d677ac65039165dc532b3fe",
+          "type": "step-start",
+          "id": "prt_d6dada8c8001OTKAuRCKkYaCeg",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dada113001SGCovLJSeVkhim"
+        },
+        {
+          "type": "reasoning",
+          "text": "好的，我看到 1.1.1 的变更主要是针对导出功能中的 trace 格式优化，增加了 toolInput 和 result 的展示。\n\n让我再看一下 1.1.2 的具体内容，以及是否还有其他需要记录的变更。",
+          "time": {
+            "start": 1775661590730,
+            "end": 1775661591324
+          },
+          "metadata": {
+            "anthropic": {
+              "signature": "25639c880ec68aecb37da65be6dcd00fdef55e207e56992a9138b021ca95dbf4"
+            }
+          },
+          "id": "prt_d6dada8ca001OT4b5hGK64svcp",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dada113001SGCovLJSeVkhim"
+        },
+        {
+          "type": "tool",
+          "tool": "bash",
+          "callID": "call_function_vjh6bfptaaa2_1",
+          "state": {
+            "status": "completed",
+            "input": {
+              "command": "git log --oneline 1.1.0..HEAD -- packages/vscode-extension",
+              "description": "Show vscode-extension commits since 1.1.0"
+            },
+            "output": "fatal: bad revision '1.1.0..HEAD'\n",
+            "metadata": {
+              "output": "fatal: bad revision '1.1.0..HEAD'\n",
+              "exit": 128,
+              "description": "Show vscode-extension commits since 1.1.0",
+              "truncated": false
+            },
+            "title": "Show vscode-extension commits since 1.1.0",
+            "time": {
+              "start": 1775661591987,
+              "end": 1775661592014
+            }
+          },
+          "id": "prt_d6dadab1e001Mt0ovdxpI5XSk4",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dada113001SGCovLJSeVkhim"
+        },
+        {
+          "reason": "tool-calls",
+          "snapshot": "1cac87c360a8d3f57d677ac65039165dc532b3fe",
+          "type": "step-finish",
+          "tokens": {
+            "total": 19521,
+            "input": 498,
+            "output": 112,
+            "reasoning": 0,
+            "cache": {
+              "write": 984,
+              "read": 17927
+            }
+          },
+          "cost": 0,
+          "id": "prt_d6dadadce002aWqR6oz8dcV0Y1",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dada113001SGCovLJSeVkhim"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1775661592076,
+          "completed": 1775661594542
+        },
+        "parentID": "msg_d6dad5445001ltAy5ViYMCCoeb",
+        "modelID": "MiniMax-M2.7",
+        "providerID": "minimax-cn-coding-plan",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 19612,
+          "input": 113,
+          "output": 63,
+          "reasoning": 0,
+          "cache": {
+            "write": 639,
+            "read": 18797
+          }
+        },
+        "finish": "tool-calls",
+        "id": "msg_d6dadae0c001YmBxfcg5gzPM4r",
+        "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB"
+      },
+      "parts": [
+        {
+          "snapshot": "1cac87c360a8d3f57d677ac65039165dc532b3fe",
+          "type": "step-start",
+          "id": "prt_d6dadb542001vps6IYyyxhQnEI",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dadae0c001YmBxfcg5gzPM4r"
+        },
+        {
+          "type": "reasoning",
+          "text": "让我用另一种方式来查看 vscode-extension 的提交。",
+          "time": {
+            "start": 1775661593923,
+            "end": 1775661593925
+          },
+          "metadata": {
+            "anthropic": {
+              "signature": "6f5d1c0df41bbc05e6073a2781cf7e4cfae76674224514f8fd1a27d396dba347"
+            }
+          },
+          "id": "prt_d6dadb543001Fn65bG40Hqtsuu",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dadae0c001YmBxfcg5gzPM4r"
+        },
+        {
+          "type": "tool",
+          "tool": "bash",
+          "callID": "call_function_o2yshpq5eyjz_1",
+          "state": {
+            "status": "completed",
+            "input": {
+              "command": "git log --oneline -10 -- packages/vscode-extension",
+              "description": "Show vscode-extension commits"
+            },
+            "output": "8c36329 chore: bump version to 1.1.2\na07b26a chore: bump version to 1.1.1 and update README/extension for hotfix release\n2bdb675 feat: 提取并记录操作的文件路径，增强 Trace 相关功能\n3d5d990 feat: 增加 affected_files 字段以记录交互改动的文件列表，并更新相关功能\nb4e76ad feat: Commit 绑定与 Trace 删除功能\n1373581 feat: OpenCode/OpenClaw Agent 增强\nd100cfb feat(phase1): Trace/Span 核心功能增强\ndb622f7 feat(builder): Trace视图增强 - 每Span显示时间戳和Token\nb73ff06 feat(builder): 废弃Session视图，迁移到Trace视图\n50a0e57 feat(builder): Trace视图增强 - Token统计/时间线/Human内容\n",
+            "metadata": {
+              "output": "8c36329 chore: bump version to 1.1.2\na07b26a chore: bump version to 1.1.1 and update README/extension for hotfix release\n2bdb675 feat: 提取并记录操作的文件路径，增强 Trace 相关功能\n3d5d990 feat: 增加 affected_files 字段以记录交互改动的文件列表，并更新相关功能\nb4e76ad feat: Commit 绑定与 Trace 删除功能\n1373581 feat: OpenCode/OpenClaw Agent 增强\nd100cfb feat(phase1): Trace/Span 核心功能增强\ndb622f7 feat(builder): Trace视图增强 - 每Span显示时间戳和Token\nb73ff06 feat(builder): 废弃Session视图，迁移到Trace视图\n50a0e57 feat(builder): Trace视图增强 - Token统计/时间线/Human内容\n",
+              "exit": 0,
+              "description": "Show vscode-extension commits",
+              "truncated": false
+            },
+            "title": "Show vscode-extension commits",
+            "time": {
+              "start": 1775661594397,
+              "end": 1775661594448
+            }
+          },
+          "id": "prt_d6dadb545002VHbtilpmdtbkJK",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dadae0c001YmBxfcg5gzPM4r"
+        },
+        {
+          "reason": "tool-calls",
+          "snapshot": "1cac87c360a8d3f57d677ac65039165dc532b3fe",
+          "type": "step-finish",
+          "tokens": {
+            "total": 19612,
+            "input": 113,
+            "output": 63,
+            "reasoning": 0,
+            "cache": {
+              "write": 639,
+              "read": 18797
+            }
+          },
+          "cost": 0,
+          "id": "prt_d6dadb751001jYY0ey4KqtUBak",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dadae0c001YmBxfcg5gzPM4r"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1775661594544,
+          "completed": 1775661606752
+        },
+        "parentID": "msg_d6dad5445001ltAy5ViYMCCoeb",
+        "modelID": "MiniMax-M2.7",
+        "providerID": "minimax-cn-coding-plan",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 20344,
+          "input": 287,
+          "output": 530,
+          "reasoning": 0,
+          "cache": {
+            "write": 208,
+            "read": 19319
+          }
+        },
+        "finish": "tool-calls",
+        "id": "msg_d6dadb7b0001OoBxOxpGsOimkV",
+        "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB"
+      },
+      "parts": [
+        {
+          "snapshot": "1cac87c360a8d3f57d677ac65039165dc532b3fe",
+          "type": "step-start",
+          "id": "prt_d6dadbfcb001ieX89nCf6E8Fwl",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dadb7b0001OoBxOxpGsOimkV"
+        },
+        {
+          "type": "reasoning",
+          "text": "现在我看到了从 1.1.0 到 1.1.2 的所有 vscode-extension 相关的提交。让我总结一下需要更新到 changelog 的内容：\n\n**1.1.1 (hotfix release):**\n- 导出功能优化：trace 导出时增加 toolInput 和 result 的展示\n\n**1.1.2:**\n- 版本升级（可能只是版本号变更）\n\n**从 1.1.0 之后的其他功能提交（在 1.1.1 之前）：**\n- 提取并记录操作的文件路径，增强 Trace 相关功能\n- 增加 affected_files 字段以记录交互改动的文件列表\n- Commit 绑定与 Trace 删除功能\n- OpenCode/OpenClaw Agent 增强\n- Trace/Span 核心功能增强\n- Trace视图增强 - 每Span显示时间戳和Token\n- 废弃Session视图，迁移到Trace视图\n- Trace视图增强 - Token统计/时间线/Human内容\n\n这些看起来都是 Phase 1 的一部分，应该在 1.1.0 的时候已经记录了。让我检查一下 1.1.0 的 changelog 是不是已经包含了这些内容。\n\n看回之前的 changelog，1.1.0 包含：\n- Phase 1 架构升级 — 全新 Trace/Span 可观测性标准\n- T1~T8 全部功能\n\n所以 1.1.1 应该是一个 hotfix，主要修复/优化了导出功能。\n\n1.1.2 似乎只是版本升级。我需要更新 changelog。",
+          "time": {
+            "start": 1775661596621,
+            "end": 1775661603458
+          },
+          "metadata": {
+            "anthropic": {
+              "signature": "1aa937c60169e0c705f4311ed3a2aee573c610b5e460ad116910d527f7f6b25f"
+            }
+          },
+          "id": "prt_d6dadbfcd001g78WmY7RcE7lKc",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dadb7b0001OoBxOxpGsOimkV"
+        },
+        {
+          "type": "text",
+          "text": "需要记录 1.1.1 (hotfix) 和 1.1.2 的变更。我来更新 CHANGELOG：",
+          "time": {
+            "start": 1775661604296,
+            "end": 1775661604296
+          },
+          "id": "prt_d6dadda85001T67AcTlGRXAs9s",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dadb7b0001OoBxOxpGsOimkV"
+        },
+        {
+          "type": "tool",
+          "tool": "edit",
+          "callID": "call_function_rzqdmx3kdjhh_1",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/Users/hobo/Projects/AgentLog/packages/vscode-extension/CHANGELOG.md",
+              "oldString": "## [1.1.0] - 2026-04-04",
+              "newString": "## [1.1.2] - 2026-04-08\n\n### Changed\n- 版本升级至 v1.1.2\n\n## [1.1.1] - 2026-04-06\n\n### Changed\n- 导出功能优化：trace 导出时增加 toolInput 和 result 字段展示\n\n### Fixed\n- 版本升级至 v1.1.1\n\n## [1.1.0] - 2026-04-04"
+            },
+            "output": "Edit applied successfully.",
+            "metadata": {
+              "diagnostics": {},
+              "diff": "Index: /Users/hobo/Projects/AgentLog/packages/vscode-extension/CHANGELOG.md\n===================================================================\n--- /Users/hobo/Projects/AgentLog/packages/vscode-extension/CHANGELOG.md\n+++ /Users/hobo/Projects/AgentLog/packages/vscode-extension/CHANGELOG.md\n@@ -3,8 +3,21 @@\n All notable changes to the \"AgentLog — AI 编程行车记录仪\" extension will be documented in this file.\n \n Check [Keep a Changelog](https://keepachangelog.com/) for recommendations on how to structure this file.\n \n+## [1.1.2] - 2026-04-08\n+\n+### Changed\n+- 版本升级至 v1.1.2\n+\n+## [1.1.1] - 2026-04-06\n+\n+### Changed\n+- 导出功能优化：trace 导出时增加 toolInput 和 result 字段展示\n+\n+### Fixed\n+- 版本升级至 v1.1.1\n+\n ## [1.1.0] - 2026-04-04\n \n ### Added\n - **Phase 1 架构升级** — 全新 Trace/Span 可观测性标准\n",
+              "filediff": {
+                "file": "/Users/hobo/Projects/AgentLog/packages/vscode-extension/CHANGELOG.md",
+                "before": "# Changelog\n\nAll notable changes to the \"AgentLog — AI 编程行车记录仪\" extension will be documented in this file.\n\nCheck [Keep a Changelog](https://keepachangelog.com/) for recommendations on how to structure this file.\n\n## [1.1.0] - 2026-04-04\n\n### Added\n- **Phase 1 架构升级** — 全新 Trace/Span 可观测性标准\n- **T1**: traces/spans 表 + ULID 主键机制（工业级可观测性标准）\n- **T2**: SSE 广播 + MCP 双轨通信层（支持大模型 IDE 持久化连接）\n- **T3**: POST /api/spans 高性能写入接口（高频无阻塞，专供探针）\n- **T4**: OpenClaw Hook 探针（TelemetryProbe，旁路拦截 Agent 原生 Hook）\n- **T5**: Git Hook post-commit 拦截（捕获人类提交流程，关联 AI 会话）\n- **T6**: Trace summary API（`get_trace_summary` MCP 工具）\n- **T7**: Trace diff API（对比两个 Trace 差异）\n- **T8**: SSE 实时刷新 + VS Code 树状视图（探针数据实时推送）\n\n### Changed\n- 底层数据模型重构（废弃 agent_sessions 表）\n- 版本升级至 v1.1.0\n\n### Fixed\n- 修复多 worktree 场景下的会话绑定问题\n\n## [1.0.1] - 2026-04-01\n\n### Added\n- **关键字优化**：插件描述增加 DeepSeek、Git、编程助手等关键字，提升 marketplace 搜索曝光\n- **Trae IDE 支持**：新增对字节跳动 Trae AI 编程 IDE 的支持\n- **用户增长支持**：优化产品说明文档\n\n### Changed\n- 版本升级至 v1.0.1\n\n## [0.1.6]\n\n### Added\n- GitHub feedback command in sidebar (opens Issues page)\n- Issue templates for bug reports and feature requests\n\n## [0.1.5] - 2026-03-30\n\n### Fixed\n- Native module cross-arch build support\n- darwin-x64 architecture detection for better-sqlite3\n- macOS runner for darwin-x64 builds\n- package.sh multi-target support\n\n## [0.1.4] - 2026-03-30\n\n### Changed\n- License updated to Apache 2.0\n\n## [0.1.3] - 2026-03-30\n\n### Changed\n- VSIX packaging workflow improvements\n\n## [0.1.2] - 2026-03-30\n\n### Fixed\n- better-sqlite3 native module rebuild in CI (use Node.js 22 to match VS Code extension host)\n\n## [0.1.1] - 2026-03-30\n\n### Added\n- Multi-platform VSIX build workflow (Windows, macOS, Linux)\n\n### Fixed\n- VSIX package workflow YAML indentation and vsce path\n- vsce --target flag auto-detection\n- macos-latest runner for darwin-x64 (macos-13 deprecated)\n- vsce@2.24.0 to avoid macos runner bug\n\n## [0.1.0] - 2026-03-29\n\n### Added\n- Initial public release of AgentLog AI Programming Driving Recorder\n- Automatic capture of AI agent interaction logs (DeepSeek/Qwen/Kimi/etc.)\n- Git Commit automatic binding and manual binding\n- VS Code sidebar panel: session list + Commit binding view\n- One-click export: Chinese weekly report, PR/Code Review description, JSONL, CSV\n- Commit context document generation (Markdown/JSON/XML)\n- Commit AI interaction explanation summary\n- MCP server integration: supports automatic reporting from AI clients like OpenCode/Cursor\n- Local SQLite storage, completely offline available\n- Support for domestic mainstream models: DeepSeek, Qwen, Kimi, ChatGLM, etc.\n- Support for AI programming tools: Cline, Cursor, Continue, etc.\n- HTTP interceptor for API call interception\n- Git post-commit hook injection\n- VS Code chat participant integration\n- Configuration options for backend URL, auto-capture, retention days, etc.\n- Debug logging and output panel integration\n",
+                "after": "# Changelog\n\nAll notable changes to the \"AgentLog — AI 编程行车记录仪\" extension will be documented in this file.\n\nCheck [Keep a Changelog](https://keepachangelog.com/) for recommendations on how to structure this file.\n\n## [1.1.2] - 2026-04-08\n\n### Changed\n- 版本升级至 v1.1.2\n\n## [1.1.1] - 2026-04-06\n\n### Changed\n- 导出功能优化：trace 导出时增加 toolInput 和 result 字段展示\n\n### Fixed\n- 版本升级至 v1.1.1\n\n## [1.1.0] - 2026-04-04\n\n### Added\n- **Phase 1 架构升级** — 全新 Trace/Span 可观测性标准\n- **T1**: traces/spans 表 + ULID 主键机制（工业级可观测性标准）\n- **T2**: SSE 广播 + MCP 双轨通信层（支持大模型 IDE 持久化连接）\n- **T3**: POST /api/spans 高性能写入接口（高频无阻塞，专供探针）\n- **T4**: OpenClaw Hook 探针（TelemetryProbe，旁路拦截 Agent 原生 Hook）\n- **T5**: Git Hook post-commit 拦截（捕获人类提交流程，关联 AI 会话）\n- **T6**: Trace summary API（`get_trace_summary` MCP 工具）\n- **T7**: Trace diff API（对比两个 Trace 差异）\n- **T8**: SSE 实时刷新 + VS Code 树状视图（探针数据实时推送）\n\n### Changed\n- 底层数据模型重构（废弃 agent_sessions 表）\n- 版本升级至 v1.1.0\n\n### Fixed\n- 修复多 worktree 场景下的会话绑定问题\n\n## [1.0.1] - 2026-04-01\n\n### Added\n- **关键字优化**：插件描述增加 DeepSeek、Git、编程助手等关键字，提升 marketplace 搜索曝光\n- **Trae IDE 支持**：新增对字节跳动 Trae AI 编程 IDE 的支持\n- **用户增长支持**：优化产品说明文档\n\n### Changed\n- 版本升级至 v1.0.1\n\n## [0.1.6]\n\n### Added\n- GitHub feedback command in sidebar (opens Issues page)\n- Issue templates for bug reports and feature requests\n\n## [0.1.5] - 2026-03-30\n\n### Fixed\n- Native module cross-arch build support\n- darwin-x64 architecture detection for better-sqlite3\n- macOS runner for darwin-x64 builds\n- package.sh multi-target support\n\n## [0.1.4] - 2026-03-30\n\n### Changed\n- License updated to Apache 2.0\n\n## [0.1.3] - 2026-03-30\n\n### Changed\n- VSIX packaging workflow improvements\n\n## [0.1.2] - 2026-03-30\n\n### Fixed\n- better-sqlite3 native module rebuild in CI (use Node.js 22 to match VS Code extension host)\n\n## [0.1.1] - 2026-03-30\n\n### Added\n- Multi-platform VSIX build workflow (Windows, macOS, Linux)\n\n### Fixed\n- VSIX package workflow YAML indentation and vsce path\n- vsce --target flag auto-detection\n- macos-latest runner for darwin-x64 (macos-13 deprecated)\n- vsce@2.24.0 to avoid macos runner bug\n\n## [0.1.0] - 2026-03-29\n\n### Added\n- Initial public release of AgentLog AI Programming Driving Recorder\n- Automatic capture of AI agent interaction logs (DeepSeek/Qwen/Kimi/etc.)\n- Git Commit automatic binding and manual binding\n- VS Code sidebar panel: session list + Commit binding view\n- One-click export: Chinese weekly report, PR/Code Review description, JSONL, CSV\n- Commit context document generation (Markdown/JSON/XML)\n- Commit AI interaction explanation summary\n- MCP server integration: supports automatic reporting from AI clients like OpenCode/Cursor\n- Local SQLite storage, completely offline available\n- Support for domestic mainstream models: DeepSeek, Qwen, Kimi, ChatGLM, etc.\n- Support for AI programming tools: Cline, Cursor, Continue, etc.\n- HTTP interceptor for API call interception\n- Git post-commit hook injection\n- VS Code chat participant integration\n- Configuration options for backend URL, auto-capture, retention days, etc.\n- Debug logging and output panel integration\n",
+                "additions": 13,
+                "deletions": 0
+              },
+              "truncated": false
+            },
+            "title": "packages/vscode-extension/CHANGELOG.md",
+            "time": {
+              "start": 1775661606585,
+              "end": 1775661606609
+            }
+          },
+          "id": "prt_d6dadddca001LLyf5ZI76cEmTf",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dadb7b0001OoBxOxpGsOimkV"
+        },
+        {
+          "reason": "tool-calls",
+          "snapshot": "127524ad299a805846bbd6f6d71899ff5f2e6a7c",
+          "type": "step-finish",
+          "tokens": {
+            "total": 20344,
+            "input": 287,
+            "output": 530,
+            "reasoning": 0,
+            "cache": {
+              "write": 208,
+              "read": 19319
+            }
+          },
+          "cost": 0,
+          "id": "prt_d6dade6d3001wyA3xsFgbXn9ln",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dadb7b0001OoBxOxpGsOimkV"
+        },
+        {
+          "type": "patch",
+          "hash": "1cac87c360a8d3f57d677ac65039165dc532b3fe",
+          "files": [
+            "/Users/hobo/Projects/AgentLog/packages/vscode-extension/CHANGELOG.md"
+          ],
+          "id": "prt_d6dade75f001LQQdDEYqWC1F9Z",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dadb7b0001OoBxOxpGsOimkV"
+        }
+      ]
+    },
+    {
+      "info": {
+        "role": "assistant",
+        "time": {
+          "created": 1775661606754,
+          "completed": 1775661608525
+        },
+        "parentID": "msg_d6dad5445001ltAy5ViYMCCoeb",
+        "modelID": "MiniMax-M2.7",
+        "providerID": "minimax-cn-coding-plan",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 20406,
+          "input": 104,
+          "output": 43,
+          "reasoning": 0,
+          "cache": {
+            "write": 800,
+            "read": 19459
+          }
+        },
+        "finish": "stop",
+        "id": "msg_d6dade7620018ORO44zjYKT6Pp",
+        "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB"
+      },
+      "parts": [
+        {
+          "snapshot": "127524ad299a805846bbd6f6d71899ff5f2e6a7c",
+          "type": "step-start",
+          "id": "prt_d6dadedbe001AG4s9JkPmVu2oF",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dade7620018ORO44zjYKT6Pp"
+        },
+        {
+          "type": "reasoning",
+          "text": "Changelog 已更新。让我验证一下更新后的内容。",
+          "time": {
+            "start": 1775661608383,
+            "end": 1775661608384
+          },
+          "metadata": {
+            "anthropic": {
+              "signature": "c63119f0556f0bb611154c344ffb15c860487bf8529517306945694c1a43d80f"
+            }
+          },
+          "id": "prt_d6dadedbf001tPCVbOLUFhUlGO",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dade7620018ORO44zjYKT6Pp"
+        },
+        {
+          "type": "text",
+          "text": "已更新 CHANGELOG.md，新增了 `[1.1.1]` 和 `[1.1.2]` 的条目。",
+          "time": {
+            "start": 1775661608439,
+            "end": 1775661608439
+          },
+          "id": "prt_d6dadedc0002UBI0l7eHkLx72l",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dade7620018ORO44zjYKT6Pp"
+        },
+        {
+          "reason": "stop",
+          "snapshot": "127524ad299a805846bbd6f6d71899ff5f2e6a7c",
+          "type": "step-finish",
+          "tokens": {
+            "total": 20406,
+            "input": 104,
+            "output": 43,
+            "reasoning": 0,
+            "cache": {
+              "write": 800,
+              "read": 19459
+            }
+          },
+          "cost": 0,
+          "id": "prt_d6dadedf8001BkOQ4PZWE0Yqdk",
+          "sessionID": "ses_29252abcfffeLDJEOuxIqCRaxB",
+          "messageID": "msg_d6dade7620018ORO44zjYKT6Pp"
+        }
+      ]
+    }
+  ]
+}
