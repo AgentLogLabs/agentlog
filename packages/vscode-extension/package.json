@@ -2,7 +2,7 @@
   "name": "agentlog-vscode",
   "displayName": "AgentLog — AI 编程飞行记录仪",
   "description": "AI 编程助手必备！自动捕获 DeepSeek/Cursor/Cline 等 AI Agent 交互日志（Prompt/Reasoning/Response），与 Git Commit 智能绑定，支持一键导出周报、PR 说明、提交上下文。兼容 DeepSeek、Qwen、Kimi 等国产大模型，让 AI 编程过程全程可追溯。",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "private": false,
   "publisher": "agentloglabs",
   "license": "Apache-2.0",

@@ -1,6 +1,6 @@
 {
   "name": "@agentlog/openclaw-agent",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "description": "AgentLog skill for OpenClaw agents - provides handoff and trace management",
   "type": "module",
   "main": "./dist/index.js",
