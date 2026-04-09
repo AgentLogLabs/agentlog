@@ -40,6 +40,7 @@ import {
   type ReasoningChainStep,
 } from "./services/traceService.js";
 import { getSessionsJsonPath, readSessionsJson, writeSessionsJson } from "./services/sessionsJsonService.js";
+import { broadcastEvent } from "./utils/sseManager.js";
 
 // ─────────────────────────────────────────────
 // 配置
@@ -1232,6 +1233,13 @@ async function main(): Promise<void> {
           currentTraceId = await postTrace(role === "user" ? content : "Untitled Task", workspacePath);
           lastCreatedTraceId = currentTraceId;
           lastCreatedAt = Date.now();
+
+          // SSE 实时推送：广播新 Trace 创建事件
+          broadcastEvent({
+            type: "trace_created",
+            data: { id: currentTraceId, taskGoal: role === "user" ? content : "Untitled Task", workspacePath },
+            timestamp: new Date().toISOString(),
+          });
 
           // 设置环境变量供 Git Hook 使用
           process.env.AGENTLOG_TRACE_ID = currentTraceId;
