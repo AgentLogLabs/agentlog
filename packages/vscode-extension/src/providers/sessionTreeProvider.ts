@@ -421,6 +421,9 @@ export class SessionTreeProvider
   /** 是否只显示未绑定会话 */
   private _filterUnboundOnly = false;
 
+  /** SSE 连接（用于实时接收新 Trace 事件） */
+  private _sseConnection: EventSource | null = null;
+
   constructor() {
     // 监听配置变更（backendUrl 等），触发刷新
     const configWatcher = vscode.workspace.onDidChangeConfiguration((e) => {
@@ -449,6 +452,42 @@ export class SessionTreeProvider
 
     // 初始化工作区路径
     this._workspacePath = resolveWorkspacePath();
+
+    // 建立 SSE 连接，实时接收新 Trace 事件
+    this.connectSSE();
+  }
+
+  // ─── SSE 实时推送 ───────────────────────────
+
+  private connectSSE(): void {
+    this.disconnectSSE();
+
+    const backendUrl = vscode.workspace.getConfiguration("agentlog").get<string>("backendUrl") ?? "http://localhost:7892";
+    const eventSource = new EventSource(`${backendUrl}/mcp/sse`);
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "trace_created" || data.type === "span_created") {
+          this.refresh();
+        }
+      } catch {
+        // ignore parse errors
+      }
+    };
+
+    eventSource.onerror = () => {
+      setTimeout(() => this.connectSSE(), 5000);
+    };
+
+    this._sseConnection = eventSource;
+  }
+
+  private disconnectSSE(): void {
+    if (this._sseConnection) {
+      this._sseConnection.close();
+      this._sseConnection = null;
+    }
   }
 
   // ─── 公开 API ──────────────────────────────
@@ -637,6 +676,7 @@ export class SessionTreeProvider
 
   dispose(): void {
     this.stopAutoRefresh();
+    this.disconnectSSE();
     this._onDidChangeTreeData.dispose();
     for (const d of this._disposables) d.dispose();
     this._disposables = [];

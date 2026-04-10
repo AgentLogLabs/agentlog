@@ -250,6 +250,7 @@ export class TraceTreeProvider
   private _loaded = false;
   private _workspacePath: string | undefined;
   private _disposables: vscode.Disposable[] = [];
+  private _sseConnection: EventSource | null = null;
 
   constructor() {
     const wsWatcher = vscode.workspace.onDidChangeWorkspaceFolders(() => {
@@ -268,9 +269,45 @@ export class TraceTreeProvider
     this._disposables.push(editorWatcher);
 
     this._workspacePath = resolveWorkspacePath();
+
+    this.connectSSE();
+  }
+
+  // ─── SSE 实时推送 ───────────────────────────
+
+  private connectSSE(): void {
+    this.disconnectSSE();
+
+    const backendUrl = vscode.workspace.getConfiguration("agentlog").get<string>("backendUrl") ?? "http://localhost:7892";
+    const eventSource = new EventSource(`${backendUrl}/mcp/sse`);
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "trace_created" || data.type === "span_created") {
+          this.refresh();
+        }
+      } catch {
+        // ignore parse errors
+      }
+    };
+
+    eventSource.onerror = () => {
+      setTimeout(() => this.connectSSE(), 5000);
+    };
+
+    this._sseConnection = eventSource;
+  }
+
+  private disconnectSSE(): void {
+    if (this._sseConnection) {
+      this._sseConnection.close();
+      this._sseConnection = null;
+    }
   }
 
   dispose(): void {
+    this.disconnectSSE();
     this._onDidChangeTreeData.dispose();
     for (const d of this._disposables) {
       d.dispose();

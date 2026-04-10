@@ -1,7 +1,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # AgentLog VSCode Extension 多平台构建与发布
 #
-# 支持平台: darwin-x64, darwin-arm64, linux-x64, win32-x64
+# 支持平台: darwin-arm64, linux-x64, win32-x64 (darwin-x64 由手工部署)
 # ─────────────────────────────────────────────────────────────────────────────
 name: Build VSIX (Multi-Platform)
 
@@ -41,10 +41,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - target: darwin-x64
-            runner: macos-latest
-            platform: darwin
-            arch: x64
           - target: darwin-arm64
             runner: macos-14
             platform: darwin
@@ -79,12 +75,8 @@ jobs:
       - name: Build shared package
         run: pnpm build:shared
 
-      - name: Build backend (triggers native module rebuild)
+      - name: Build backend
         run: pnpm build:backend
-        env:
-          # 强制 node-gyp 为目标架构构建 better-sqlite3
-          npm_config_arch: ${{ matrix.arch }}
-          npm_config_platform: ${{ matrix.platform }}
 
       - name: Build VSCode extension
         run: pnpm build:ext
@@ -124,11 +116,6 @@ jobs:
 
       - name: Install vsce globally
         run: npm install -g @vscode/vsce
-
-      - name: Publish to Marketplace (darwin-x64)
-        run: vsce publish --packagePath artifacts/agentlog-vscode-darwin-x64/agentlog-*.vsix
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
       - name: Publish to Marketplace (darwin-arm64)
         run: vsce publish --packagePath artifacts/agentlog-vscode-darwin-arm64/agentlog-*.vsix

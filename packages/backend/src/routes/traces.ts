@@ -53,6 +53,7 @@ interface SearchParams {
 interface CreateTraceBody {
   taskGoal?: string;
   workspacePath?: string;
+  parentTraceId?: string;
 }
 
 interface AssociateCommitsBody {
@@ -76,14 +77,16 @@ async function tracesRoutes(app: FastifyInstance): Promise<void> {
           type: "object",
           properties: {
             taskGoal: { type: "string" },
+            workspacePath: { type: "string" },
+            parentTraceId: { type: "string" },
           },
         },
       },
     },
     async (req: FastifyRequest<{ Body: CreateTraceBody }>, reply: FastifyReply) => {
-      const { taskGoal, workspacePath } = req.body;
+      const { taskGoal, workspacePath, parentTraceId } = req.body;
 
-      const trace = createTrace({ taskGoal: taskGoal ?? "Untitled Trace", workspacePath });
+      const trace = createTrace({ taskGoal: taskGoal ?? "Untitled Trace", workspacePath, parentTraceId });
 
       return reply.status(201).send({
         success: true,

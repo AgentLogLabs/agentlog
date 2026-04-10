@@ -4,6 +4,31 @@ All notable changes to the "AgentLog — AI 编程行车记录仪" extension wil
 
 Check [Keep a Changelog](https://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.1.2] - 2026-04-08
+
+### Added
+- **Trace 详情视图**：完整展示 Trace 各 Span 内容、时间戳、Token 统计
+- **affected_files 支持**：记录交互改动的文件列表，Trace 视图新增文件路径展示
+- **Commit 绑定增强**：支持 Trace 与 Git Commit 绑定/解绑，新增删除 Trace 功能
+- **OpenClaw Agent 集成**：自动读取 git config traceId，优化 OpenCode MCP 配置
+- **agentlog.traceList View**：新增独立的 Trace 列表视图
+
+### Changed
+- 废弃 Session 视图，全面迁移到 Trace 视图
+- Trace 视图增强：Token 统计、时间线、Human 内容高亮
+- 每 Span 显示时间戳和 Token 消耗
+- 导出功能优化：trace 导出时增加 toolInput 和 result 字段展示
+- OpenCode MCP 配置格式修正
+- 版本升级至 v1.1.2
+
+### Fixed
+- 修复 Phase1 测试用例失败项
+
+## [1.1.1] - 2026-04-06
+
+### Changed
+- 版本升级至 v1.1.1
+
 ## [1.1.0] - 2026-04-04
 
 ### Added
