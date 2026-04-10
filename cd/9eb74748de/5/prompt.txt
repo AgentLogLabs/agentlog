@@ -1,0 +1,9 @@
+vscode树形列表一直显示：connect EHOSTUNREACH 192.168.1.17:7892 - Local... ， trace和commit列表都如此
+
+---
+
+目前需要vscode agentlog插件连接远程后端，而不是用本地后端
+
+---
+
+你来自动进行
