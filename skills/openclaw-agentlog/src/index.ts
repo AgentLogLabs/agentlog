@@ -556,15 +556,18 @@ async function createLlmOutputSpan(
     const msg = messages[i];
     if (msg.role === "assistant") {
       if (typeof msg.content === "string") {
-        assistantContent = msg.content;
-        break;
+        if (msg.content.trim() && !msg.content.includes("NO_REPLY")) {
+          assistantContent = msg.content;
+          break;
+        }
       }
       if (Array.isArray(msg.content)) {
         const textBlocks = msg.content
           .filter((b): b is { type: string; text: string } =>
             typeof b === "object" && b !== null && (b as { type?: string }).type === "text" && typeof (b as { text?: unknown }).text === "string"
           )
-          .map(b => (b as { text: string }).text);
+          .map(b => (b as { text: string }).text)
+          .filter(t => t.trim() && !t.includes("NO_REPLY"));
         if (textBlocks.length > 0) {
           assistantContent = textBlocks.join("\n");
           break;
@@ -573,7 +576,17 @@ async function createLlmOutputSpan(
     }
   }
 
-  if (!assistantContent) return;
+  if (!assistantContent) {
+    console.log(`[openclaw-agentlog] Skipped assistant span - no valid content (messages count: ${messages.length})`);
+    return;
+  }
+
+  // 确保 model 有有效值
+  const effectiveModel = (model && model !== "unknown") 
+    ? model 
+    : (currentSession.model && currentSession.model !== "unknown")
+      ? currentSession.model
+      : currentSession.agentSource.replace("openclaw:", "") || "unknown";
 
   await createSpan(currentSession.traceId, {
     role: "assistant",
@@ -581,7 +594,7 @@ async function createLlmOutputSpan(
     duration_ms: 0,
     timestamp: new Date().toISOString(),
     tokenUsage,
-    model: model || currentSession.model,
+    model: effectiveModel,
     source: currentSession.agentSource,
   });
 }
@@ -867,12 +880,16 @@ export async function onBeforeAgentStart(params: {
       const now = Date.now();
       const lastUserSpanTime = currentSession.lastUserSpanTime || 0;
       if (now - lastUserSpanTime > 5000) { // 5秒内不重复添加
+        // 确保 model 有有效值
+        const effectiveModel = (currentSession.model && currentSession.model !== "unknown")
+          ? currentSession.model
+          : currentSession.agentSource.replace("openclaw:", "") || "unknown";
         await createSpan(currentSession.traceId, {
           role: "user",
           content: userInput.slice(0, 2000),
           duration_ms: 0,
           timestamp: new Date().toISOString(),
-          model: currentSession.model,
+          model: effectiveModel,
           source: source,
         });
         currentSession.lastUserSpanTime = now;
@@ -888,12 +905,16 @@ export async function onBeforeAgentStart(params: {
   await startSession("unknown", source, workspacePath, taskGoal);
 
   if (userInput && currentSession) {
+    // 确保 model 有有效值
+    const effectiveModel = (currentSession.model && currentSession.model !== "unknown")
+      ? currentSession.model
+      : currentSession.agentSource.replace("openclaw:", "") || "unknown";
     await createSpan(currentSession.traceId, {
       role: "user",
       content: userInput.slice(0, 2000),
       duration_ms: 0,
       timestamp: new Date().toISOString(),
-      model: currentSession.model,
+      model: effectiveModel,
       source: source,
     });
     console.log(`[openclaw-agentlog] User input span created: ${userInput.slice(0, 50)}...`);
