@@ -1,0 +1,34 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "cd9eb74748de",
+  "session_id": "ses_2881de4aaffeuIADjSuTRLvH9h",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-10T15:01:19.113905Z",
+  "branch": "dev",
+  "checkpoints_count": 0,
+  "files_touched": [
+    ".opencode/package-lock.json",
+    "packages/backend/src/index.ts",
+    "packages/backend/src/services/traceService.ts",
+    "packages/vscode-extension/src/client/backendClient.ts",
+    "packages/vscode-extension/src/extension.ts",
+    "packages/vscode-extension/src/providers/sessionTreeProvider.ts",
+    "packages/vscode-extension/src/providers/traceTreeProvider.ts",
+    ".vscode/PythonImportHelper-v2-Completion.json",
+    "packages/backend/src/mcp.ts",
+    "packages/vscode-extension/src/client/sseClient.ts",
+    "packages/vscode-extension/src/providers/traceWebviewProvider.ts"
+  ],
+  "agent": "OpenCode",
+  "model": "big-pickle",
+  "turn_id": "abaa84d83e20",
+  "initial_attribution": {
+    "calculated_at": "2026-04-10T15:01:19.113087Z",
+    "agent_lines": 1146,
+    "human_added": 223,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 1369,
+    "agent_percentage": 83.71073776479182
+  }
+}

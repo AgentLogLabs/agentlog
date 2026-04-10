@@ -1,0 +1,28 @@
+{
+  "cli_version": "0.5.1",
+  "checkpoint_id": "cd9eb74748de",
+  "strategy": "manual-commit",
+  "branch": "dev",
+  "checkpoints_count": 0,
+  "files_touched": [
+    ".opencode/package-lock.json",
+    ".vscode/PythonImportHelper-v2-Completion.json",
+    "packages/backend/src/index.ts",
+    "packages/backend/src/mcp.ts",
+    "packages/backend/src/services/traceService.ts",
+    "packages/vscode-extension/src/client/backendClient.ts",
+    "packages/vscode-extension/src/client/sseClient.ts",
+    "packages/vscode-extension/src/extension.ts",
+    "packages/vscode-extension/src/providers/sessionTreeProvider.ts",
+    "packages/vscode-extension/src/providers/traceTreeProvider.ts",
+    "packages/vscode-extension/src/providers/traceWebviewProvider.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/cd/9eb74748de/0/metadata.json",
+      "transcript": "/cd/9eb74748de/0/full.jsonl",
+      "content_hash": "/cd/9eb74748de/0/content_hash.txt",
+      "prompt": ""
+    }
+  ]
+}
