@@ -210,21 +210,48 @@ async function createSpan(traceId: string, span: {
   tool_name?: string;
   duration_ms?: number;
   timestamp?: string;
+  tokenUsage?: {
+    inputTokens?: number;
+    outputTokens?: number;
+    cacheCreationTokens?: number;
+    cacheReadTokens?: number;
+  };
+  model?: string;
+  source?: string;
 }): Promise<boolean> {
+  const roleToActorType = (role: string): string => {
+    switch (role) {
+      case "user":
+      case "human":
+        return "human";
+      case "assistant":
+      case "tool":
+      case "agent":
+        return "agent";
+      case "system":
+        return "system";
+      default:
+        return "agent";
+    }
+  };
+
   try {
     const result = await apiRequest<{ success: boolean }>(
       "POST",
       "/api/spans",
       {
         traceId,
-        actorType: span.role === "tool" ? "agent" : span.role,
+        actorType: roleToActorType(span.role),
         actorName: span.tool_name || "agent",
+        model: span.model,
+        source: span.source,
         payload: {
           event: span.role,
           content: span.content,
           toolName: span.tool_name,
           durationMs: span.duration_ms,
           timestamp: span.timestamp || new Date().toISOString(),
+          tokenUsage: span.tokenUsage,
         },
       }
     );
@@ -296,12 +323,12 @@ async function updateTraceStatus(traceId: string, status: string): Promise<boole
 // Session Management (Auto-Logging with Traces)
 // ─────────────────────────────────────────────
 
-async function startSession(model: string, source: string, workspacePath: string): Promise<string> {
+async function startSession(model: string, source: string, workspacePath: string, taskGoal?: string): Promise<string> {
   const sessionId = `sess_${Date.now()}_${randomUUID().slice(0, 8)}`;
-  const taskGoal = `Agent session from ${source}`;
+  const goal = taskGoal || `Agent session from ${source}`;
 
   // Create trace via REST API
-  const trace = await createTrace(taskGoal, workspacePath);
+  const trace = await createTrace(goal, workspacePath);
   const traceId = trace?.id || `trace_${Date.now()}`;
 
   currentSession = {
@@ -314,7 +341,7 @@ async function startSession(model: string, source: string, workspacePath: string
     model,
     agentSource: source,
     workspacePath,
-    taskGoal,
+    taskGoal: goal,
   };
 
   console.log(`[openclaw-agentlog] Session started: ${sessionId}, trace: ${traceId} (source: ${source})`);
@@ -373,6 +400,8 @@ export async function afterToolCall(params: {
     tool_name: params.toolName,
     duration_ms: durationMs,
     timestamp: toolCall.timestamp,
+    model: currentSession.model,
+    source: currentSession.agentSource,
   });
 }
 
@@ -462,6 +491,14 @@ export async function onAgentEnd(params: {
     extractReasoningFromMessages(params.messages);
   }
 
+  const tokenUsage = params.usage ? {
+    inputTokens: params.usage.promptTokens,
+    outputTokens: params.usage.completionTokens,
+  } : undefined;
+
+  // Create span for LLM output (even if no tools were called)
+  await createLlmOutputSpan(params.messages, tokenUsage);
+
   await tryBindCommit();
 
   // Finalize trace via REST API (replaces log_intent)
@@ -472,8 +509,51 @@ export async function onAgentEnd(params: {
     currentSession.reasoning
   );
 
-  console.log(`[openclaw-agentlog] Session ${currentSession.sessionId} finalized, trace ${currentSession.traceId} marked completed`);
+  console.log(`[openclaw-agentlog] Session ${currentSession.sessionId} finalized, trace ${currentSession.traceId} marked completed${tokenUsage ? `, tokens: in=${tokenUsage.inputTokens} out=${tokenUsage.outputTokens}` : ''}`);
   currentSession = null;
+}
+
+// Create span for LLM output
+async function createLlmOutputSpan(
+  messages: Array<{ role: string; content: string | Array<unknown> }>,
+  tokenUsage?: { inputTokens?: number; outputTokens?: number }
+): Promise<void> {
+  if (!currentSession) return;
+
+  // Get the last assistant message as the output
+  let assistantContent = "";
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg.role === "assistant") {
+      if (typeof msg.content === "string") {
+        assistantContent = msg.content;
+        break;
+      }
+      if (Array.isArray(msg.content)) {
+        const textBlocks = msg.content
+          .filter((b): b is { type: string; text: string } =>
+            typeof b === "object" && b !== null && (b as { type?: string }).type === "text" && typeof (b as { text?: unknown }).text === "string"
+          )
+          .map(b => (b as { text: string }).text);
+        if (textBlocks.length > 0) {
+          assistantContent = textBlocks.join("\n");
+          break;
+        }
+      }
+    }
+  }
+
+  if (!assistantContent) return;
+
+  await createSpan(currentSession.traceId, {
+    role: "assistant",
+    content: assistantContent.slice(0, 2000),
+    duration_ms: 0,
+    timestamp: new Date().toISOString(),
+    tokenUsage,
+    model: currentSession.model,
+    source: currentSession.agentSource,
+  });
 }
 
 // ─────────────────────────────────────────────
@@ -709,6 +789,99 @@ export async function onSessionEnd(): Promise<void> {
   console.log('[openclaw-agentlog] Session cleanup completed');
 }
 
+export async function onBeforeAgentStart(params: {
+  prompt: string;
+  messages?: unknown[];
+}): Promise<void> {
+  const source = detectAgentSource();
+  const workspacePath = process.cwd();
+
+  const userInput = extractUserInput(params.prompt);
+  const taskGoal = userInput ? summarizeUserInput(userInput) : `Agent session from ${source}`;
+
+  const sessionId = await startSession("unknown", source, workspacePath, taskGoal);
+
+  if (userInput && currentSession) {
+    await createSpan(currentSession.traceId, {
+      role: "user",
+      content: userInput.slice(0, 2000),
+      duration_ms: 0,
+      timestamp: new Date().toISOString(),
+      model: currentSession.model,
+      source: source,
+    });
+    console.log(`[openclaw-agentlog] User input span created: ${userInput.slice(0, 50)}...`);
+  }
+
+  console.log(`[openclaw-agentlog] Created new session via before_agent_start, agent: ${source}, taskGoal: ${taskGoal.slice(0, 50)}...`);
+}
+
+function summarizeUserInput(input: string): string {
+  const firstLine = input.split('\n')[0].trim();
+  if (firstLine.length <= 100) {
+    return firstLine;
+  }
+  return firstLine.slice(0, 97) + '...';
+}
+
+function extractUserInput(prompt: string): string | null {
+  const lines = prompt.split('\n');
+  let capture = false;
+  const userLines: string[] = [];
+
+  for (const line of lines) {
+    if (capture) {
+      if (line.startsWith('[System:') || line.startsWith('[message_id:')) {
+        break;
+      }
+      userLines.push(line);
+    } else if (line.includes(']') && (line.includes(':') || line.includes('[Replying'))) {
+      capture = true;
+    }
+  }
+
+  const content = userLines.join('\n').trim();
+  return content || null;
+}
+
+export async function onLlmOutput(params: {
+  runId: string;
+  sessionId: string;
+  provider: string;
+  model: string;
+  assistantTexts: string[];
+  usage?: {
+    input?: number;
+    output?: number;
+    cacheRead?: number;
+    cacheWrite?: number;
+    total?: number;
+  };
+}): Promise<void> {
+  if (!currentSession || !params.usage) return;
+
+  const tokenUsage = {
+    inputTokens: params.usage.input,
+    outputTokens: params.usage.output,
+    cacheCreationTokens: params.usage.cacheWrite,
+    cacheReadTokens: params.usage.cacheRead,
+  };
+
+  // Create span for LLM output with precise token usage
+  const assistantContent = params.assistantTexts?.join("\n") || "";
+  await createSpan(currentSession.traceId, {
+    role: "assistant",
+    content: assistantContent.slice(0, 2000),
+    duration_ms: 0,
+    timestamp: new Date().toISOString(),
+    tokenUsage,
+    model: params.model,
+    source: currentSession.agentSource,
+  });
+
+  console.log(`[openclaw-agentlog] LLM output span created with tokens: in=${params.usage.input}, out=${params.usage.output}, cacheRead=${params.usage.cacheRead}, cacheWrite=${params.usage.cacheWrite}`);
+}
+
 export function register(api: {
   on(event: string, handler: (...args: unknown[]) => unknown, opts?: { priority?: number }): void;
   registerHook(event: string, handler: (...args: unknown[]) => unknown, opts?: { name?: string; description?: string }): void;
@@ -718,6 +891,8 @@ export function register(api: {
   api.on('after_tool_call', afterToolCall);
   api.on('agent_end', onAgentEnd);
   api.on('session_end', onSessionEnd);
+  api.on('before_agent_start', onBeforeAgentStart);
+  api.on('llm_output', onLlmOutput);
 }
 
 export default { register, skillMetadata, hooks: {
@@ -726,4 +901,6 @@ export default { register, skillMetadata, hooks: {
   after_tool_call: afterToolCall,
   agent_end: onAgentEnd,
   session_end: onSessionEnd,
+  before_agent_start: onBeforeAgentStart,
+  llm_output: onLlmOutput,
 }};
