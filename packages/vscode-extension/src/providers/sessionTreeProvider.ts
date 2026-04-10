@@ -471,6 +471,11 @@ export class SessionTreeProvider
 
     this._sseClient = new SseClient(client.getBaseUrl());
 
+    this._sseClient.on("connected", () => {
+      console.log(`[AgentLog][SessionTree] SSE 已连接，刷新`);
+      this.refresh();
+    });
+
     this._sseClient.on("trace_created", () => {
       console.log(`[AgentLog][SessionTree] 收到 trace_created 事件，刷新`);
       this.refresh();

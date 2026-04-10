@@ -61,9 +61,21 @@ interface TraceSearchResult {
 // Agent Source Detection
 // ─────────────────────────────────────────────
 
+let currentAgentId: string | null = null;
+let currentAgentType: string | null = null;
+
+function setAgentContext(agentId?: string, agentType?: string): void {
+  if (agentId) currentAgentId = agentId;
+  if (agentType) currentAgentType = agentType;
+}
+
 function detectAgentSource(): string {
-  // 从 workspace 路径推断 agent 类型
-  // 路径格式: /home/hobo/.openclaw/agents/<agent-name>/workspace
+  // 优先使用已设置的 context
+  if (currentAgentType) {
+    return `openclaw:${currentAgentType}`;
+  }
+  
+  // Fallback: 从 workspace 路径推断 agent 类型
   const workspacePath = process.cwd();
   const match = workspacePath.match(/\/agents\/([^\/]+)\/workspace/);
   if (match) {
@@ -80,6 +92,8 @@ function detectAgentSource(): string {
 }
 
 function detectAgentType(): string {
+  if (currentAgentType) return currentAgentType;
+  
   const workspacePath = process.cwd();
   const match = workspacePath.match(/\/agents\/([^\/]+)\/workspace/);
   if (match) {
@@ -111,6 +125,14 @@ interface SessionState {
   agentSource: string;
   workspacePath: string;
   taskGoal: string;
+  pendingTokenUsage?: {
+    inputTokens?: number;
+    outputTokens?: number;
+    cacheCreationTokens?: number;
+    cacheReadTokens?: number;
+  };
+  pendingModel?: string;
+  lastUserSpanTime?: number;
 }
 
 interface ToolCall {
@@ -139,6 +161,7 @@ let config: AgentLogConfig = {
 };
 
 let currentSession: SessionState | null = null;
+let lastProcessedMessageId: string | null = null;
 
 // ─────────────────────────────────────────────
 // sessions.json Operations (for Trace Handoff)
@@ -243,8 +266,6 @@ async function createSpan(traceId: string, span: {
         traceId,
         actorType: roleToActorType(span.role),
         actorName: span.tool_name || "agent",
-        model: span.model,
-        source: span.source,
         payload: {
           event: span.role,
           content: span.content,
@@ -252,6 +273,8 @@ async function createSpan(traceId: string, span: {
           durationMs: span.duration_ms,
           timestamp: span.timestamp || new Date().toISOString(),
           tokenUsage: span.tokenUsage,
+          model: span.model,
+          source: span.source,
         },
       }
     );
@@ -342,6 +365,9 @@ async function startSession(model: string, source: string, workspacePath: string
     agentSource: source,
     workspacePath,
     taskGoal: goal,
+    pendingTokenUsage: undefined,
+    pendingModel: undefined,
+    lastUserSpanTime: undefined,
   };
 
   console.log(`[openclaw-agentlog] Session started: ${sessionId}, trace: ${traceId} (source: ${source})`);
@@ -491,13 +517,16 @@ export async function onAgentEnd(params: {
     extractReasoningFromMessages(params.messages);
   }
 
-  const tokenUsage = params.usage ? {
+  // 优先使用 onLlmOutput 传递的精确 token usage，否则使用 onAgentEnd 的
+  const tokenUsage = currentSession.pendingTokenUsage || (params.usage ? {
     inputTokens: params.usage.promptTokens,
     outputTokens: params.usage.completionTokens,
-  } : undefined;
+  } : undefined);
+
+  const model = currentSession.pendingModel || currentSession.model;
 
   // Create span for LLM output (even if no tools were called)
-  await createLlmOutputSpan(params.messages, tokenUsage);
+  await createLlmOutputSpan(params.messages, tokenUsage, model);
 
   await tryBindCommit();
 
@@ -516,7 +545,8 @@ export async function onAgentEnd(params: {
 // Create span for LLM output
 async function createLlmOutputSpan(
   messages: Array<{ role: string; content: string | Array<unknown> }>,
-  tokenUsage?: { inputTokens?: number; outputTokens?: number }
+  tokenUsage?: { inputTokens?: number; outputTokens?: number; cacheCreationTokens?: number; cacheReadTokens?: number },
+  model?: string
 ): Promise<void> {
   if (!currentSession) return;
 
@@ -551,7 +581,7 @@ async function createLlmOutputSpan(
     duration_ms: 0,
     timestamp: new Date().toISOString(),
     tokenUsage,
-    model: currentSession.model,
+    model: model || currentSession.model,
     source: currentSession.agentSource,
   });
 }
@@ -796,10 +826,66 @@ export async function onBeforeAgentStart(params: {
   const source = detectAgentSource();
   const workspacePath = process.cwd();
 
+  // 检测是否为由 OpenClaw 内部机制（如 boot check）触发的自动运行
+  const lowerPrompt = params.prompt?.toLowerCase() || "";
+  const isBootCheck = lowerPrompt.includes('boot check') || 
+                      lowerPrompt.includes('boot.md') ||
+                      lowerPrompt.includes('running a boot');
+  
+  if (isBootCheck) {
+    console.log(`[openclaw-agentlog] Skipped auto-triggered session (boot check) for ${source}`);
+    return;
+  }
+
+  // 从 prompt 中提取 message_id 进行去重
+  const messageIdMatch = params.prompt?.match(/"message_id"\s*:\s*"([^"]+)"/);
+  const currentMessageId = messageIdMatch ? messageIdMatch[1] : null;
+  
+  // 如果有之前处理过的 message_id 且与当前相同，跳过创建新 session
+  if (currentMessageId && lastProcessedMessageId === currentMessageId) {
+    console.log(`[openclaw-agentlog] Skipped duplicate session for message_id: ${currentMessageId}`);
+    return;
+  }
+
+  // 更新 lastProcessedMessageId
+  if (currentMessageId) {
+    lastProcessedMessageId = currentMessageId;
+  }
+
+  // 调试日志：记录完整的 params 以分析触发原因
+  console.log(`[openclaw-agentlog] before_agent_start called, prompt length: ${params.prompt?.length || 0}, messages count: ${params.messages?.length || 0}`);
+  console.log(`[openclaw-agentlog] before_agent_start prompt preview: ${params.prompt?.slice(0, 200) || 'empty'}`);
+  if (params.messages && params.messages.length > 0) {
+    console.log(`[openclaw-agentlog] before_agent_start messages preview: ${JSON.stringify(params.messages.slice(0, 2)).slice(0, 300)}`);
+  }
+
+  // 复用已存在的 session（避免重复创建 trace）
+  if (currentSession) {
+    const userInput = extractUserInput(params.prompt);
+    if (userInput && currentSession) {
+      // 检查最近添加 user span 的时间，避免短时间内重复添加
+      const now = Date.now();
+      const lastUserSpanTime = currentSession.lastUserSpanTime || 0;
+      if (now - lastUserSpanTime > 5000) { // 5秒内不重复添加
+        await createSpan(currentSession.traceId, {
+          role: "user",
+          content: userInput.slice(0, 2000),
+          duration_ms: 0,
+          timestamp: new Date().toISOString(),
+          model: currentSession.model,
+          source: source,
+        });
+        currentSession.lastUserSpanTime = now;
+        console.log(`[openclaw-agentlog] User input span added to existing session: ${currentSession.traceId}`);
+      }
+    }
+    return;
+  }
+
   const userInput = extractUserInput(params.prompt);
   const taskGoal = userInput ? summarizeUserInput(userInput) : `Agent session from ${source}`;
 
-  const sessionId = await startSession("unknown", source, workspacePath, taskGoal);
+  await startSession("unknown", source, workspacePath, taskGoal);
 
   if (userInput && currentSession) {
     await createSpan(currentSession.traceId, {
@@ -858,40 +944,51 @@ export async function onLlmOutput(params: {
     total?: number;
   };
 }): Promise<void> {
+  // 只记录 token usage，不单独创建 span
+  // span 的内容将在 onAgentEnd 时通过 createLlmOutputSpan 创建
   if (!currentSession || !params.usage) return;
 
-  const tokenUsage = {
+  // 保存 token usage 供 onAgentEnd 使用
+  currentSession.pendingTokenUsage = {
     inputTokens: params.usage.input,
     outputTokens: params.usage.output,
     cacheCreationTokens: params.usage.cacheWrite,
     cacheReadTokens: params.usage.cacheRead,
   };
+  currentSession.pendingModel = params.model;
 
-  // Create span for LLM output with precise token usage
-  const assistantContent = params.assistantTexts?.join("\n") || "";
-  await createSpan(currentSession.traceId, {
-    role: "assistant",
-    content: assistantContent.slice(0, 2000),
-    duration_ms: 0,
-    timestamp: new Date().toISOString(),
-    tokenUsage,
-    model: params.model,
-    source: currentSession.agentSource,
-  });
-
-  console.log(`[openclaw-agentlog] LLM output span created with tokens: in=${params.usage.input}, out=${params.usage.output}, cacheRead=${params.usage.cacheRead}, cacheWrite=${params.usage.cacheWrite}`);
+  // 不在这里创建 span，避免重复和 NO_REPLY 问题
+  console.log(`[openclaw-agentlog] LLM output received, tokens: in=${params.usage.input}, out=${params.usage.output}, will create span at agent_end`);
 }
 
 export function register(api: {
   on(event: string, handler: (...args: unknown[]) => unknown, opts?: { priority?: number }): void;
   registerHook(event: string, handler: (...args: unknown[]) => unknown, opts?: { name?: string; description?: string }): void;
 }): void {
-  api.on('session_start', onSessionStart);
+  // session_start 钩子 - 创建 session 并设置 agent context
+  api.on('session_start', async (event: unknown, ctx: unknown) => {
+    const hookCtx = ctx as { agentId?: string; sessionId?: string; sessionKey?: string } | undefined;
+    if (hookCtx?.agentId) {
+      setAgentContext(hookCtx.agentId, hookCtx.agentId);
+    }
+    // @ts-ignore - OpenClaw 传递的参数
+    await onSessionStart(event);
+  });
+  
+  // before_agent_start 钩子 - 复用已有 session
+  api.on('before_agent_start', async (event: unknown, ctx: unknown) => {
+    const hookCtx = ctx as { agentId?: string; agentType?: string; workspaceDir?: string } | undefined;
+    if (hookCtx?.agentId) {
+      setAgentContext(hookCtx.agentId, hookCtx.agentType || hookCtx.agentId);
+    }
+    // @ts-ignore - OpenClaw 传递的参数
+    await onBeforeAgentStart(event);
+  });
+  
   api.on('before_tool_call', beforeToolCall);
   api.on('after_tool_call', afterToolCall);
   api.on('agent_end', onAgentEnd);
   api.on('session_end', onSessionEnd);
-  api.on('before_agent_start', onBeforeAgentStart);
   api.on('llm_output', onLlmOutput);
 }
 

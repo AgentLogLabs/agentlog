@@ -287,6 +287,11 @@ export class TraceTreeProvider
 
     this._sseClient = new SseClient(client.getBaseUrl());
 
+    this._sseClient.on("connected", () => {
+      console.log(`[AgentLog][TraceTree] SSE 已连接，刷新`);
+      this.refresh();
+    });
+
     this._sseClient.on("trace_created", () => {
       console.log(`[AgentLog][TraceTree] 收到 trace_created 事件，刷新`);
       this.refresh();

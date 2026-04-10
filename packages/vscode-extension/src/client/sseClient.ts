@@ -105,6 +105,13 @@ export class SseClient implements vscode.Disposable {
           console.error(`[AgentLog][SseClient] SSE 响应错误:`, err.message);
           this._scheduleReconnect();
         });
+
+        // 立即触发 connected 事件，让调用者知道连接已建立
+        this._dispatch({
+          type: "connected",
+          data: null,
+          timestamp: new Date().toISOString(),
+        });
       });
 
       this._req.on("error", (err: Error) => {

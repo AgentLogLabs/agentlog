@@ -295,6 +295,13 @@ export class TracePanel {
 
     this._sseClient = new SseClient(client.getBaseUrl());
 
+    this._sseClient.on("connected", () => {
+      console.log(`[TracePanel] SSE 已连接`);
+      if (this.currentTraceId) {
+        this.loadTrace(this.currentTraceId).catch(() => {});
+      }
+    });
+
     this._sseClient.on("span_created", () => {
       if (this.currentTraceId) {
         this.loadTrace(this.currentTraceId).catch(() => {});
@@ -417,6 +424,9 @@ body { font-family: var(--vscode-font-family); font-size: var(--vscode-font-size
 .badge-source-mcp-tool-call { background: #a855f722; color: #c084fc; border: 1px solid #a855f744; }
 .badge-source { background: var(--vscode-badge-background); color: var(--vscode-badge-foreground); }
 .badge-git { background: #f9731622; color: #fb923c; border: 1px solid #f9731644; }
+.parent-trace { color: var(--vscode-descriptionForeground); font-size: 12px; margin-left: 8px; }
+.parent-trace-link { color: var(--vscode-textLink-foreground); cursor: pointer; text-decoration: none; }
+.parent-trace-link:hover { text-decoration: underline; }
 
 /* ── Stats grid ── */
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 10px; margin-bottom: 16px; }
@@ -650,6 +660,7 @@ function renderHeader(trace) {
       <div class="trace-meta-row">
         <span class="\${statusBadgeClass(trace.status)}">\${statusLabel(trace.status)}</span>
         \${trace.parentTraceId ? '<span class="badge badge-model">子 Trace</span>' : ''}
+        \${trace.parentTraceId ? '<span class="parent-trace">↳ 父 Trace: <a href="#" class="parent-trace-link" data-trace-id="' + trace.parentTraceId + '">' + esc(trace.parentTraceId) + '</a></span>' : ''}
       </div>
       <div class="trace-time-row">
         <span>📅 创建：\${fmtTime(trace.createdAt)}</span>
@@ -1136,6 +1147,15 @@ function setupEventListeners() {
           traceIdCopyBtn.classList.remove('copied');
           traceIdCopyBtn.textContent = '📋';
         }, 1500);
+      }
+    }
+
+    // 查看父 Trace
+    const parentTraceLink = e.target.closest('.parent-trace-link');
+    if (parentTraceLink) {
+      const parentTraceId = parentTraceLink.dataset.traceId;
+      if (parentTraceId) {
+        vscode.postMessage({ command: 'queryTrace', data: { traceId: parentTraceId } });
       }
     }
 
