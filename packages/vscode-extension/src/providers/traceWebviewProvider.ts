@@ -12,6 +12,7 @@
 import * as vscode from "vscode";
 import { execSync } from "child_process";
 import { getBackendClient } from "../client/backendClient";
+import { SseClient } from "../client/sseClient";
 import type { CommitBinding } from "@agentlog/shared";
 
 const SUPPORTED_LANGUAGES = ["en", "zh-CN", "zh-TW"];
@@ -121,7 +122,7 @@ export class TracePanel {
   public static current: TracePanel | undefined;
   private readonly panel: vscode.WebviewPanel;
   private readonly extensionUri: vscode.Uri;
-  private sseConnection: { close: () => void } | null = null;
+  private _sseClient: SseClient | null = null;
   private currentTraceId: string | null = null;
 
   private constructor(
@@ -286,41 +287,27 @@ export class TracePanel {
   private connectSSE(): void {
     this.disconnectSSE();
 
-    // Get backend URL from configuration
-    const backendUrl = vscode.workspace.getConfiguration("agentlog").get<string>("backendUrl") ?? "http://localhost:7892";
-    const eventSource = new EventSource(`${backendUrl}/mcp/sse`);
+    const client = getBackendClient();
+    if (!client) {
+      console.log(`[TracePanel] BackendClient 不可用，跳过 SSE 连接`);
+      return;
+    }
 
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === "span_created" && data.data) {
-          // 如果是当前 trace 的 span，则刷新
-          if (
-            this.currentTraceId &&
-            data.data.traceId === this.currentTraceId
-          ) {
-            this.loadTrace(this.currentTraceId);
-          }
-          // 通知 webview 有新 span
-          this.postMessage({ type: "spanCreated", payload: data.data });
-        }
-      } catch {
-        // ignore parse errors
+    this._sseClient = new SseClient(client.getBaseUrl());
+
+    this._sseClient.on("span_created", () => {
+      if (this.currentTraceId) {
+        this.loadTrace(this.currentTraceId).catch(() => {});
       }
-    };
+    });
 
-    eventSource.onerror = () => {
-      console.log("[TracePanel] SSE 连接断开，5秒后重连...");
-      setTimeout(() => this.connectSSE(), 5000);
-    };
-
-    this.sseConnection = eventSource;
+    this._sseClient.connect();
   }
 
   private disconnectSSE(): void {
-    if (this.sseConnection) {
-      this.sseConnection.close();
-      this.sseConnection = null;
+    if (this._sseClient) {
+      this._sseClient.dispose();
+      this._sseClient = null;
     }
   }
 

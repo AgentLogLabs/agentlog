@@ -27,6 +27,7 @@ import {
   BackendUnreachableError,
 } from "../client/backendClient";
 import type { TraceSummary } from "./traceTreeProvider";
+import { SseClient } from "../client/sseClient";
 
 // ─────────────────────────────────────────────
 // 常量
@@ -421,8 +422,8 @@ export class SessionTreeProvider
   /** 是否只显示未绑定会话 */
   private _filterUnboundOnly = false;
 
-  /** SSE 连接（用于实时接收新 Trace 事件） */
-  private _sseConnection: EventSource | null = null;
+  /** SSE 客户端 */
+  private _sseClient: SseClient | null = null;
 
   constructor() {
     // 监听配置变更（backendUrl 等），触发刷新
@@ -462,31 +463,31 @@ export class SessionTreeProvider
   private connectSSE(): void {
     this.disconnectSSE();
 
-    const backendUrl = vscode.workspace.getConfiguration("agentlog").get<string>("backendUrl") ?? "http://localhost:7892";
-    const eventSource = new EventSource(`${backendUrl}/mcp/sse`);
+    const client = getBackendClient();
+    if (!client) {
+      console.log(`[AgentLog][SessionTree] BackendClient 不可用，跳过 SSE 连接`);
+      return;
+    }
 
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === "trace_created" || data.type === "span_created") {
-          this.refresh();
-        }
-      } catch {
-        // ignore parse errors
-      }
-    };
+    this._sseClient = new SseClient(client.getBaseUrl());
 
-    eventSource.onerror = () => {
-      setTimeout(() => this.connectSSE(), 5000);
-    };
+    this._sseClient.on("trace_created", () => {
+      console.log(`[AgentLog][SessionTree] 收到 trace_created 事件，刷新`);
+      this.refresh();
+    });
 
-    this._sseConnection = eventSource;
+    this._sseClient.on("span_created", () => {
+      console.log(`[AgentLog][SessionTree] 收到 span_created 事件，刷新`);
+      this.refresh();
+    });
+
+    this._sseClient.connect();
   }
 
   private disconnectSSE(): void {
-    if (this._sseConnection) {
-      this._sseConnection.close();
-      this._sseConnection = null;
+    if (this._sseClient) {
+      this._sseClient.dispose();
+      this._sseClient = null;
     }
   }
 
@@ -884,11 +885,13 @@ export class CommitBindingsTreeProvider
 
     try {
       const client = getBackendClient();
+      console.log(`[AgentLog][CommitTree] 正在加载 commits，backendUrl: ${(client as any).baseUrl}`);
       const result = await client.listCommitBindings(
         1,
         30,
         this._workspacePath,
       );
+      console.log(`[AgentLog][CommitTree] listCommitBindings 响应:`, JSON.stringify(result).slice(0, 500));
 
       const groups: typeof this._commitGroups = [];
 
@@ -914,7 +917,9 @@ export class CommitBindingsTreeProvider
       }
 
       this._commitGroups = groups;
+      console.log(`[AgentLog][CommitTree] 加载到 ${groups.length} 个 commit 组`);
     } catch (err) {
+      console.log(`[AgentLog][CommitTree] 加载失败: ${err instanceof Error ? err.message : String(err)}`);
       this._error =
         err instanceof BackendUnreachableError
           ? "后台服务未启动"

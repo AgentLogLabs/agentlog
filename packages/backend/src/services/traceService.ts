@@ -215,12 +215,16 @@ export function queryTraces(filter: {
   page?: number;
   pageSize?: number;
   workspacePath?: string;
+  source?: string;
 } = {}): { data: Trace[]; total: number; page: number; pageSize: number } {
   const db = getDatabase();
   const conditions: string[] = [];
   const params: Record<string, unknown> = {};
 
-  if (filter.workspacePath) {
+  // source 为 openclaw 或包含 openclaw 时（不同 agent），不过滤 workspacePath
+  const isOpenclawSource = filter.source && filter.source.toLowerCase().includes('openclaw');
+
+  if (filter.workspacePath && !isOpenclawSource) {
     conditions.push('workspace_path = @workspacePath');
     params.workspacePath = filter.workspacePath;
   }
