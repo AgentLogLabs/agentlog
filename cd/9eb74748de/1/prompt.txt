@@ -1,0 +1,36 @@
+现在agentlog vscode插件无法连接LAN 192.168.1.17:7892 backend，报错日志：[Pasted ~17 liAgentLog][TraceTree] 正在加载 traces，backendUrl: http://192.168.1.17:7892, workspacePath: /Users/hobo/Projects/AgentLogTest
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] GET http://192.168.1.17:7892/api/traces?pageSize=200
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] baseUrl: http://192.168.1.17:7892, timeout: 10000ms
+extensionHostProcess.js:636
+[AgentLog][BackendClient] 连接错误: fetch failed
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   code: undefined
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   url: http://192.168.1.17:7892/api/traces?pageSize=200
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   HTTP_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   NO_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][TraceTree] 加载失败: fetch failed
+
+---
+
+继续
+
+---
+
+可以了！现在我想vscode插件使用原来的SSE方式请求LAN后台，而不是用轮询
+
+---
+
+后台的sse接口好像在mcp/sse下，请查找
+
+---
+
+报错：[PaAgentLog][SseClient] 连接 SSE: http://192.168.1.17:7892/mcp/sse
+extensionHostProcess.js:636
+[AgentLog][SseClient] 创建 EventSource 失败: ReferenceError: EventSource is not defined {vslsStack: Array(4), stack: 'ReferenceError: EventSource is not defined
+	a…ss.processTimers (node:internal/timers:521:7)', message: 'EventSource is not defined'}

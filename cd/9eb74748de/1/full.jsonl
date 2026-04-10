@@ -1,0 +1,85 @@
+{
+  "info": {
+    "id": "ses_28832e10cffedaCul28kANrXmY",
+    "slug": "nimble-panda",
+    "projectID": "bf4c3e099400a06715a042f25f06edf8caeff610",
+    "directory": "/Users/hobo/Projects/AgentLog",
+    "title": "New session - 2026-04-10T14:30:24.755Z",
+    "version": "1.4.0",
+    "summary": {
+      "additions": 0,
+      "deletions": 0,
+      "files": 0
+    },
+    "time": {
+      "created": 1775831424755,
+      "updated": 1775831424910
+    }
+  },
+  "messages": [
+    {
+      "info": {
+        "role": "user",
+        "time": {
+          "created": 1775831424800
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "google",
+          "modelID": "gemini-2.5-pro"
+        },
+        "summary": {
+          "diffs": []
+        },
+        "id": "msg_d77cd1f03001yIwPLrhn4yo9Zl",
+        "sessionID": "ses_28832e10cffedaCul28kANrXmY"
+      },
+      "parts": [
+        {
+          "type": "text",
+          "text": "现在agentlog vscode插件无法连接LAN 192.168.1.17:7892 backend，报错日志：[Pasted ~17 liAgentLog][TraceTree] 正在加载 traces，backendUrl: http://192.168.1.17:7892, workspacePath: /Users/hobo/Projects/AgentLogTest\nextensionHostProcess.js:636\n[AgentLog][BackendClient][DEBUG] GET http://192.168.1.17:7892/api/traces?pageSize=200\nextensionHostProcess.js:636\n[AgentLog][BackendClient][DEBUG] baseUrl: http://192.168.1.17:7892, timeout: 10000ms\nextensionHostProcess.js:636\n[AgentLog][BackendClient] 连接错误: fetch failed\nextensionHostProcess.js:636\n[AgentLog][BackendClient]   code: undefined\nextensionHostProcess.js:636\n[AgentLog][BackendClient]   url: http://192.168.1.17:7892/api/traces?pageSize=200\nextensionHostProcess.js:636\n[AgentLog][BackendClient]   HTTP_PROXY: not set\nextensionHostProcess.js:636\n[AgentLog][BackendClient]   NO_PROXY: not set\nextensionHostProcess.js:636\n[AgentLog][TraceTree] 加载失败: fetch failed",
+          "id": "prt_d77cd1f04001sEl9NHme3uMUE6",
+          "sessionID": "ses_28832e10cffedaCul28kANrXmY",
+          "messageID": "msg_d77cd1f03001yIwPLrhn4yo9Zl"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_d77cd1f03001yIwPLrhn4yo9Zl",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/Users/hobo/Projects/AgentLog",
+          "root": "/Users/hobo/Projects/AgentLog"
+        },
+        "cost": 0,
+        "tokens": {
+          "input": 0,
+          "output": 0,
+          "reasoning": 0,
+          "cache": {
+            "read": 0,
+            "write": 0
+          }
+        },
+        "modelID": "gemini-2.5-pro",
+        "providerID": "google",
+        "time": {
+          "created": 1775831424815,
+          "completed": 1775831527851
+        },
+        "error": {
+          "name": "MessageAbortedError",
+          "data": {
+            "message": "Aborted"
+          }
+        },
+        "id": "msg_d77cd1f2f001jdKe8seiaWBPY7",
+        "sessionID": "ses_28832e10cffedaCul28kANrXmY"
+      },
+      "parts": []
+    }
+  ]
+}
