@@ -1,0 +1,7 @@
+Explore the AgentLog VSCode extension codebase to understand:
+1. How the extension connects to the backend (look for backend URL configuration, SSE connections)
+2. Find the tree view providers for "trace" and "commit" lists
+3. Find how backend URL is configured and read from VSCode settings
+4. Look for any SSE-related code in the backend
+
+Focus on packages/vscode-extension and packages/backend directories. Be thorough - check package.json, src folders, and any configuration files.
