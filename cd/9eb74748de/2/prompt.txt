@@ -1,0 +1,579 @@
+现在vscode插件列表连接LAN 192.168.1.17:7892后台无显示，agentlog 插件日志：[Pasted ~9 lines] ，[AgentLog] AgentLog 插件正在激活…
+[AgentLog] [激活] 从 git config 读取 agentlog.traceId: 01KNRAMNB3MMH1KABKPR4PVSEM
+[AgentLog] @agentlog Chat Participant 已注册
+[AgentLog] [激活] @agentlog Chat Participant 注册成功
+[AgentLog] AgentLog 插件激活完成
+[AgentLog] [后台] 配置了远程后端 http://192.168.1.17:7892，跳过本地后端启动
+[AgentLog] [后台] 远程后端服务在线 (v1.1.2)
+[AgentLog] [MCP] 启动命令: npx tsx /Users/hobo/Projects/AgentLog/packages/backend/src/mcp.ts
+[AgentLog] [MCP][ERR] [agentlog-mcp] MCP Server 已启动（backend=http://192.168.1.17:7892）d ~16 lines] ERR [Extension Host] [AgentLog][BackendClient] 连接错误: connect EHOSTUNREACH 192.168.1.17:7892 - Local (192.168.1.10:63392) (code: EHOSTUNREACH) -> http://192.168.1.17:7892/api/traces?pageSize=200
+error @ log.ts:460
+error @ log.ts:565
+error @ logService.ts:51
+cio @ remoteConsoleUtil.ts:58
+$logExtensionHostMessage @ mainThreadConsole.ts:38
+_doInvokeHandler @ rpcProtocol.ts:458
+_invokeHandler @ rpcProtocol.ts:443
+_receiveRequest @ rpcProtocol.ts:373
+_receiveOneMessage @ rpcProtocol.ts:299
+(anonymous) @ rpcProtocol.ts:161
+_deliver @ event.ts:1354
+fire @ event.ts:1385
+fire @ ipc.net.ts:652
+(anonymous) @ localProcessExtensionHost.ts:421
+console.ts:139 [Extension Host] [AgentLog][BackendClient] 连接错误: connect EHOSTUNREACH 192.168.1.17:7892 - Local (192.168.1.10:63392) (code: EHOSTUNREACH) -> http://192.168.1.17:7892/api/traces?pageSize=200 (at console.<anonymous> (file:///Applications/Visual%20Studio%20Code.app/Contents/Resources/app/out/vs/workbench/api/node/extensionHostProcess.js:632:33642))
+
+---
+
+继续
+
+---
+
+继续
+
+---
+
+还是有问题，尝试增加debug日志，来进一步分析问题
+
+---
+
+增加日志后现在日志如下，请分析：[Pasted ~20 line[AgentLog] AgentLog 插件正在激活…
+[AgentLog] [激活] 从 git config 读取 agentlog.traceId: 01KNRAMNB3MMH1KABKPR4PVSEM
+[AgentLog] @agentlog Chat Participant 已注册
+[AgentLog] [激活] @agentlog Chat Participant 注册成功
+[AgentLog] AgentLog 插件激活完成
+[AgentLog] [后台] 配置了远程后端 http://192.168.1.17:7892，跳过本地后端启动
+[AgentLog] [后台] 远程后端服务在线 (v1.1.2)
+[AgentLog] [MCP] 启动命令: npx tsx /Users/hobo/Projects/AgentLog/packages/backend/src/mcp.ts
+[AgentLog] [MCP][ERR] [agentlog-mcp][DEBUG] BACKEND_BASE=http://192.168.1.17:7892
+[agentlog-mcp][DEBUG] HTTP_PROXY=not set
+[agentlog-mcp][DEBUG] HTTPS_PROXY=not set
+[agentlog-mcp][DEBUG] NO_PROXY=not set
+[agentlog-mcp][DEBUG] http_proxy=not set
+[agentlog-mcp][DEBUG] https_proxy=not set
+[agentlog-mcp][DEBUG] NO_PROXY env=not set
+[agentlog-mcp][DEBUG] agENTLOG_BACKEND_URL=http://192.168.1.17:7892
+[agentlog-mcp][DEBUG] AGENTLOG_PORT=not set
+[agentlog-mcp][DEBUG] Testing backend connectivity: http://192.168.1.17:7892/health
+[AgentLog] [MCP][ERR] [agentlog-mcp][DEBUG] Backend health check: 200 OK
+[AgentLog] [MCP][ERR] [agentlog-mcp] MCP Server 已启动（backend=http://192.168.1.17:7892）
+
+---
+
+两个树形列表显示：后台服务未启动
+
+---
+
+帮我检查vscode是否有代理，目前系统代理已经关闭了
+
+---
+
+console日志：[Pa[Extension Host] [AgentLog][TraceTree] 加载失败: AgentLog 后台服务不可达（http://192.168.1.17:7892）。请确认服务已启动，或检查 agentlog.backendUrl 配置。 (at console.<anonymous> (file:///Applications/Visual%20Studio%20Code.app/Contents/Resources/app/out/vs/workbench/api/node/extensionHostProcess.js:632:33642))
+console.ts:139 [Extension Host] [AgentLog][TraceTree] 正在加载 traces，backendUrl: http://192.168.1.17:7892, workspacePath: /Users/hobo/Projects/AgentLogTest (at console.<anonymous> (file:///Applications/Visual%20Studio%20Code.app/Contents/Resources/app/out/vs/workbench/api/node/extensionHostProcess.js:632:33642))
+
+---
+
+以无沙盒模式运行VS Code：
+      /Applications/Visual\ Studio\ Code.app/Contents/MacOS/Electron --no-sandbox 仍然有问题
+
+---
+
+fetch 命令执行结果：[PastedVM241:1 Connecting to 'http://192.168.1.17:7892/health' violates the following Content Security Policy directive: "connect-src 'self'
+					https:
+					ws:". The action has been blocked.
+(anonymous)	@	VM241:1
+VM241:1 Fetch API cannot load http://192.168.1.17:7892/health. Refused to connect because it violates the document's Content Security Policy.
+VM241:1 Error: TypeError: Failed to fetch. Refused to connect because it violates the document's Content Security Policy.
+    at <anonymous>:1:1
+Promise {<fulfilled>: undefined}
+[[Prototype]]
+: 
+Promise
+[[PromiseState]]
+: 
+"fulfilled"
+[[PromiseResult]]
+: 
+undefined
+
+---
+
+之前本地后端是正常的
+
+---
+
+这个改动不好，我需要解决vscode插件连接后端的问题
+
+---
+
+日志如下：[Pastnode:55754) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+extensionHostProcess.js:636
+(Use `Code Helper (Plugin) --trace-deprecation ...` to show where the warning was created)
+extensionHostProcess.js:636
+(node:55754) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+extensionHostProcess.js:636
+[AgentLog][TraceTree] 启动轮询
+extensionHostProcess.js:636
+[AgentLog][CommitTree] 正在加载 commits，backendUrl: http://192.168.1.17:7892
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] GET http://192.168.1.17:7892/api/commits/?page=1&pageSize=30&workspacePath=%2FUsers%2Fhobo%2FProjects%2FAgentLogTest
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] hostname: 192.168.1.17, port: 7892, protocol: http:
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] baseUrl: http://192.168.1.17:7892, timeout: 10000ms
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] process.env.NO_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][TraceTree] 正在加载 traces，backendUrl: http://192.168.1.17:7892, workspacePath: /Users/hobo/Projects/AgentLogTest
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] GET http://192.168.1.17:7892/api/traces?pageSize=200
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] hostname: 192.168.1.17, port: 7892, protocol: http:
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] baseUrl: http://192.168.1.17:7892, timeout: 10000ms
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] process.env.NO_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient] 连接错误: connect EHOSTUNREACH 192.168.1.17:7892 - Local (192.168.1.10:64052)
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   code: EHOSTUNREACH
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   url: http://192.168.1.17:7892/api/commits/?page=1&pageSize=30&workspacePath=%2FUsers%2Fhobo%2FProjects%2FAgentLogTest
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   local: undefined:undefined
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   remote: undefined:undefined
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   hostname: 192.168.1.17
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   href: http://192.168.1.17:7892/api/commits/?page=1&pageSize=30&workspacePath=%2FUsers%2Fhobo%2FProjects%2FAgentLogTest
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   protocol: http:
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   HTTP_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   HTTPS_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   NO_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   DNS lookup尝试: 192.168.1.17
+extensionHostProcess.js:636
+[AgentLog][CommitTree] 加载失败: AgentLog 后台服务不可达（http://192.168.1.17:7892）。请确认服务已启动，或检查 agentlog.backendUrl 配置。
+extensionHostProcess.js:636
+[AgentLog][BackendClient] 连接错误: connect EHOSTUNREACH 192.168.1.17:7892 - Local (192.168.1.10:64053)
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   code: EHOSTUNREACH
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   url: http://192.168.1.17:7892/api/traces?pageSize=200
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   local: undefined:undefined
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   remote: undefined:undefined
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   hostname: 192.168.1.17
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   href: http://192.168.1.17:7892/api/traces?pageSize=200
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   protocol: http:
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   HTTP_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   HTTPS_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   NO_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   DNS lookup尝试: 192.168.1.17
+extensionHostProcess.js:636
+[AgentLog][TraceTree] 加载失败: AgentLog 后台服务不可达（http://192.168.1.17:7892）。请确认服务已启动，或检查 agentlog.backendUrl 配置。
+extensionHostProcess.js:636
+[AgentLog][TraceTree] 正在加载 traces，backendUrl: http://192.168.1.17:7892, workspacePath: /Users/hobo/Projects/AgentLogTest
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] GET http://192.168.1.17:7892/api/traces?pageSize=200
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] hostname: 192.168.1.17, port: 7892, protocol: http:
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] baseUrl: http://192.168.1.17:7892, timeout: 10000ms
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] process.env.NO_PROXY: not set
+
+---
+
+仍然不行，我使用上面方式2创建本地TCP代理，现在日志：[Pasted ~161 lines] (node:59124) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+extensionHostProcess.js:636
+(Use `Code Helper (Plugin) --trace-deprecation ...` to show where the warning was created)
+extensionHostProcess.js:636
+(node:59124) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+extensionHostProcess.js:636
+[AgentLog][TraceTree] 启动轮询
+extensionHostProcess.js:636
+[AgentLog][CommitTree] 正在加载 commits，backendUrl: http://localhost:7892
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] GET http://localhost:7892/api/commits/?page=1&pageSize=30&workspacePath=%2FUsers%2Fhobo%2FProjects%2FAgentLogTest
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] hostname: localhost, port: 7892, protocol: http:
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] baseUrl: http://localhost:7892, timeout: 10000ms
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] process.env.NO_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][TraceTree] 正在加载 traces，backendUrl: http://localhost:7892, workspacePath: /Users/hobo/Projects/AgentLogTest
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] GET http://localhost:7892/api/traces?pageSize=200
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] hostname: localhost, port: 7892, protocol: http:
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] baseUrl: http://localhost:7892, timeout: 10000ms
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] process.env.NO_PROXY: not set
+extensionHostProcess.js:636
+[INFO] 2026-04-10T14:21:12.180Z - Translations initialized.
+extensionHostProcess.js:636
+[INFO] 2026-04-10T14:21:12.181Z - Extension activated!
+extensionHostProcess.js:636
+(node:59124) [DEP0005] DeprecationWarning: Buffer() is deprecated due to security and usability issues. Please use the Buffer.alloc(), Buffer.allocUnsafe(), or Buffer.from() methods instead.
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] GET http://localhost:7892/health
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] hostname: localhost, port: 7892, protocol: http:
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] baseUrl: http://localhost:7892, timeout: 10000ms
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] process.env.NO_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][CommitTree] 加载失败: AgentLog 后台服务不可达（http://localhost:7892）。请确认服务已启动，或检查 agentlog.backendUrl 配置。
+extensionHostProcess.js:636
+[AgentLog][TraceTree] 加载失败: AgentLog 后台服务不可达（http://localhost:7892）。请确认服务已启动，或检查 agentlog.backendUrl 配置。
+extensionHostProcess.js:636
+[AgentLog][BackendClient] 连接错误: socket hang up
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   code: ECONNRESET
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   url: http://localhost:7892/api/traces?pageSize=200
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   local: undefined:undefined
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   remote: undefined:undefined
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   hostname: localhost
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   href: http://localhost:7892/api/traces?pageSize=200
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   protocol: http:
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   HTTP_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   HTTPS_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   NO_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   DNS lookup尝试: localhost
+extensionHostProcess.js:636
+[AgentLog][BackendClient] 连接错误: socket hang up
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   code: ECONNRESET
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   url: http://localhost:7892/api/commits/?page=1&pageSize=30&workspacePath=%2FUsers%2Fhobo%2FProjects%2FAgentLogTest
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   local: undefined:undefined
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   remote: undefined:undefined
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   hostname: localhost
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   href: http://localhost:7892/api/commits/?page=1&pageSize=30&workspacePath=%2FUsers%2Fhobo%2FProjects%2FAgentLogTest
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   protocol: http:
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   HTTP_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   HTTPS_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   NO_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   DNS lookup尝试: localhost
+extensionHostProcess.js:636
+[AgentLog][TraceTree] 正在加载 traces，backendUrl: http://localhost:7892, workspacePath: /Users/hobo/Projects/AgentLogTest
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] GET http://localhost:7892/api/traces?pageSize=200
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] hostname: localhost, port: 7892, protocol: http:
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] baseUrl: http://localhost:7892, timeout: 10000ms
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] process.env.NO_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] GET http://localhost:7892/health
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] hostname: localhost, port: 7892, protocol: http:
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] baseUrl: http://localhost:7892, timeout: 10000ms
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] process.env.NO_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient] 连接错误: socket hang up
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   code: ECONNRESET
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   url: http://localhost:7892/health
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   local: undefined:undefined
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   remote: undefined:undefined
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   hostname: localhost
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   href: http://localhost:7892/health
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   protocol: http:
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   HTTP_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   HTTPS_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   NO_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   DNS lookup尝试: localhost
+extensionHostProcess.js:636
+[AgentLog][TraceTree] 加载失败: AgentLog 后台服务不可达（http://localhost:7892）。请确认服务已启动，或检查 agentlog.backendUrl 配置。
+extensionHostProcess.js:636
+[AgentLog][BackendClient] 连接错误: socket hang up
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   code: ECONNRESET
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   url: http://localhost:7892/api/traces?pageSize=200
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   local: undefined:undefined
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   remote: undefined:undefined
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   hostname: localhost
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   href: http://localhost:7892/api/traces?pageSize=200
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   protocol: http:
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   HTTP_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   HTTPS_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   NO_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   DNS lookup尝试: localhost
+
+---
+
+python 代理出错：[Past(node:59124) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+extensionHostProcess.js:636
+(Use `Code Helper (Plugin) --trace-deprecation ...` to show where the warning was created)
+extensionHostProcess.js:636
+(node:59124) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+extensionHostProcess.js:636
+[AgentLog][TraceTree] 启动轮询
+extensionHostProcess.js:636
+[AgentLog][CommitTree] 正在加载 commits，backendUrl: http://localhost:7892
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] GET http://localhost:7892/api/commits/?page=1&pageSize=30&workspacePath=%2FUsers%2Fhobo%2FProjects%2FAgentLogTest
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] hostname: localhost, port: 7892, protocol: http:
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] baseUrl: http://localhost:7892, timeout: 10000ms
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] process.env.NO_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][TraceTree] 正在加载 traces，backendUrl: http://localhost:7892, workspacePath: /Users/hobo/Projects/AgentLogTest
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] GET http://localhost:7892/api/traces?pageSize=200
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] hostname: localhost, port: 7892, protocol: http:
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] baseUrl: http://localhost:7892, timeout: 10000ms
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] process.env.NO_PROXY: not set
+extensionHostProcess.js:636
+[INFO] 2026-04-10T14:21:12.180Z - Translations initialized.
+extensionHostProcess.js:636
+[INFO] 2026-04-10T14:21:12.181Z - Extension activated!
+extensionHostProcess.js:636
+(node:59124) [DEP0005] DeprecationWarning: Buffer() is deprecated due to security and usability issues. Please use the Buffer.alloc(), Buffer.allocUnsafe(), or Buffer.from() methods instead.
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] GET http://localhost:7892/health
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] hostname: localhost, port: 7892, protocol: http:
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] baseUrl: http://localhost:7892, timeout: 10000ms
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] process.env.NO_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][CommitTree] 加载失败: AgentLog 后台服务不可达（http://localhost:7892）。请确认服务已启动，或检查 agentlog.backendUrl 配置。
+extensionHostProcess.js:636
+[AgentLog][TraceTree] 加载失败: AgentLog 后台服务不可达（http://localhost:7892）。请确认服务已启动，或检查 agentlog.backendUrl 配置。
+extensionHostProcess.js:636
+[AgentLog][BackendClient] 连接错误: socket hang up
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   code: ECONNRESET
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   url: http://localhost:7892/api/traces?pageSize=200
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   local: undefined:undefined
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   remote: undefined:undefined
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   hostname: localhost
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   href: http://localhost:7892/api/traces?pageSize=200
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   protocol: http:
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   HTTP_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   HTTPS_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   NO_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   DNS lookup尝试: localhost
+extensionHostProcess.js:636
+[AgentLog][BackendClient] 连接错误: socket hang up
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   code: ECONNRESET
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   url: http://localhost:7892/api/commits/?page=1&pageSize=30&workspacePath=%2FUsers%2Fhobo%2FProjects%2FAgentLogTest
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   local: undefined:undefined
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   remote: undefined:undefined
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   hostname: localhost
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   href: http://localhost:7892/api/commits/?page=1&pageSize=30&workspacePath=%2FUsers%2Fhobo%2FProjects%2FAgentLogTest
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   protocol: http:
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   HTTP_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   HTTPS_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   NO_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   DNS lookup尝试: localhost
+extensionHostProcess.js:636
+[AgentLog][TraceTree] 正在加载 traces，backendUrl: http://localhost:7892, workspacePath: /Users/hobo/Projects/AgentLogTest
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] GET http://localhost:7892/api/traces?pageSize=200
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] hostname: localhost, port: 7892, protocol: http:
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] baseUrl: http://localhost:7892, timeout: 10000ms
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] process.env.NO_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] GET http://localhost:7892/health
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] hostname: localhost, port: 7892, protocol: http:
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] baseUrl: http://localhost:7892, timeout: 10000ms
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] process.env.NO_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient] 连接错误: socket hang up
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   code: ECONNRESET
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   url: http://localhost:7892/health
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   local: undefined:undefined
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   remote: undefined:undefined
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   hostname: localhost
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   href: http://localhost:7892/health
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   protocol: http:
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   HTTP_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   HTTPS_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   NO_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   DNS lookup尝试: localhost
+extensionHostProcess.js:636
+[AgentLog][TraceTree] 加载失败: AgentLog 后台服务不可达（http://localhost:7892）。请确认服务已启动，或检查 agentlog.backendUrl 配置。
+extensionHostProcess.js:636
+[AgentLog][BackendClient] 连接错误: socket hang up
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   code: ECONNRESET
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   url: http://localhost:7892/api/traces?pageSize=200
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   local: undefined:undefined
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   remote: undefined:undefined
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   hostname: localhost
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   href: http://localhost:7892/api/traces?pageSize=200
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   protocol: http:
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   HTTP_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   HTTPS_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   NO_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   DNS lookup尝试: localhost
+
+---
+
+python 代理出错：[PastTraceback (most recent call last):
+  File "<string>", line 15, in <module>
+    fwd.connect(('192.168.1.17', 7892))
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+OSError: [Errno 65] No route to host
+
+[1]  + 58185 exit 1     python3 -c
+
+---
+
+日志：[Panode:61607) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+extensionHostProcess.js:636
+(Use `Code Helper (Plugin) --trace-deprecation ...` to show where the warning was created)
+extensionHostProcess.js:636
+(node:61607) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+extensionHostProcess.js:636
+[AgentLog][TraceTree] 启动轮询
+extensionHostProcess.js:636
+[AgentLog][CommitTree] 正在加载 commits，backendUrl: http://192.168.1.17:7892
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] GET http://192.168.1.17:7892/api/commits/?page=1&pageSize=30&workspacePath=%2FUsers%2Fhobo%2FProjects%2FAgentLogTest
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] baseUrl: http://192.168.1.17:7892, timeout: 10000ms
+extensionHostProcess.js:636
+[AgentLog][TraceTree] 正在加载 traces，backendUrl: http://192.168.1.17:7892, workspacePath: /Users/hobo/Projects/AgentLogTest
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] GET http://192.168.1.17:7892/api/traces?pageSize=200
+extensionHostProcess.js:636
+[AgentLog][BackendClient][DEBUG] baseUrl: http://192.168.1.17:7892, timeout: 10000ms
+extensionHostProcess.js:636
+[AgentLog][BackendClient] 连接错误: fetch failed
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   code: undefined
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   url: http://192.168.1.17:7892/api/commits/?page=1&pageSize=30&workspacePath=%2FUsers%2Fhobo%2FProjects%2FAgentLogTest
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   HTTP_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   NO_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][CommitTree] 加载失败: fetch failed
+extensionHostProcess.js:636
+[AgentLog][BackendClient] 连接错误: fetch failed
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   code: undefined
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   url: http://192.168.1.17:7892/api/traces?pageSize=200
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   HTTP_PROXY: not set
+extensionHostProcess.js:636
+[AgentLog][BackendClient]   NO_PROXY: not set
