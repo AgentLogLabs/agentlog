@@ -3,7 +3,7 @@
   "checkpoint_id": "cd9eb74748de",
   "strategy": "manual-commit",
   "branch": "dev",
-  "checkpoints_count": 20,
+  "checkpoints_count": 33,
   "files_touched": [
     ".opencode/package-lock.json",
     ".vscode/PythonImportHelper-v2-Completion.json",
@@ -41,6 +41,12 @@
       "transcript": "/cd/9eb74748de/3/full.jsonl",
       "content_hash": "/cd/9eb74748de/3/content_hash.txt",
       "prompt": "/cd/9eb74748de/3/prompt.txt"
+    },
+    {
+      "metadata": "/cd/9eb74748de/4/metadata.json",
+      "transcript": "/cd/9eb74748de/4/full.jsonl",
+      "content_hash": "/cd/9eb74748de/4/content_hash.txt",
+      "prompt": "/cd/9eb74748de/4/prompt.txt"
     }
   ],
   "token_usage": {
@@ -48,6 +54,6 @@
     "cache_creation_tokens": 19885,
     "cache_read_tokens": 137738,
     "output_tokens": 2819,
-    "api_call_count": 13
+    "api_call_count": 14
   }
 }
