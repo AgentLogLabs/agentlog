@@ -33,6 +33,8 @@
 | [MCP_DATA_QUALITY_ASSESSMENT.md](./MCP_DATA_QUALITY_ASSESSMENT.md) | MCP 数据质量评估 | ✅ 已完成 |
 | [GROWTH_PLAN_v1.0_TECH_DESIGN.md](./GROWTH_PLAN_v1.0_TECH_DESIGN.md) | 增长计划技术设计 | ✅ 已完成 |
 | [Change_arch.md](./Change_arch.md) | 架构变更记录 | ✅ 已完成 |
+| [ASIP-v2.2-Reliable-Messaging.md](./ASIP-v2.2-Reliable-Messaging.md) | 可靠消息传递协议设计 | ✅ 已完成 |
+| [STRATEGY_2026-04-10.md](./STRATEGY_2026-04-10.md) | 战略讨论 - 效率工具定位 | 🔄 讨论中 |
 
 ---
 
@@ -128,14 +130,22 @@
 
 ---
 
+## 📊 战略与规划
+
+| 文档 | 说明 | 状态 |
+|------|------|------|
+| [STRATEGY_DISCUSSION_2026-04-10.md](./STRATEGY_DISCUSSION_2026-04-10.md) | 战略讨论 - 效率工具定位、P0 功能方案 | 🔄 讨论中 |
+
+---
+
 ## 📊 状态汇总
 
 | 状态 | 数量 |
 |------|------|
 | ✅ 已完成 | 30 |
-| 🔄 讨论中 | 2 |
+| 🔄 讨论中 | 3 |
 | ⚠️ 已废弃 | 4 |
 
 ---
 
-*最后更新：2026-04-06*
+*最后更新：2026-04-11*

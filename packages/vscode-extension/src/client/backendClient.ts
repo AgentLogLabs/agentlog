@@ -89,6 +89,10 @@ export class BackendClient {
     this.timeoutMs = options.timeoutMs ?? 5_000;
   }
 
+  getBaseUrl(): string {
+    return this.baseUrl;
+  }
+
   // ─────────────────────────────────────────────
   // 底层 HTTP 请求
   // ─────────────────────────────────────────────
@@ -101,110 +105,93 @@ export class BackendClient {
    * @param body     请求体（POST / PATCH 时使用）
    * @returns        解析后的 JSON 数据
    */
-  private request<T>(
+  private async request<T>(
     method: "GET" | "POST" | "PATCH" | "DELETE",
     path: string,
     body?: unknown,
   ): Promise<T> {
-    return new Promise((resolve, reject) => {
-      const url = new URL(`${this.baseUrl}${path}`);
-      const isHttps = url.protocol === "https:";
-      const transport = isHttps ? https : http;
+    const url = new URL(`${this.baseUrl}${path}`);
 
-      const bodyStr = body !== undefined ? JSON.stringify(body) : undefined;
+    console.log(`[AgentLog][BackendClient][DEBUG] ${method} ${url.toString()}`);
+    console.log(`[AgentLog][BackendClient][DEBUG] baseUrl: ${this.baseUrl}, timeout: ${this.timeoutMs}ms`);
 
-      const options: http.RequestOptions = {
-        hostname: url.hostname,
-        port: url.port || (isHttps ? 443 : 80),
-        path: url.pathname + url.search,
+    const bodyStr = body !== undefined ? JSON.stringify(body) : undefined;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
+
+    try {
+      const resp = await fetch(url.toString(), {
         method,
-          headers: {
-            Accept: "application/json",
-            ...(bodyStr
-              ? {
-                  "Content-Type": "application/json",
-                  "Content-Length": Buffer.byteLength(bodyStr),
-                }
-              : {}),
-          },
-        timeout: this.timeoutMs,
-      };
-
-      const req = transport.request(options, (res) => {
-        const chunks: Buffer[] = [];
-
-        res.on("data", (chunk: Buffer) => chunks.push(chunk));
-
-        res.on("end", () => {
-          const raw = Buffer.concat(chunks).toString("utf-8");
-
-          // 尝试解析 JSON
-          let parsed: unknown;
-          try {
-            parsed = JSON.parse(raw);
-          } catch {
-            // 非 JSON 响应（例如导出文件的纯文本）
-            if ((res.statusCode ?? 200) < 400) {
-              resolve(raw as unknown as T);
-              return;
-            }
-            reject(
-              new BackendApiError(
-                res.statusCode ?? 0,
-                path,
-                `响应不是有效的 JSON：${raw.slice(0, 200)}`,
-              ),
-            );
-            return;
-          }
-
-          const statusCode = res.statusCode ?? 200;
-
-          if (statusCode >= 400) {
-            const apiResp = parsed as ApiResponse;
-            reject(
-              new BackendApiError(
-                statusCode,
-                path,
-                apiResp?.error ?? `HTTP ${statusCode}`,
-              ),
-            );
-            return;
-          }
-
-          resolve(parsed as T);
-        });
+        headers: {
+          Accept: "application/json",
+          ...(bodyStr
+            ? {
+                "Content-Type": "application/json",
+                "Content-Length": Buffer.byteLength(bodyStr).toString(),
+              }
+            : {}),
+        },
+        body: bodyStr,
+        signal: controller.signal,
       });
 
-      // 超时处理
-      req.on("timeout", () => {
-        req.destroy();
-        this._isAlive = false;
-        reject(
-          new BackendUnreachableError(
-            this.baseUrl,
-            new Error(`请求超时（${this.timeoutMs}ms）：${method} ${path}`),
-          ),
-        );
-      });
+      clearTimeout(timeoutId);
 
-      // 连接错误（服务未启动）
-      req.on("error", (err) => {
-        this._isAlive = false;
-        const isConnectionRefused =
-          (err as NodeJS.ErrnoException).code === "ECONNREFUSED";
-        if (isConnectionRefused) {
-          reject(new BackendUnreachableError(this.baseUrl, err));
-        } else {
-          reject(err);
+      const raw = await resp.text();
+
+      if (!resp.ok) {
+        let errorMsg = `HTTP ${resp.status}`;
+        try {
+          const parsed = JSON.parse(raw);
+          errorMsg = (parsed as ApiResponse)?.error ?? errorMsg;
+        } catch {
+          // use status text
         }
-      });
-
-      if (bodyStr) {
-        req.write(bodyStr);
+        throw new BackendApiError(resp.status, path, errorMsg);
       }
-      req.end();
-    });
+
+      if (raw === "") {
+        return raw as unknown as T;
+      }
+
+      try {
+        return JSON.parse(raw) as T;
+      } catch {
+        if (resp.status < 400) {
+          return raw as unknown as T;
+        }
+        throw new BackendApiError(resp.status, path, `响应不是有效的 JSON：${raw.slice(0, 200)}`);
+      }
+    } catch (err) {
+      this._isAlive = false;
+
+      if (err instanceof Error && err.name === "AbortError") {
+        throw new BackendUnreachableError(
+          this.baseUrl,
+          new Error(`请求超时（${this.timeoutMs}ms）：${method} ${path}`),
+        );
+      }
+
+      if (err instanceof BackendApiError) {
+        throw err;
+      }
+
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const errCode = (err as NodeJS.ErrnoException).code;
+
+      console.error(`[AgentLog][BackendClient] 连接错误: ${errMsg}`);
+      console.error(`[AgentLog][BackendClient]   code: ${errCode}`);
+      console.error(`[AgentLog][BackendClient]   url: ${url.toString()}`);
+      console.error(`[AgentLog][BackendClient]   HTTP_PROXY: ${process.env.HTTP_PROXY || process.env.http_proxy || 'not set'}`);
+      console.error(`[AgentLog][BackendClient]   NO_PROXY: ${process.env.NO_PROXY || process.env.no_proxy || 'not set'}`);
+
+      if (errCode === "ECONNREFUSED" || errCode === "EHOSTUNREACH" || errCode === "ENETUNREACH") {
+        throw new BackendUnreachableError(this.baseUrl, err);
+      }
+
+      throw err;
+    }
   }
 
   // ─────────────────────────────────────────────

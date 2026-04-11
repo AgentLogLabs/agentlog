@@ -13,6 +13,7 @@
 
 import * as vscode from "vscode";
 import { getBackendClient, BackendUnreachableError } from "../client/backendClient";
+import { SseClient } from "../client/sseClient";
 
 // ─────────────────────────────────────────────
 // 类型定义
@@ -36,7 +37,18 @@ type TreeNode = TraceDateGroupItem | TraceItem | TraceStatusItem;
 
 function resolveWorkspacePath(): string | undefined {
   const folders = vscode.workspace.workspaceFolders;
-  return folders && folders.length > 0 ? folders[0].uri.fsPath : undefined;
+  const wsPath = folders && folders.length > 0 ? folders[0].uri.fsPath : undefined;
+  if (!wsPath) return undefined;
+  // Use git remote URL for cross-machine collaboration
+  try {
+    const { execSync } = require("child_process");
+    const remoteUrl = execSync("git remote get-url origin", {
+      encoding: "utf-8",
+      cwd: wsPath,
+    }).trim();
+    if (remoteUrl) return remoteUrl;
+  } catch {}
+  return wsPath;
 }
 
 function resolveActiveEditorWorkspacePath(): string | undefined {
@@ -250,6 +262,7 @@ export class TraceTreeProvider
   private _loaded = false;
   private _workspacePath: string | undefined;
   private _disposables: vscode.Disposable[] = [];
+  private _sseClient: SseClient | null = null;
 
   constructor() {
     const wsWatcher = vscode.workspace.onDidChangeWorkspaceFolders(() => {
@@ -268,9 +281,50 @@ export class TraceTreeProvider
     this._disposables.push(editorWatcher);
 
     this._workspacePath = resolveWorkspacePath();
+
+    this.connectSSE();
+  }
+
+  // ─── SSE 实时推送 ───────────────────────────
+
+  private connectSSE(): void {
+    this.disconnectSSE();
+
+    const client = getBackendClient();
+    if (!client) {
+      console.log(`[AgentLog][TraceTree] BackendClient 不可用，跳过 SSE 连接`);
+      return;
+    }
+
+    this._sseClient = new SseClient(client.getBaseUrl());
+
+    this._sseClient.on("connected", () => {
+      console.log(`[AgentLog][TraceTree] SSE 已连接，刷新`);
+      this.refresh();
+    });
+
+    this._sseClient.on("trace_created", () => {
+      console.log(`[AgentLog][TraceTree] 收到 trace_created 事件，刷新`);
+      this.refresh();
+    });
+
+    this._sseClient.on("span_created", () => {
+      console.log(`[AgentLog][TraceTree] 收到 span_created 事件，刷新`);
+      this.refresh();
+    });
+
+    this._sseClient.connect();
+  }
+
+  private disconnectSSE(): void {
+    if (this._sseClient) {
+      this._sseClient.dispose();
+      this._sseClient = null;
+    }
   }
 
   dispose(): void {
+    this.disconnectSSE();
     this._onDidChangeTreeData.dispose();
     for (const d of this._disposables) {
       d.dispose();
@@ -323,13 +377,17 @@ export class TraceTreeProvider
 
     try {
       const client = getBackendClient();
+      console.log(`[AgentLog][TraceTree] 正在加载 traces，backendUrl: ${(client as any).baseUrl}, workspacePath: ${this._workspacePath}`);
       const response = await client.getTraces({ pageSize: 200, workspacePath: this._workspacePath });
+      console.log(`[AgentLog][TraceTree] getTraces 响应:`, JSON.stringify(response).slice(0, 500));
       if (response && typeof response === "object" && "data" in response) {
         const resp = response as { data: TraceSummary[] };
         this._traces = resp.data ?? [];
+        console.log(`[AgentLog][TraceTree] 加载到 ${this._traces.length} 条 traces`);
       }
       this._loaded = true;
     } catch (err) {
+      console.log(`[AgentLog][TraceTree] 加载失败: ${err instanceof Error ? err.message : String(err)}`);
       if (err instanceof BackendUnreachableError) {
         this._error = "后台服务未启动";
       } else {

@@ -11,8 +11,6 @@
  * - PATCH /api/traces/:id - 更新 trace 状态
  *
  * 提供给 OpenClaw Agent 使用。
- *
- * 迁移到 OpenClaw v3.22+ definePluginEntry() 模式
  */
 
 import { randomUUID } from "crypto";
@@ -20,7 +18,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { nanoid } from "nanoid";
 import type { PendingTraceEntry, ActiveSessionEntry, SessionsJson } from "@agentlog/shared";
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 
 // ─────────────────────────────────────────────
 // Backend Configuration
@@ -64,16 +61,39 @@ interface TraceSearchResult {
 // Agent Source Detection
 // ─────────────────────────────────────────────
 
-function detectAgentSource(): string {
-  // 从 workspace 路径推断 agent 类型
-  // 路径格式: /home/hobo/.openclaw/agents/<agent-name>/workspace
+let currentAgentId: string | null = null;
+let currentAgentType: string | null = null;
+
+function setAgentContext(agentId?: string, agentType?: string): void {
+  if (agentId) currentAgentId = agentId;
+  if (agentType) currentAgentType = agentType;
+}
+
+async function getGitRemoteUrl(cwd: string): Promise<string> {
+  try {
+    const { execSync } = await import("child_process");
+    const remoteUrl = execSync("git remote get-url origin", {
+      encoding: "utf-8",
+      cwd,
+    }).trim();
+    return remoteUrl;
+  } catch {
+    return cwd;
+  }
+}
+
+async function detectAgentSource(): Promise<string> {
+  if (currentAgentType) {
+    return `openclaw:${currentAgentType}`;
+  }
+
   const workspacePath = process.cwd();
-  const match = workspacePath.match(/\/agents\/([^\/]+)\/workspace/);
+  const gitRemoteUrl = await getGitRemoteUrl(workspacePath);
+  const match = gitRemoteUrl.match(/\/agents\/([^\/]+)\.git$/);
   if (match) {
     return `openclaw:${match[1]}`;
   }
 
-  // Fallback: 环境变量
   const agentId = process.env.AGENTLOG_AGENT_ID || process.env.AGENT || "";
   if (agentId) {
     return `openclaw:${agentId}`;
@@ -83,12 +103,24 @@ function detectAgentSource(): string {
 }
 
 function detectAgentType(): string {
+  if (currentAgentType) return currentAgentType;
+  
   const workspacePath = process.cwd();
   const match = workspacePath.match(/\/agents\/([^\/]+)\/workspace/);
   if (match) {
     return match[1];
   }
   return process.env.AGENTLOG_AGENT_ID || "unknown";
+}
+
+/**
+ * 获取工作区的唯一标识符。
+ * - 优先使用 git remote URL（支持跨机器协作）
+ * - 非 git 仓库 fallback 到 cwd
+ */
+async function getWorkspaceIdentifier(cwd: string): Promise<string> {
+  const gitRemoteUrl = await getGitRemoteUrl(cwd);
+  return gitRemoteUrl || cwd;
 }
 
 // ─────────────────────────────────────────────
@@ -114,16 +146,14 @@ interface SessionState {
   agentSource: string;
   workspacePath: string;
   taskGoal: string;
-  taskStatus: "idle" | "running" | "completed";
-  llmUsage?: {
-    provider: string;
-    model: string;
+  pendingTokenUsage?: {
     inputTokens?: number;
     outputTokens?: number;
+    cacheCreationTokens?: number;
     cacheReadTokens?: number;
-    cacheWriteTokens?: number;
-    totalTokens?: number;
   };
+  pendingModel?: string;
+  lastUserSpanTime?: number;
 }
 
 interface ToolCall {
@@ -152,13 +182,7 @@ let config: AgentLogConfig = {
 };
 
 let currentSession: SessionState | null = null;
-const sessionByTraceId: Map<string, SessionState> = new Map();
-const toolCallTimings: Map<string, number> = new Map();
-
-// Pre-flight trace ID：在 onSessionStart 同步阶段生成，写入 process.env.AGENTLOG_TRACE_ID
-// 供 buildResetSessionNoticeText（dist）在发送飞书消息时读取。
-// 当 startSession() 拿到真实后端 ULID 后会覆盖此值。
-let preflightTraceId: string | null = null;
+let lastProcessedMessageId: string | null = null;
 
 // ─────────────────────────────────────────────
 // sessions.json Operations (for Trace Handoff)
@@ -211,7 +235,7 @@ async function apiRequest<T>(
     ...(body ? { body: JSON.stringify(body) } : {}),
   };
 
-  const response = await fetch(url, options);
+  const response = await fetch(url, { ...options, signal: AbortSignal.timeout(5000) });
   if (!response.ok) {
     throw new Error(`API 错误: ${response.status} ${response.statusText}`);
   }
@@ -228,18 +252,40 @@ async function createSpan(traceId: string, span: {
   role: string;
   content: string;
   tool_name?: string;
-  toolInput?: Record<string, unknown>;
-  toolOutput?: unknown;
   duration_ms?: number;
   timestamp?: string;
+  tokenUsage?: {
+    inputTokens?: number;
+    outputTokens?: number;
+    cacheCreationTokens?: number;
+    cacheReadTokens?: number;
+  };
+  model?: string;
+  source?: string;
 }): Promise<boolean> {
+  const roleToActorType = (role: string): string => {
+    switch (role) {
+      case "user":
+      case "human":
+        return "human";
+      case "assistant":
+      case "tool":
+      case "agent":
+        return "agent";
+      case "system":
+        return "system";
+      default:
+        return "agent";
+    }
+  };
+
   try {
     const result = await apiRequest<{ success: boolean }>(
       "POST",
       "/api/spans",
       {
         traceId,
-        actorType: span.role === "tool" ? "agent" : span.role,
+        actorType: roleToActorType(span.role),
         actorName: span.tool_name || "agent",
         payload: {
           event: span.role,
@@ -247,8 +293,9 @@ async function createSpan(traceId: string, span: {
           toolName: span.tool_name,
           durationMs: span.duration_ms,
           timestamp: span.timestamp || new Date().toISOString(),
-          toolInput: span.toolInput,
-          toolOutput: span.toolOutput,
+          tokenUsage: span.tokenUsage,
+          model: span.model,
+          source: span.source,
         },
       }
     );
@@ -288,12 +335,12 @@ async function finalizeTrace(
 // Trace Operations (using REST API)
 // ─────────────────────────────────────────────
 
-async function createTrace(taskGoal: string, workspacePath: string, parentTraceId?: string): Promise<Trace | null> {
+async function createTrace(taskGoal: string, workspacePath: string): Promise<Trace | null> {
   try {
     const result = await apiRequest<{ success: boolean; data: Trace }>(
       "POST",
       "/api/traces",
-      { taskGoal, workspacePath, parentTraceId }
+      { taskGoal, workspacePath }
     );
     return result.data;
   } catch (error) {
@@ -317,43 +364,19 @@ async function updateTraceStatus(traceId: string, status: string): Promise<boole
 }
 
 // ─────────────────────────────────────────────
-// Command Parser
-// ─────────────────────────────────────────────
-
-interface ParsedCommand {
-  type: "new" | "handoff" | "unknown";
-  handoffTraceId?: string;
-}
-
-function parseCommand(message: string): ParsedCommand {
-  const trimmed = message.trim();
-  if (trimmed === "/new") {
-    return { type: "new" };
-  }
-  const handoffMatch = trimmed.match(/^\/handoff\s+(.+)$/i);
-  if (handoffMatch) {
-    return { type: "handoff", handoffTraceId: handoffMatch[1].trim() };
-  }
-  return { type: "unknown" };
-}
-
-// ─────────────────────────────────────────────
 // Session Management (Auto-Logging with Traces)
 // ─────────────────────────────────────────────
 
-async function startSession(model: string, source: string, workspacePath: string, taskStatus: "idle" | "running" = "idle"): Promise<string> {
+async function startSession(model: string, source: string, workspacePath: string, taskGoal?: string): Promise<string> {
   const sessionId = `sess_${Date.now()}_${randomUUID().slice(0, 8)}`;
-  const taskGoal = `Agent session from ${source}`;
+  const goal = taskGoal || `Agent session from ${source}`;
 
-  // Create trace via REST API
-  const trace = await createTrace(taskGoal, workspacePath);
+  // Use git remote URL as workspace identifier (for cross-machine collaboration)
+  const workspaceIdentifier = await getWorkspaceIdentifier(workspacePath);
+
+  // Create trace via REST API - use git remote URL as workspace identifier
+  const trace = await createTrace(goal, workspaceIdentifier);
   const traceId = trace?.id || `trace_${Date.now()}`;
-
-  // 拿到真实后端 ULID 后，更新 env var 供调试使用（覆盖 onSessionStart 写入的 pre-flight ID）
-  process.env.AGENTLOG_TRACE_ID = traceId;
-  preflightTraceId = null;
-
-  const newStatus: "idle" | "running" | "completed" = taskStatus === "idle" ? "idle" : "running";
 
   currentSession = {
     traceId,
@@ -365,11 +388,11 @@ async function startSession(model: string, source: string, workspacePath: string
     model,
     agentSource: source,
     workspacePath,
-    taskGoal,
-    taskStatus: newStatus,
+    taskGoal: goal,
+    pendingTokenUsage: undefined,
+    pendingModel: undefined,
+    lastUserSpanTime: undefined,
   };
-  
-  sessionByTraceId.set(traceId, currentSession);
 
   console.log(`[openclaw-agentlog] Session started: ${sessionId}, trace: ${traceId} (source: ${source})`);
   return sessionId;
@@ -379,265 +402,58 @@ async function startSession(model: string, source: string, workspacePath: string
 // OpenClaw Hooks Implementation (Auto-Logging)
 // ─────────────────────────────────────────────
 
-async function getTraceByIdFromBackend(traceId: string): Promise<Trace | null> {
-  try {
-    const result = await apiRequest<{ success: boolean; data: Trace }>(
-      "GET",
-      `/api/traces/${traceId}`
-    );
-    return result.data;
-  } catch (error) {
-    console.error(`[openclaw-agentlog] Failed to get trace ${traceId}:`, error);
-    return null;
-  }
+export async function onSessionStart(params: {
+  sessionKey: string;
+  model: string;
+  workspacePath?: string;
+}): Promise<void> {
+  const source = detectAgentSource();
+  const workspace = params.workspacePath || process.cwd();
+  await startSession(params.model, source, workspace);
+  console.log(`[openclaw-agentlog] Session started for ${params.sessionKey}`);
 }
 
-function buildTracePrependContext(traceId?: string): { prependContext: string } {
-  const id = traceId || currentSession?.traceId || process.env.AGENTLOG_TRACE_ID || "unknown";
-  return {
-    prependContext: `\n[Trace: ${id}]\n`,
-  };
-}
-
-export async function onBeforeAgentStart(
-  event: { sessionId?: string; sessionKey?: string; prompt?: string },
-  ctx: { agentId?: string; sessionId?: string; sessionKey?: string; traceId?: string; runId?: string }
-): Promise<{ prependContext?: string } | void> {
-  console.log(`[openclaw-agentlog][DEBUG] before_agent_start hook fired! event=`, JSON.stringify(event), 'ctx=', JSON.stringify(ctx));
-  const agentId = ctx.agentId || detectAgentType();
-  const source = `openclaw:${agentId}`;
-  const workspace = process.cwd();
-  const model = agentId;
-  const message = event.prompt || "";
-
-  const command = parseCommand(message);
-
-  // /new command → force create new Trace
-  if (command.type === "new") {
-    if (currentSession) {
-      sessionByTraceId.delete(currentSession.traceId);
-      currentSession = null;
-    }
-    await startSession(model, source, workspace, "running");
-    console.log(`[openclaw-agentlog] /new command: created new session, agent: ${agentId}`);
-    return buildTracePrependContext();
-  }
-
-  // /handoff <traceId> command
-  if (command.type === "handoff" && command.handoffTraceId) {
-    const handoffTraceId = command.handoffTraceId;
-    const parentTrace = await getTraceByIdFromBackend(handoffTraceId);
-
-    if (parentTrace) {
-      if (parentTrace.status === "completed") {
-        if (currentSession) {
-          sessionByTraceId.delete(currentSession.traceId);
-          currentSession = null;
-        }
-        const trace = await createTrace(`Handoff from ${handoffTraceId}`, workspace, handoffTraceId);
-        const traceId = trace?.id || `trace_${Date.now()}`;
-        process.env.AGENTLOG_TRACE_ID = traceId;
-
-        currentSession = {
-          traceId,
-          sessionId: `sess_${Date.now()}_${randomUUID().slice(0, 8)}`,
-          startedAt: new Date().toISOString(),
-          reasoning: [],
-          toolCalls: [],
-          responses: [],
-          model,
-          agentSource: source,
-          workspacePath: workspace,
-          taskGoal: `Handoff from ${handoffTraceId}`,
-          taskStatus: "running",
-        };
-        sessionByTraceId.set(traceId, currentSession);
-        console.log(`[openclaw-agentlog] /handoff ${handoffTraceId}: created child trace ${traceId}`);
-        return buildTracePrependContext(traceId);
-      } else if (parentTrace.status === "running" || parentTrace.status === "in_progress") {
-        process.env.AGENTLOG_TRACE_ID = handoffTraceId;
-        if (currentSession) {
-          sessionByTraceId.delete(currentSession.traceId);
-        }
-        currentSession = {
-          traceId: handoffTraceId,
-          sessionId: `sess_${Date.now()}_${randomUUID().slice(0, 8)}`,
-          startedAt: new Date().toISOString(),
-          reasoning: [],
-          toolCalls: [],
-          responses: [],
-          model,
-          agentSource: source,
-          workspacePath: workspace,
-          taskGoal: parentTrace.taskGoal,
-          taskStatus: "running",
-        };
-        sessionByTraceId.set(handoffTraceId, currentSession);
-        console.log(`[openclaw-agentlog] /handoff ${handoffTraceId}: reused running trace`);
-        return buildTracePrependContext(handoffTraceId);
-      }
-    }
-    console.log(`[openclaw-agentlog] /handoff ${handoffTraceId}: parent not found or invalid status, creating new`);
-    if (currentSession) {
-      sessionByTraceId.delete(currentSession.traceId);
-      currentSession = null;
-    }
-    await startSession(model, source, workspace, "running");
-    return buildTracePrependContext();
-  }
-
-  // Normal message: existing state machine logic
-  if (ctx.traceId && sessionByTraceId.has(ctx.traceId)) {
-    const existingSession = sessionByTraceId.get(ctx.traceId);
-    if (existingSession && existingSession.taskStatus === "running") {
-      currentSession = existingSession;
-      return buildTracePrependContext();
-    }
-  }
-
-  if (!currentSession || currentSession.taskStatus === "completed") {
-    await startSession(model, source, workspace, "running");
-    console.log(`[openclaw-agentlog] Created new session via before_agent_start, agent: ${agentId}, taskStatus: running`);
-    return buildTracePrependContext();
-  } else if (currentSession.taskStatus === "idle") {
-    currentSession.taskStatus = "running";
-    console.log(`[openclaw-agentlog] Resumed idle session, taskStatus: running`);
-    return buildTracePrependContext();
-  }
-}
-
-/**
- * session_start hook
- *
- * ⚠️  触发时机说明（与 before_agent_start 不同）：
- *
- * session_start 是一个 session 生命周期事件，仅在以下情况触发：
- *   1. 某个 sessionKey 的第一条消息（全新会话）
- *   2. 用户发送 /new 或 /reset 命令（主动重置）
- *   3. session 长时间空闲后超时重置的首条消息
- *
- * 对于正在进行中的会话，每条普通消息只触发 before_agent_start，
- * 不会再次触发 session_start。
- *
- * 因此本插件的主要 per-turn 记录逻辑在 before_agent_start 中实现。
- * session_start 此处仅做补充记录（例如覆盖 resumedFrom 信息）。
- *
- * 参考：openclaw src/auto-reply/reply/session.ts initSessionState()
- */
-export async function onSessionStart(
-  event: { sessionId: string; sessionKey?: string; resumedFrom?: string },
-  ctx: { agentId?: string; sessionId: string; sessionKey?: string }
-): Promise<void> {
-  // ─── 同步区域（在第一个 await 之前）────────────────────────────────────────
-  // 此处代码在 runSessionStart() 被 fire-and-forget 调用后、sendResetSessionNotice()
-  // 执行之前同步运行，因此可以安全地向 process.env 写入 trace ID 供消息模板读取。
-  const agentId = ctx.agentId || detectAgentType();
-  const sessionKey = event.sessionKey || ctx.sessionKey || event.sessionId;
-  if (!preflightTraceId && !currentSession) {
-    // 生成短格式 pre-flight ID（可读性优先，后续会被真实 ULID 覆盖）
-    preflightTraceId = `agentlog-${Date.now().toString(36).slice(-6)}`;
-    process.env.AGENTLOG_TRACE_ID = preflightTraceId;
-  }
-  // ─────────────────────────────────────────────────────────────────────────
-
-  console.log(`[openclaw-agentlog][DEBUG] session_start hook fired! event=`, JSON.stringify(event), 'ctx=', JSON.stringify(ctx));
-
-  // session_start: 重置任务状态，不自动创建 Trace
-  // 收到 session_start 时说明用户发起新任务/重置，将 taskStatus 重置为 idle
-  if (currentSession) {
-    sessionByTraceId.delete(currentSession.traceId);
-    currentSession = null;
-  }
-  
-  // 生成新的 pre-flight ID 供 before_agent_start 使用
-  preflightTraceId = `agentlog-${Date.now().toString(36).slice(-6)}`;
-  process.env.AGENTLOG_TRACE_ID = preflightTraceId;
-  
-  console.log(`[openclaw-agentlog] session_start: reset taskStatus=idle for ${sessionKey}, agent: ${agentId}`);
-}
-
-export async function beforeToolCall(
-  event: { toolName?: string; params?: Record<string, unknown> },
-  ctx: { traceId?: string }
-): Promise<void> {
-  console.log(`[openclaw-agentlog][DEBUG] before_tool_call hook fired! event=`, JSON.stringify({toolName: event.toolName, hasInput: !!event.params}));
+export async function beforeToolCall(params: {
+  toolName: string;
+  toolInput: Record<string, unknown>;
+}): Promise<void> {
   if (!config.toolCallCapture) return;
-  const toolName = event.toolName || 'unknown';
-  const key = `${toolName}:${Date.now()}`;
-  toolCallTimings.set(key, Date.now());
-  // Store the key and current session traceId in the event for afterToolCall to use.
-  // ctx.traceId may be undefined for some tools (e.g. sessions_send) that run after
-  // the agent session has nominally ended. We use currentSession.traceId as fallback.
-  (event as Record<string, unknown>)._agentlog_key = key;
-  (event as Record<string, unknown>)._agentlog_traceId = ctx.traceId || currentSession?.traceId;
+  if (!params.toolInput || typeof params.toolInput !== "object") return;
+  params.toolInput._agentlog_startTime = Date.now();
 }
 
-export async function afterToolCall(
-  event: {
-    toolName?: string;
-    params?: Record<string, unknown>;
-    result?: unknown;
-    error?: string;
-    durationMs?: number;
-  },
-  ctx: { sessionId?: string; traceId?: string }
-): Promise<void> {
-  console.log(`[openclaw-agentlog][DEBUG] after_tool_call hook fired! event=`, JSON.stringify({toolName: event.toolName, hasInput: !!event.params, hasOutput: !!(event.result || event.error)}));
+export async function afterToolCall(params: {
+  toolName: string;
+  toolInput: Record<string, unknown>;
+  toolOutput?: string;
+  error?: string;
+}): Promise<void> {
   if (!config.toolCallCapture) return;
+  if (!currentSession) return;
+  if (!params.toolInput || typeof params.toolInput !== "object") return;
 
-  const input = event.params;
-  const toolName = event.toolName || 'unknown';
-  const timestamp = new Date().toISOString();
-  
-  // Get start time from Map using the key stored in beforeToolCall
-  const key = (event as Record<string, unknown>)._agentlog_key as string || `${toolName}:unknown`;
-  const startTime = toolCallTimings.get(key) || Date.now();
-  toolCallTimings.delete(key); // Clean up
-  const durationMs = event.durationMs ?? (Date.now() - startTime);
+  const startTime = (params.toolInput as Record<string, unknown>)._agentlog_startTime as number || Date.now();
+  const durationMs = Date.now() - startTime;
 
-  // Try to find session — check event-stored traceId first (for tools like sessions_send
-  // that fire after currentSession has been cleaned up), then ctx.traceId, then currentSession.
-  const eventTraceId = (event as Record<string, unknown>)._agentlog_traceId as string | undefined;
-  let session = currentSession;
-  if (!session) {
-    session = eventTraceId ? sessionByTraceId.get(eventTraceId) || null : null;
-  }
-  if (!session) {
-    session = ctx.traceId ? sessionByTraceId.get(ctx.traceId) || null : null;
-  }
-
-  // If still no session, skip
-  if (!session) {
-    console.log(`[openclaw-agentlog][DEBUG] after_tool_call: no session found for eventTraceId=${eventTraceId} ctxTraceId=${ctx.traceId}`);
-    return;
-  }
-
-  const toolCallRecord: ToolCall = {
-    name: toolName,
-    input: input || {},
-    output: event.error || String(event.result ?? ''),
+  const toolCall: ToolCall = {
+    name: params.toolName,
+    input: params.toolInput,
+    output: params.error || params.toolOutput,
     durationMs,
-    timestamp,
+    timestamp: new Date().toISOString(),
   };
 
-  session.toolCalls.push(toolCallRecord);
+  currentSession.toolCalls.push(toolCall);
 
-  // Build content with actual tool call details including args
-  const contentObj = {
-    tool: event.toolName,
-    args: input || {},
-    result: event.error ? `Error: ${event.error}` : event.result,
-  };
-
-  // Store with toolInput/toolOutput for VSCode compatibility
-  await createSpan(session.traceId, {
+  // Create span via REST API
+  await createSpan(currentSession.traceId, {
     role: "tool",
-    content: JSON.stringify(contentObj),
-    tool_name: event.toolName,
-    toolInput: input,
-    toolOutput: event.error ? `Error: ${event.error}` : event.result,
+    content: JSON.stringify({ tool: params.toolName, input: params.toolInput, output: params.toolOutput }),
+    tool_name: params.toolName,
     duration_ms: durationMs,
-    timestamp,
+    timestamp: toolCall.timestamp,
+    model: currentSession.model,
+    source: currentSession.agentSource,
   });
 }
 
@@ -717,94 +533,96 @@ async function tryBindCommit(): Promise<void> {
   }
 }
 
-export async function onAgentEnd(
-  event: {
-    messages: Array<{ role: string; content: string | Array<unknown> }>;
-    usage?: { promptTokens?: number; completionTokens?: number };
-  },
-  ctx: { traceId?: string }
-): Promise<void> {
-  console.log(`[openclaw-agentlog][DEBUG] agent_end hook fired! hasMessages=${event.messages?.length}, hasUsage=${!!event.usage}`);
-  
-  // Try to find session
-  let session = currentSession;
-  if (!session && ctx.traceId) {
-    session = sessionByTraceId.get(ctx.traceId) || null;
-  }
-  
-  if (!session) {
-    console.log(`[openclaw-agentlog][DEBUG] agent_end skipped: no currentSession`);
-    return;
-  }
+export async function onAgentEnd(params: {
+  messages: Array<{ role: string; content: string | Array<unknown> }>;
+  usage?: { promptTokens?: number; completionTokens?: number };
+}): Promise<void> {
+  if (!currentSession) return;
 
   if (config.reasoningCapture) {
-    extractReasoningFromMessages(event.messages);
+    extractReasoningFromMessages(params.messages);
   }
+
+  // 优先使用 onLlmOutput 传递的精确 token usage，否则使用 onAgentEnd 的
+  const tokenUsage = currentSession.pendingTokenUsage || (params.usage ? {
+    inputTokens: params.usage.promptTokens,
+    outputTokens: params.usage.completionTokens,
+  } : undefined);
+
+  const model = currentSession.pendingModel || currentSession.model;
+
+  // Create span for LLM output (even if no tools were called)
+  await createLlmOutputSpan(params.messages, tokenUsage, model);
 
   await tryBindCommit();
 
+  // Finalize trace via REST API (replaces log_intent)
   await finalizeTrace(
-    session.traceId,
-    session.taskGoal,
-    session.toolCalls.map((t) => String(t.input._agentlog_file || "")),
-    session.reasoning
+    currentSession.traceId,
+    currentSession.taskGoal,
+    currentSession.toolCalls.map((t) => String(t.input._agentlog_file || "")),
+    currentSession.reasoning
   );
 
-  console.log(`[openclaw-agentlog] Session ${session.sessionId} finalized, trace ${session.traceId} marked completed`);
-  
-  // Mark task as completed instead of cleaning up session
-  // This allows onBeforeAgentStart to detect completed tasks and create new traces
-  session.taskStatus = "completed";
+  console.log(`[openclaw-agentlog] Session ${currentSession.sessionId} finalized, trace ${currentSession.traceId} marked completed${tokenUsage ? `, tokens: in=${tokenUsage.inputTokens} out=${tokenUsage.outputTokens}` : ''}`);
+  currentSession = null;
 }
 
-// ─────────────────────────────────────────────
-// LLM Output Hook (for precise token usage)
-// ─────────────────────────────────────────────
-
-export async function onLlmOutput(
-  event: {
-    runId: string;
-    sessionId: string;
-    provider: string;
-    model: string;
-    assistantTexts: string[];
-    lastAssistant?: unknown;
-    usage?: {
-      input?: number;
-      output?: number;
-      cacheRead?: number;
-      cacheWrite?: number;
-      total?: number;
-    };
-  },
-  ctx: { agentId?: string; sessionId?: string; sessionKey?: string; runId?: string }
+// Create span for LLM output
+async function createLlmOutputSpan(
+  messages: Array<{ role: string; content: string | Array<unknown> }>,
+  tokenUsage?: { inputTokens?: number; outputTokens?: number; cacheCreationTokens?: number; cacheReadTokens?: number },
+  model?: string
 ): Promise<void> {
-  console.log(`[openclaw-agentlog][DEBUG] llm_output hook fired! model=${event.model}, usage=`, JSON.stringify(event.usage));
-  
-  // Find session
-  let session = currentSession;
-  if (!session && ctx.sessionId) {
-    session = sessionByTraceId.get(ctx.sessionId) || null;
+  if (!currentSession) return;
+
+  // Get the last assistant message as the output
+  let assistantContent = "";
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg.role === "assistant") {
+      if (typeof msg.content === "string") {
+        if (msg.content.trim() && !msg.content.includes("NO_REPLY")) {
+          assistantContent = msg.content;
+          break;
+        }
+      }
+      if (Array.isArray(msg.content)) {
+        const textBlocks = msg.content
+          .filter((b): b is { type: string; text: string } =>
+            typeof b === "object" && b !== null && (b as { type?: string }).type === "text" && typeof (b as { text?: unknown }).text === "string"
+          )
+          .map(b => (b as { text: string }).text)
+          .filter(t => t.trim() && !t.includes("NO_REPLY"));
+        if (textBlocks.length > 0) {
+          assistantContent = textBlocks.join("\n");
+          break;
+        }
+      }
+    }
   }
-  
-  if (!session) {
-    console.log(`[openclaw-agentlog][DEBUG] llm_output skipped: no currentSession`);
+
+  if (!assistantContent) {
+    console.log(`[openclaw-agentlog] Skipped assistant span - no valid content (messages count: ${messages.length})`);
     return;
   }
 
-  // Store precise token usage in session for later use
-  if (event.usage) {
-    session.llmUsage = {
-      provider: event.provider,
-      model: event.model,
-      inputTokens: event.usage.input,
-      outputTokens: event.usage.output,
-      cacheReadTokens: event.usage.cacheRead,
-      cacheWriteTokens: event.usage.cacheWrite,
-      totalTokens: event.usage.total,
-    };
-    console.log(`[openclaw-agentlog] LLM usage captured: ${event.model} - input=${event.usage.input}, output=${event.usage.output}, total=${event.usage.total}`);
-  }
+  // 确保 model 有有效值
+  const effectiveModel = (model && model !== "unknown") 
+    ? model 
+    : (currentSession.model && currentSession.model !== "unknown")
+      ? currentSession.model
+      : currentSession.agentSource.replace("openclaw:", "") || "unknown";
+
+  await createSpan(currentSession.traceId, {
+    role: "assistant",
+    content: assistantContent.slice(0, 2000),
+    duration_ms: 0,
+    timestamp: new Date().toISOString(),
+    tokenUsage,
+    model: effectiveModel,
+    source: currentSession.agentSource,
+  });
 }
 
 // ─────────────────────────────────────────────
@@ -1035,46 +853,198 @@ export const skillMetadata = {
   ],
 };
 
-/**
- * session_end hook
- *
- * 在 session 生命周期结束时触发（与 session_start 对应）。
- * 触发时机：用户发送 /new 或 /reset、session 超时后，下一条消息开始前。
- *
- * 注意：agent_end 已经处理了 per-turn 的 trace 归档和 currentSession 清理。
- * session_end 主要用于处理 session 重置时 agent_end 未能清理的残留状态
- * （例如用户直接 /new 而 agent 尚未完成上一轮时）。
- */
-export async function onSessionEnd(
-  _event: unknown,
-  _ctx: unknown
-): Promise<void> {
-  console.log('[openclaw-agentlog][DEBUG] session_end hook fired!');
-  // 若 agent_end 未能清理（如 session 在 agent 运行中被重置），在此兜底清理
-  if (currentSession) {
-    console.log(`[openclaw-agentlog] session_end: cleaning up residual session ${currentSession.sessionId}`);
-    sessionByTraceId.delete(currentSession.traceId);
-    currentSession = null;
-  }
+// onSessionEnd hook
+export async function onSessionEnd(): Promise<void> {
+  console.log('[openclaw-agentlog] Session cleanup completed');
 }
 
-/**
- * OpenClaw Agent Log Plugin
- * OpenClaw Agent 自动存证与 Trace 生命周期管理 - 使用 trace/span API
- */
-const plugin = {
-  id: "openclaw-agentlog",
-  name: "OpenClaw Agent Log",
-  description: "OpenClaw Agent 自动存证与 Trace 生命周期管理 - 使用 trace/span API",
-  register(api: OpenClawPluginApi) {
-    api.on('before_agent_start', onBeforeAgentStart);
-    api.on('session_start', onSessionStart);
-    api.on('before_tool_call', beforeToolCall);
-    api.on('after_tool_call', afterToolCall);
-    api.on('agent_end', onAgentEnd);
-    api.on('session_end', onSessionEnd);
-    api.on('llm_output', onLlmOutput);
-  },
-};
+export async function onBeforeAgentStart(params: {
+  prompt: string;
+  messages?: unknown[];
+}): Promise<void> {
+  const source = await detectAgentSource();
+  const workspacePath = process.cwd();
 
-export default plugin;
+  // 检测是否为由 OpenClaw 内部机制（如 boot check）触发的自动运行
+  const lowerPrompt = params.prompt?.toLowerCase() || "";
+  const isBootCheck = lowerPrompt.includes('boot check') || 
+                      lowerPrompt.includes('boot.md') ||
+                      lowerPrompt.includes('running a boot');
+  
+  if (isBootCheck) {
+    console.log(`[openclaw-agentlog] Skipped auto-triggered session (boot check) for ${source}`);
+    return;
+  }
+
+  // 从 prompt 中提取 message_id 进行去重
+  const messageIdMatch = params.prompt?.match(/"message_id"\s*:\s*"([^"]+)"/);
+  const currentMessageId = messageIdMatch ? messageIdMatch[1] : null;
+  
+  // 如果有之前处理过的 message_id 且与当前相同，跳过创建新 session
+  if (currentMessageId && lastProcessedMessageId === currentMessageId) {
+    console.log(`[openclaw-agentlog] Skipped duplicate session for message_id: ${currentMessageId}`);
+    return;
+  }
+
+  // 更新 lastProcessedMessageId
+  if (currentMessageId) {
+    lastProcessedMessageId = currentMessageId;
+  }
+
+  // 调试日志：记录完整的 params 以分析触发原因
+  console.log(`[openclaw-agentlog] before_agent_start called, prompt length: ${params.prompt?.length || 0}, messages count: ${params.messages?.length || 0}`);
+  console.log(`[openclaw-agentlog] before_agent_start prompt preview: ${params.prompt?.slice(0, 200) || 'empty'}`);
+  if (params.messages && params.messages.length > 0) {
+    console.log(`[openclaw-agentlog] before_agent_start messages preview: ${JSON.stringify(params.messages.slice(0, 2)).slice(0, 300)}`);
+  }
+
+  // 复用已存在的 session（避免重复创建 trace）
+  if (currentSession) {
+    const userInput = extractUserInput(params.prompt);
+    if (userInput && currentSession) {
+      // 检查最近添加 user span 的时间，避免短时间内重复添加
+      const now = Date.now();
+      const lastUserSpanTime = currentSession.lastUserSpanTime || 0;
+      if (now - lastUserSpanTime > 5000) { // 5秒内不重复添加
+        // 确保 model 有有效值
+        const effectiveModel = (currentSession.model && currentSession.model !== "unknown")
+          ? currentSession.model
+          : currentSession.agentSource.replace("openclaw:", "") || "unknown";
+        await createSpan(currentSession.traceId, {
+          role: "user",
+          content: userInput.slice(0, 2000),
+          duration_ms: 0,
+          timestamp: new Date().toISOString(),
+          model: effectiveModel,
+          source: source,
+        });
+        currentSession.lastUserSpanTime = now;
+        console.log(`[openclaw-agentlog] User input span added to existing session: ${currentSession.traceId}`);
+      }
+    }
+    return;
+  }
+
+  const userInput = extractUserInput(params.prompt);
+  const taskGoal = userInput ? summarizeUserInput(userInput) : `Agent session from ${source}`;
+
+  await startSession("unknown", source, workspacePath, taskGoal);
+
+  if (userInput && currentSession) {
+    // 确保 model 有有效值
+    const effectiveModel = (currentSession.model && currentSession.model !== "unknown")
+      ? currentSession.model
+      : currentSession.agentSource.replace("openclaw:", "") || "unknown";
+    await createSpan(currentSession.traceId, {
+      role: "user",
+      content: userInput.slice(0, 2000),
+      duration_ms: 0,
+      timestamp: new Date().toISOString(),
+      model: effectiveModel,
+      source: source,
+    });
+    console.log(`[openclaw-agentlog] User input span created: ${userInput.slice(0, 50)}...`);
+  }
+
+  console.log(`[openclaw-agentlog] Created new session via before_agent_start, agent: ${source}, taskGoal: ${taskGoal.slice(0, 50)}...`);
+}
+
+function summarizeUserInput(input: string): string {
+  const firstLine = input.split('\n')[0].trim();
+  if (firstLine.length <= 100) {
+    return firstLine;
+  }
+  return firstLine.slice(0, 97) + '...';
+}
+
+function extractUserInput(prompt: string): string | null {
+  const lines = prompt.split('\n');
+  let capture = false;
+  const userLines: string[] = [];
+
+  for (const line of lines) {
+    if (capture) {
+      if (line.startsWith('[System:') || line.startsWith('[message_id:')) {
+        break;
+      }
+      userLines.push(line);
+    } else if (line.includes(']') && (line.includes(':') || line.includes('[Replying'))) {
+      capture = true;
+    }
+  }
+
+  const content = userLines.join('\n').trim();
+  return content || null;
+}
+
+export async function onLlmOutput(params: {
+  runId: string;
+  sessionId: string;
+  provider: string;
+  model: string;
+  assistantTexts: string[];
+  usage?: {
+    input?: number;
+    output?: number;
+    cacheRead?: number;
+    cacheWrite?: number;
+    total?: number;
+  };
+}): Promise<void> {
+  // 只记录 token usage，不单独创建 span
+  // span 的内容将在 onAgentEnd 时通过 createLlmOutputSpan 创建
+  if (!currentSession || !params.usage) return;
+
+  // 保存 token usage 供 onAgentEnd 使用
+  currentSession.pendingTokenUsage = {
+    inputTokens: params.usage.input,
+    outputTokens: params.usage.output,
+    cacheCreationTokens: params.usage.cacheWrite,
+    cacheReadTokens: params.usage.cacheRead,
+  };
+  currentSession.pendingModel = params.model;
+
+  // 不在这里创建 span，避免重复和 NO_REPLY 问题
+  console.log(`[openclaw-agentlog] LLM output received, tokens: in=${params.usage.input}, out=${params.usage.output}, will create span at agent_end`);
+}
+
+export function register(api: {
+  on(event: string, handler: (...args: unknown[]) => unknown, opts?: { priority?: number }): void;
+  registerHook(event: string, handler: (...args: unknown[]) => unknown, opts?: { name?: string; description?: string }): void;
+}): void {
+  // session_start 钩子 - 创建 session 并设置 agent context
+  api.on('session_start', async (event: unknown, ctx: unknown) => {
+    const hookCtx = ctx as { agentId?: string; sessionId?: string; sessionKey?: string } | undefined;
+    if (hookCtx?.agentId) {
+      setAgentContext(hookCtx.agentId, hookCtx.agentId);
+    }
+    // @ts-ignore - OpenClaw 传递的参数
+    await onSessionStart(event);
+  });
+  
+  // before_agent_start 钩子 - 复用已有 session
+  api.on('before_agent_start', async (event: unknown, ctx: unknown) => {
+    const hookCtx = ctx as { agentId?: string; agentType?: string; workspaceDir?: string } | undefined;
+    if (hookCtx?.agentId) {
+      setAgentContext(hookCtx.agentId, hookCtx.agentType || hookCtx.agentId);
+    }
+    // @ts-ignore - OpenClaw 传递的参数
+    await onBeforeAgentStart(event);
+  });
+  
+  api.on('before_tool_call', beforeToolCall);
+  api.on('after_tool_call', afterToolCall);
+  api.on('agent_end', onAgentEnd);
+  api.on('session_end', onSessionEnd);
+  api.on('llm_output', onLlmOutput);
+}
+
+export default { register, skillMetadata, hooks: {
+  session_start: onSessionStart,
+  before_tool_call: beforeToolCall,
+  after_tool_call: afterToolCall,
+  agent_end: onAgentEnd,
+  session_end: onSessionEnd,
+  before_agent_start: onBeforeAgentStart,
+  llm_output: onLlmOutput,
+}};
