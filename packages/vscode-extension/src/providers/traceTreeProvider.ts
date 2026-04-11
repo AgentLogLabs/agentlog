@@ -37,7 +37,18 @@ type TreeNode = TraceDateGroupItem | TraceItem | TraceStatusItem;
 
 function resolveWorkspacePath(): string | undefined {
   const folders = vscode.workspace.workspaceFolders;
-  return folders && folders.length > 0 ? folders[0].uri.fsPath : undefined;
+  const wsPath = folders && folders.length > 0 ? folders[0].uri.fsPath : undefined;
+  if (!wsPath) return undefined;
+  // Use git remote URL for cross-machine collaboration
+  try {
+    const { execSync } = require("child_process");
+    const remoteUrl = execSync("git remote get-url origin", {
+      encoding: "utf-8",
+      cwd: wsPath,
+    }).trim();
+    if (remoteUrl) return remoteUrl;
+  } catch {}
+  return wsPath;
 }
 
 function resolveActiveEditorWorkspacePath(): string | undefined {
@@ -367,7 +378,7 @@ export class TraceTreeProvider
     try {
       const client = getBackendClient();
       console.log(`[AgentLog][TraceTree] 正在加载 traces，backendUrl: ${(client as any).baseUrl}, workspacePath: ${this._workspacePath}`);
-      const response = await client.getTraces({ pageSize: 200 });
+      const response = await client.getTraces({ pageSize: 200, workspacePath: this._workspacePath });
       console.log(`[AgentLog][TraceTree] getTraces 响应:`, JSON.stringify(response).slice(0, 500));
       if (response && typeof response === "object" && "data" in response) {
         const resp = response as { data: TraceSummary[] };
