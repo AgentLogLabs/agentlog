@@ -224,9 +224,48 @@ export function queryTraces(filter: {
   // source 为 openclaw 或包含 openclaw 时（不同 agent），不过滤 workspacePath
   const isOpenclawSource = filter.source && filter.source.toLowerCase().includes('openclaw');
 
+  // 支持智能匹配：
+  // 1. git remote URL（git@github.com:org/repo）→ 按项目名匹配
+  // 2. 本地路径 → 按目录名匹配
+  // 如果 git remote URL 匹配不到，会在后面 fallback 到本地路径目录名
+  let ws = '';
+  let isGitRemote = false;
+
   if (filter.workspacePath && !isOpenclawSource) {
-    conditions.push('workspace_path = @workspacePath');
-    params.workspacePath = filter.workspacePath;
+    ws = filter.workspacePath;
+    isGitRemote = ws.includes('@') || ws.includes('://');
+
+    if (isGitRemote) {
+      const match = ws.match(/(?:[:/])([^:/]+?)(?:\.git)?$/);
+      const repoName = match?.[1];
+      if (repoName) {
+        // 优先用 git remote 项目名匹配
+        conditions.push('(workspace_path LIKE @repoPattern OR workspace_path = @ws)');
+        params.repoPattern = `%${repoName}`;
+        params.ws = ws;
+      } else {
+        conditions.push('workspace_path = @ws');
+        params.ws = ws;
+      }
+      // 提取目录名作为 fallback
+      const localPathMatch = ws.match(/\/([^\/]+)$/);
+      const localDirName = localPathMatch?.[1];
+      if (localDirName && localDirName !== repoName) {
+        params.localDirFallback = `%/${localDirName}`;
+      }
+    } else {
+      // 本地路径：优先精确匹配，其次尝试匹配目录名
+      const pathParts = ws.split('/');
+      const dirName = pathParts[pathParts.length - 1];
+      if (dirName) {
+        conditions.push('(workspace_path = @exact OR workspace_path LIKE @pattern)');
+        params.exact = ws;
+        params.pattern = `%/${dirName}`;
+      } else {
+        conditions.push('workspace_path = @ws');
+        params.ws = ws;
+      }
+    }
   }
 
   if (filter.status) {
@@ -250,11 +289,25 @@ export function queryTraces(filter: {
 
   const { total } = db.prepare(`SELECT COUNT(*) as total FROM traces ${where}`).get(params) as { total: number };
 
-  const rows = db.prepare(`
+  let rows = db.prepare(`
     SELECT * FROM traces ${where}
     ORDER BY created_at DESC
     LIMIT @limit OFFSET @offset
   `).all({ ...params, limit: pageSize, offset }) as TraceRow[];
+
+  // Fallback: 如果 git remote URL 匹配没结果，自动用本地路径目录名查询
+  if (total === 0 && ws && isGitRemote) {
+    const localPathMatch = ws.match(/\/([^\/]+)$/);
+    const localDirName = localPathMatch?.[1];
+    if (localDirName) {
+      const fallbackParams = { pattern: `%/${localDirName}`, limit: pageSize, offset };
+      const fallbackWhere = `WHERE workspace_path LIKE @pattern`;
+      const { total: fallbackTotal } = db.prepare(`SELECT COUNT(*) as total FROM traces ${fallbackWhere}`).get(fallbackParams) as { total: number };
+      if (fallbackTotal > 0) {
+        rows = db.prepare(`SELECT * FROM traces ${fallbackWhere} ORDER BY created_at DESC LIMIT @limit OFFSET @offset`).all(fallbackParams) as TraceRow[];
+      }
+    }
+  }
 
   const traceIds = rows.map(r => r.id);
   const commitMap = new Map<string, string>();
