@@ -394,6 +394,7 @@ export async function beforeToolCall(params: {
   toolInput: Record<string, unknown>;
 }): Promise<void> {
   if (!config.toolCallCapture) return;
+  if (!params.toolInput || typeof params.toolInput !== "object") return;
   params.toolInput._agentlog_startTime = Date.now();
 }
 
@@ -405,8 +406,9 @@ export async function afterToolCall(params: {
 }): Promise<void> {
   if (!config.toolCallCapture) return;
   if (!currentSession) return;
+  if (!params.toolInput || typeof params.toolInput !== "object") return;
 
-  const startTime = params.toolInput._agentlog_startTime as number || Date.now();
+  const startTime = (params.toolInput as Record<string, unknown>)._agentlog_startTime as number || Date.now();
   const durationMs = Date.now() - startTime;
 
   const toolCall: ToolCall = {
