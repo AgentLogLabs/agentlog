@@ -860,7 +860,7 @@ export async function onBeforeAgentStart(params: {
   prompt: string;
   messages?: unknown[];
 }): Promise<void> {
-  const source = detectAgentSource();
+  const source = await detectAgentSource();
   const workspacePath = process.cwd();
 
   // 检测是否为由 OpenClaw 内部机制（如 boot check）触发的自动运行
