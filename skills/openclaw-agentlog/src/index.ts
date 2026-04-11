@@ -69,20 +69,31 @@ function setAgentContext(agentId?: string, agentType?: string): void {
   if (agentType) currentAgentType = agentType;
 }
 
-function detectAgentSource(): string {
-  // 优先使用已设置的 context
+async function getGitRemoteUrl(cwd: string): Promise<string> {
+  try {
+    const { execSync } = await import("child_process");
+    const remoteUrl = execSync("git remote get-url origin", {
+      encoding: "utf-8",
+      cwd,
+    }).trim();
+    return remoteUrl;
+  } catch {
+    return cwd;
+  }
+}
+
+async function detectAgentSource(): Promise<string> {
   if (currentAgentType) {
     return `openclaw:${currentAgentType}`;
   }
-  
-  // Fallback: 从 workspace 路径推断 agent 类型
+
   const workspacePath = process.cwd();
-  const match = workspacePath.match(/\/agents\/([^\/]+)\/workspace/);
+  const gitRemoteUrl = await getGitRemoteUrl(workspacePath);
+  const match = gitRemoteUrl.match(/\/agents\/([^\/]+)\.git$/);
   if (match) {
     return `openclaw:${match[1]}`;
   }
 
-  // Fallback: 环境变量
   const agentId = process.env.AGENTLOG_AGENT_ID || process.env.AGENT || "";
   if (agentId) {
     return `openclaw:${agentId}`;
@@ -100,6 +111,16 @@ function detectAgentType(): string {
     return match[1];
   }
   return process.env.AGENTLOG_AGENT_ID || "unknown";
+}
+
+/**
+ * 获取工作区的唯一标识符。
+ * - 优先使用 git remote URL（支持跨机器协作）
+ * - 非 git 仓库 fallback 到 cwd
+ */
+async function getWorkspaceIdentifier(cwd: string): Promise<string> {
+  const gitRemoteUrl = await getGitRemoteUrl(cwd);
+  return gitRemoteUrl || cwd;
 }
 
 // ─────────────────────────────────────────────
@@ -214,7 +235,7 @@ async function apiRequest<T>(
     ...(body ? { body: JSON.stringify(body) } : {}),
   };
 
-  const response = await fetch(url, options);
+  const response = await fetch(url, { ...options, signal: AbortSignal.timeout(5000) });
   if (!response.ok) {
     throw new Error(`API 错误: ${response.status} ${response.statusText}`);
   }
@@ -350,8 +371,11 @@ async function startSession(model: string, source: string, workspacePath: string
   const sessionId = `sess_${Date.now()}_${randomUUID().slice(0, 8)}`;
   const goal = taskGoal || `Agent session from ${source}`;
 
-  // Create trace via REST API
-  const trace = await createTrace(goal, workspacePath);
+  // Use git remote URL as workspace identifier (for cross-machine collaboration)
+  const workspaceIdentifier = await getWorkspaceIdentifier(workspacePath);
+
+  // Create trace via REST API - use git remote URL as workspace identifier
+  const trace = await createTrace(goal, workspaceIdentifier);
   const traceId = trace?.id || `trace_${Date.now()}`;
 
   currentSession = {
