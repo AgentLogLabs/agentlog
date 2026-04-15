@@ -416,10 +416,22 @@ export async function onSessionStart(params: {
 export async function beforeToolCall(params: {
   toolName: string;
   toolInput: Record<string, unknown>;
-}): Promise<void> {
+}): Promise<{ toolName: string; toolInput: Record<string, unknown> } | void> {
   if (!config.toolCallCapture) return;
   if (!params.toolInput || typeof params.toolInput !== "object") return;
   params.toolInput._agentlog_startTime = Date.now();
+
+  // GCB-05: Git commit interception
+  const toolInput = params.toolInput as Record<string, unknown>;
+  const command = toolInput.command as string | undefined;
+  const args = toolInput.args as string[] | undefined;
+
+  if (command?.includes('git commit') || args?.some(a => a === 'commit')) {
+    // Write traceId to git config before commit (GCB-05)
+    prepareGitCommit();
+  }
+
+  return { toolName: params.toolName, toolInput: params.toolInput };
 }
 
 export async function afterToolCall(params: {
@@ -862,6 +874,12 @@ export async function onBeforeAgentStart(params: {
   prompt: string;
   messages?: unknown[];
 }): Promise<void> {
+  // GCB-04: Write traceId to git config when agent starts
+  const traceId = getCurrentTraceId();
+  if (traceId) {
+    writeTraceIdToGitConfig(traceId);
+  }
+
   const source = await detectAgentSource();
   const workspacePath = process.cwd();
 
