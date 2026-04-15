@@ -35,6 +35,7 @@
 | [Change_arch.md](./Change_arch.md) | 架构变更记录 | ✅ 已完成 |
 | [ASIP-v2.2-Reliable-Messaging.md](./ASIP-v2.2-Reliable-Messaging.md) | 可靠消息传递协议设计 | ✅ 已完成 |
 | [STRATEGY_2026-04-10.md](./STRATEGY_2026-04-10.md) | 战略讨论 - 效率工具定位 | 🔄 讨论中 |
+| [GIT-COMMIT-BINDING-DESIGN.md](./GIT-COMMIT-BINDING-DESIGN.md) | Git Commit Binding 完整设计 | ✅ 已确认 |
 
 ---
 
