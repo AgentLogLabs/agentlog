@@ -1,0 +1,749 @@
+[
+    {
+        "label": "sys",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "sys",
+        "description": "sys",
+        "detail": "sys",
+        "documentation": {}
+    },
+    {
+        "label": "os",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "os",
+        "description": "os",
+        "detail": "os",
+        "documentation": {}
+    },
+    {
+        "label": "json",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "json",
+        "description": "json",
+        "detail": "json",
+        "documentation": {}
+    },
+    {
+        "label": "TTFont",
+        "importPath": "fontTools.ttLib",
+        "description": "fontTools.ttLib",
+        "isExtraImport": true,
+        "detail": "fontTools.ttLib",
+        "documentation": {}
+    },
+    {
+        "label": "sfnt",
+        "importPath": "fontTools.ttLib",
+        "description": "fontTools.ttLib",
+        "isExtraImport": true,
+        "detail": "fontTools.ttLib",
+        "documentation": {}
+    },
+    {
+        "label": "TTFont",
+        "importPath": "fontTools.ttLib",
+        "description": "fontTools.ttLib",
+        "isExtraImport": true,
+        "detail": "fontTools.ttLib",
+        "documentation": {}
+    },
+    {
+        "label": "TTFont",
+        "importPath": "fontTools.ttLib",
+        "description": "fontTools.ttLib",
+        "isExtraImport": true,
+        "detail": "fontTools.ttLib",
+        "documentation": {}
+    },
+    {
+        "label": "sfnt",
+        "importPath": "fontTools.ttLib",
+        "description": "fontTools.ttLib",
+        "isExtraImport": true,
+        "detail": "fontTools.ttLib",
+        "documentation": {}
+    },
+    {
+        "label": "TTFont",
+        "importPath": "fontTools.ttLib",
+        "description": "fontTools.ttLib",
+        "isExtraImport": true,
+        "detail": "fontTools.ttLib",
+        "documentation": {}
+    },
+    {
+        "label": "timestampNow",
+        "importPath": "fontTools.misc.timeTools",
+        "description": "fontTools.misc.timeTools",
+        "isExtraImport": true,
+        "detail": "fontTools.misc.timeTools",
+        "documentation": {}
+    },
+    {
+        "label": "timestampNow",
+        "importPath": "fontTools.misc.timeTools",
+        "description": "fontTools.misc.timeTools",
+        "isExtraImport": true,
+        "detail": "fontTools.misc.timeTools",
+        "documentation": {}
+    },
+    {
+        "label": "collections",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "collections",
+        "description": "collections",
+        "detail": "collections",
+        "documentation": {}
+    },
+    {
+        "label": "parse_tfm",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "parse_tfm",
+        "description": "parse_tfm",
+        "detail": "parse_tfm",
+        "documentation": {}
+    },
+    {
+        "label": "subprocess",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "subprocess",
+        "description": "subprocess",
+        "detail": "subprocess",
+        "documentation": {}
+    },
+    {
+        "label": "glob",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "glob",
+        "description": "glob",
+        "detail": "glob",
+        "documentation": {}
+    },
+    {
+        "label": "shutil",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "shutil",
+        "description": "shutil",
+        "detail": "shutil",
+        "documentation": {}
+    },
+    {
+        "label": "datetime",
+        "importPath": "datetime",
+        "description": "datetime",
+        "isExtraImport": true,
+        "detail": "datetime",
+        "documentation": {}
+    },
+    {
+        "label": "sfnt.USE_ZOPFLI",
+        "kind": 5,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "sfnt.USE_ZOPFLI = True\nif len(sys.argv) < 2:\n    print(\"Usage: %s <font file>\" % sys.argv[0])\n    sys.exit(1)\nfont_file = sys.argv[1]\nfont_name = os.path.splitext(os.path.basename(font_file))[0]\nfont = TTFont(font_file, recalcBBoxes=False, recalcTimestamp=False)\n# fix timestamp to the epoch\nfont['head'].created = 0\nfont['head'].modified = 0",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "font_file",
+        "kind": 5,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "font_file = sys.argv[1]\nfont_name = os.path.splitext(os.path.basename(font_file))[0]\nfont = TTFont(font_file, recalcBBoxes=False, recalcTimestamp=False)\n# fix timestamp to the epoch\nfont['head'].created = 0\nfont['head'].modified = 0\n# remove fontforge timestamps\nif 'FFTM' in font:\n    del font['FFTM']\n# remove redundant GDEF table",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "font_name",
+        "kind": 5,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "font_name = os.path.splitext(os.path.basename(font_file))[0]\nfont = TTFont(font_file, recalcBBoxes=False, recalcTimestamp=False)\n# fix timestamp to the epoch\nfont['head'].created = 0\nfont['head'].modified = 0\n# remove fontforge timestamps\nif 'FFTM' in font:\n    del font['FFTM']\n# remove redundant GDEF table\nif 'GDEF' in font:",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "font",
+        "kind": 5,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "font = TTFont(font_file, recalcBBoxes=False, recalcTimestamp=False)\n# fix timestamp to the epoch\nfont['head'].created = 0\nfont['head'].modified = 0\n# remove fontforge timestamps\nif 'FFTM' in font:\n    del font['FFTM']\n# remove redundant GDEF table\nif 'GDEF' in font:\n    del font['GDEF']",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "font['head'].created",
+        "kind": 5,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "font['head'].created = 0\nfont['head'].modified = 0\n# remove fontforge timestamps\nif 'FFTM' in font:\n    del font['FFTM']\n# remove redundant GDEF table\nif 'GDEF' in font:\n    del font['GDEF']\n# remove Macintosh table\n# https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6cmap.html",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "font['head'].modified",
+        "kind": 5,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "font['head'].modified = 0\n# remove fontforge timestamps\nif 'FFTM' in font:\n    del font['FFTM']\n# remove redundant GDEF table\nif 'GDEF' in font:\n    del font['GDEF']\n# remove Macintosh table\n# https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6cmap.html\nfont['name'].names = [record for record in font['name'].names if record.platformID != 1]",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "font['name'].names",
+        "kind": 5,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "font['name'].names = [record for record in font['name'].names if record.platformID != 1]\nfont['cmap'].tables = [table for table in font['cmap'].tables if table.platformID != 1]\n# fix OS/2 and hhea metrics\nglyf = font['glyf']\nascent = int(max(glyf[c].yMax for c in font.getGlyphOrder() if hasattr(glyf[c], \"yMax\")))\ndescent = -int(min(glyf[c].yMin for c in font.getGlyphOrder() if hasattr(glyf[c], \"yMin\")))\nfont['OS/2'].usWinAscent = ascent\nfont['OS/2'].usWinDescent = descent\nfont['hhea'].ascent = ascent\nfont['hhea'].descent = -descent",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "font['cmap'].tables",
+        "kind": 5,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "font['cmap'].tables = [table for table in font['cmap'].tables if table.platformID != 1]\n# fix OS/2 and hhea metrics\nglyf = font['glyf']\nascent = int(max(glyf[c].yMax for c in font.getGlyphOrder() if hasattr(glyf[c], \"yMax\")))\ndescent = -int(min(glyf[c].yMin for c in font.getGlyphOrder() if hasattr(glyf[c], \"yMin\")))\nfont['OS/2'].usWinAscent = ascent\nfont['OS/2'].usWinDescent = descent\nfont['hhea'].ascent = ascent\nfont['hhea'].descent = -descent\n# save TTF",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "glyf",
+        "kind": 5,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "glyf = font['glyf']\nascent = int(max(glyf[c].yMax for c in font.getGlyphOrder() if hasattr(glyf[c], \"yMax\")))\ndescent = -int(min(glyf[c].yMin for c in font.getGlyphOrder() if hasattr(glyf[c], \"yMin\")))\nfont['OS/2'].usWinAscent = ascent\nfont['OS/2'].usWinDescent = descent\nfont['hhea'].ascent = ascent\nfont['hhea'].descent = -descent\n# save TTF\nfont.save(font_file, reorderTables=None)\n# save WOFF",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "ascent",
+        "kind": 5,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "ascent = int(max(glyf[c].yMax for c in font.getGlyphOrder() if hasattr(glyf[c], \"yMax\")))\ndescent = -int(min(glyf[c].yMin for c in font.getGlyphOrder() if hasattr(glyf[c], \"yMin\")))\nfont['OS/2'].usWinAscent = ascent\nfont['OS/2'].usWinDescent = descent\nfont['hhea'].ascent = ascent\nfont['hhea'].descent = -descent\n# save TTF\nfont.save(font_file, reorderTables=None)\n# save WOFF\nfont.flavor = 'woff'",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "descent",
+        "kind": 5,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "descent = -int(min(glyf[c].yMin for c in font.getGlyphOrder() if hasattr(glyf[c], \"yMin\")))\nfont['OS/2'].usWinAscent = ascent\nfont['OS/2'].usWinDescent = descent\nfont['hhea'].ascent = ascent\nfont['hhea'].descent = -descent\n# save TTF\nfont.save(font_file, reorderTables=None)\n# save WOFF\nfont.flavor = 'woff'\nfont.save(os.path.join('woff', font_name + '.woff'), reorderTables=None)",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "font['OS/2'].usWinAscent",
+        "kind": 5,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "font['OS/2'].usWinAscent = ascent\nfont['OS/2'].usWinDescent = descent\nfont['hhea'].ascent = ascent\nfont['hhea'].descent = -descent\n# save TTF\nfont.save(font_file, reorderTables=None)\n# save WOFF\nfont.flavor = 'woff'\nfont.save(os.path.join('woff', font_name + '.woff'), reorderTables=None)\n# save WOFF2",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "font['OS/2'].usWinDescent",
+        "kind": 5,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "font['OS/2'].usWinDescent = descent\nfont['hhea'].ascent = ascent\nfont['hhea'].descent = -descent\n# save TTF\nfont.save(font_file, reorderTables=None)\n# save WOFF\nfont.flavor = 'woff'\nfont.save(os.path.join('woff', font_name + '.woff'), reorderTables=None)\n# save WOFF2\nfont.flavor = 'woff2'",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "font['hhea'].ascent",
+        "kind": 5,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "font['hhea'].ascent = ascent\nfont['hhea'].descent = -descent\n# save TTF\nfont.save(font_file, reorderTables=None)\n# save WOFF\nfont.flavor = 'woff'\nfont.save(os.path.join('woff', font_name + '.woff'), reorderTables=None)\n# save WOFF2\nfont.flavor = 'woff2'\nfont.save(os.path.join('woff2', font_name + '.woff2'), reorderTables=None)",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "font['hhea'].descent",
+        "kind": 5,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "font['hhea'].descent = -descent\n# save TTF\nfont.save(font_file, reorderTables=None)\n# save WOFF\nfont.flavor = 'woff'\nfont.save(os.path.join('woff', font_name + '.woff'), reorderTables=None)\n# save WOFF2\nfont.flavor = 'woff2'\nfont.save(os.path.join('woff2', font_name + '.woff2'), reorderTables=None)",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "font.flavor",
+        "kind": 5,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "font.flavor = 'woff'\nfont.save(os.path.join('woff', font_name + '.woff'), reorderTables=None)\n# save WOFF2\nfont.flavor = 'woff2'\nfont.save(os.path.join('woff2', font_name + '.woff2'), reorderTables=None)",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "font.flavor",
+        "kind": 5,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "font.flavor = 'woff2'\nfont.save(os.path.join('woff2', font_name + '.woff2'), reorderTables=None)",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "find_font_path",
+        "kind": 2,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.extract_tfms",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.extract_tfms",
+        "peekOfCode": "def find_font_path(font_name):\n    try:\n        font_path = subprocess.check_output(['kpsewhich', font_name])\n    except OSError:\n        raise RuntimeError(\"Couldn't find kpsewhich program, make sure you\" +\n                           \" have TeX installed\")\n    except subprocess.CalledProcessError:\n        raise RuntimeError(\"Couldn't find font metrics: '%s'\" % font_name)\n    return font_path.strip()\ndef main():",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.extract_tfms",
+        "documentation": {}
+    },
+    {
+        "label": "main",
+        "kind": 2,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.extract_tfms",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.extract_tfms",
+        "peekOfCode": "def main():\n    mapping = json.load(sys.stdin)\n    fonts = [\n        'cmbsy10.tfm',\n        'cmbx10.tfm',\n        'cmbxti10.tfm',\n        'cmex10.tfm',\n        'cmmi10.tfm',\n        'cmmib10.tfm',\n        'cmr10.tfm',",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.extract_tfms",
+        "documentation": {}
+    },
+    {
+        "label": "main",
+        "kind": 2,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.extract_ttfs",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.extract_ttfs",
+        "peekOfCode": "def main():\n    start_json = json.load(sys.stdin)\n    for font in start_json:\n        fontInfo = TTFont(\"../../fonts/KaTeX_\" + font + \".ttf\")\n        glyf = fontInfo[\"glyf\"]\n        widths = fontInfo.getGlyphSet()\n        unitsPerEm = float(fontInfo[\"head\"].unitsPerEm)\n        # We keep ALL Unicode cmaps, not just fontInfo[\"cmap\"].getcmap(3, 1).\n        # This is playing it extra safe, since it reports inconsistencies.\n        # Platform 0 is Unicode, platform 3 is Windows. For platform 3,",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.extract_ttfs",
+        "documentation": {}
+    },
+    {
+        "label": "metrics_to_extract",
+        "kind": 5,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.extract_ttfs",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.extract_ttfs",
+        "peekOfCode": "metrics_to_extract = {\n    # Font name\n    \"AMS-Regular\": {\n        u\"\\u21e2\": None,  # \\dashrightarrow\n        u\"\\u21e0\": None,  # \\dashleftarrow\n    },\n    \"Main-Regular\": {\n        # Skew and italic metrics can't be easily parsed from the TTF. Instead,\n        # we map each character to a \"base character\", which is a character\n        # from the same font with correct italic and skew metrics. A character",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.extract_ttfs",
+        "documentation": {}
+    },
+    {
+        "label": "props",
+        "kind": 5,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.format_json",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.format_json",
+        "peekOfCode": "props = ['depth', 'height', 'italic', 'skew']\nif len(sys.argv) > 1:\n    if sys.argv[1] == '--width':\n        props.append('width')\ndata = json.load(sys.stdin)\nsys.stdout.write(\n  \"// This file is GENERATED by buildMetrics.sh. DO NOT MODIFY.\\n\")\nsep = \"export default {\\n    \"\nfor font in sorted(data):\n    sys.stdout.write(sep + json.dumps(font))",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.format_json",
+        "documentation": {}
+    },
+    {
+        "label": "data",
+        "kind": 5,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.format_json",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.format_json",
+        "peekOfCode": "data = json.load(sys.stdin)\nsys.stdout.write(\n  \"// This file is GENERATED by buildMetrics.sh. DO NOT MODIFY.\\n\")\nsep = \"export default {\\n    \"\nfor font in sorted(data):\n    sys.stdout.write(sep + json.dumps(font))\n    sep = \": {\\n        \"\n    for glyph in sorted(data[font], key=int):\n        sys.stdout.write(sep + json.dumps(glyph) + \": \")\n        values = [value if value != 0.0 else 0 for value in",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.format_json",
+        "documentation": {}
+    },
+    {
+        "label": "sep",
+        "kind": 5,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.format_json",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.format_json",
+        "peekOfCode": "sep = \"export default {\\n    \"\nfor font in sorted(data):\n    sys.stdout.write(sep + json.dumps(font))\n    sep = \": {\\n        \"\n    for glyph in sorted(data[font], key=int):\n        sys.stdout.write(sep + json.dumps(glyph) + \": \")\n        values = [value if value != 0.0 else 0 for value in\n                  [data[font][glyph][key] for key in props]]\n        sys.stdout.write(json.dumps(values))\n        sep = \",\\n        \"",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.format_json",
+        "documentation": {}
+    },
+    {
+        "label": "CharInfoWord",
+        "kind": 6,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "peekOfCode": "class CharInfoWord(object):\n    def __init__(self, word):\n        b1, b2, b3, b4 = (word >> 24,\n                          (word & 0xff0000) >> 16,\n                          (word & 0xff00) >> 8,\n                          word & 0xff)\n        self.width_index = b1\n        self.height_index = b2 >> 4\n        self.depth_index = b2 & 0x0f\n        self.italic_index = (b3 & 0b11111100) >> 2",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "documentation": {}
+    },
+    {
+        "label": "LigKernProgram",
+        "kind": 6,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "peekOfCode": "class LigKernProgram(object):\n    def __init__(self, program):\n        self.program = program\n    def execute(self, start, next_char):\n        curr_instruction = start\n        while True:\n            instruction = self.program[curr_instruction]\n            (skip, inst_next_char, op, remainder) = instruction\n            if inst_next_char == next_char:\n                if op < 128:",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "documentation": {}
+    },
+    {
+        "label": "TfmCharMetrics",
+        "kind": 6,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "peekOfCode": "class TfmCharMetrics(object):\n    def __init__(self, width, height, depth, italic, kern_table):\n        self.width = width\n        self.height = height\n        self.depth = depth\n        self.italic_correction = italic\n        self.kern_table = kern_table\nclass TfmFile(object):\n    def __init__(self, start_char, end_char, char_info, width_table,\n                 height_table, depth_table, italic_table, ligkern_table,",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "documentation": {}
+    },
+    {
+        "label": "TfmFile",
+        "kind": 6,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "peekOfCode": "class TfmFile(object):\n    def __init__(self, start_char, end_char, char_info, width_table,\n                 height_table, depth_table, italic_table, ligkern_table,\n                 kern_table):\n        self.start_char = start_char\n        self.end_char = end_char\n        self.char_info = char_info\n        self.width_table = width_table\n        self.height_table = height_table\n        self.depth_table = depth_table",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "documentation": {}
+    },
+    {
+        "label": "TfmReader",
+        "kind": 6,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "peekOfCode": "class TfmReader(object):\n    def __init__(self, f):\n        self.f = f\n    def read_byte(self):\n        return ord(self.f.read(1))\n    def read_halfword(self):\n        b1 = self.read_byte()\n        b2 = self.read_byte()\n        return (b1 << 8) | b2\n    def read_word(self):",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "documentation": {}
+    },
+    {
+        "label": "read_tfm_file",
+        "kind": 2,
+        "importPath": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "description": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "peekOfCode": "def read_tfm_file(file_name):\n    with open(file_name, 'rb') as f:\n        reader = TfmReader(f)\n        # file_size\n        reader.read_halfword()\n        header_size = reader.read_halfword()\n        start_char = reader.read_halfword()\n        end_char = reader.read_halfword()\n        width_table_size = reader.read_halfword()\n        height_table_size = reader.read_halfword()",
+        "detail": "node_modules..pnpm.node_modules.agentlog-vscode..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "documentation": {}
+    },
+    {
+        "label": "sfnt.USE_ZOPFLI",
+        "kind": 5,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "sfnt.USE_ZOPFLI = True\nif len(sys.argv) < 2:\n    print(\"Usage: %s <font file>\" % sys.argv[0])\n    sys.exit(1)\nfont_file = sys.argv[1]\nfont_name = os.path.splitext(os.path.basename(font_file))[0]\nfont = TTFont(font_file, recalcBBoxes=False, recalcTimestamp=False)\n# fix timestamp to the epoch\nfont['head'].created = 0\nfont['head'].modified = 0",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "font_file",
+        "kind": 5,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "font_file = sys.argv[1]\nfont_name = os.path.splitext(os.path.basename(font_file))[0]\nfont = TTFont(font_file, recalcBBoxes=False, recalcTimestamp=False)\n# fix timestamp to the epoch\nfont['head'].created = 0\nfont['head'].modified = 0\n# remove fontforge timestamps\nif 'FFTM' in font:\n    del font['FFTM']\n# remove redundant GDEF table",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "font_name",
+        "kind": 5,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "font_name = os.path.splitext(os.path.basename(font_file))[0]\nfont = TTFont(font_file, recalcBBoxes=False, recalcTimestamp=False)\n# fix timestamp to the epoch\nfont['head'].created = 0\nfont['head'].modified = 0\n# remove fontforge timestamps\nif 'FFTM' in font:\n    del font['FFTM']\n# remove redundant GDEF table\nif 'GDEF' in font:",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "font",
+        "kind": 5,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "font = TTFont(font_file, recalcBBoxes=False, recalcTimestamp=False)\n# fix timestamp to the epoch\nfont['head'].created = 0\nfont['head'].modified = 0\n# remove fontforge timestamps\nif 'FFTM' in font:\n    del font['FFTM']\n# remove redundant GDEF table\nif 'GDEF' in font:\n    del font['GDEF']",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "font['head'].created",
+        "kind": 5,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "font['head'].created = 0\nfont['head'].modified = 0\n# remove fontforge timestamps\nif 'FFTM' in font:\n    del font['FFTM']\n# remove redundant GDEF table\nif 'GDEF' in font:\n    del font['GDEF']\n# remove Macintosh table\n# https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6cmap.html",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "font['head'].modified",
+        "kind": 5,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "font['head'].modified = 0\n# remove fontforge timestamps\nif 'FFTM' in font:\n    del font['FFTM']\n# remove redundant GDEF table\nif 'GDEF' in font:\n    del font['GDEF']\n# remove Macintosh table\n# https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6cmap.html\nfont['name'].names = [record for record in font['name'].names if record.platformID != 1]",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "font['name'].names",
+        "kind": 5,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "font['name'].names = [record for record in font['name'].names if record.platformID != 1]\nfont['cmap'].tables = [table for table in font['cmap'].tables if table.platformID != 1]\n# fix OS/2 and hhea metrics\nglyf = font['glyf']\nascent = int(max(glyf[c].yMax for c in font.getGlyphOrder() if hasattr(glyf[c], \"yMax\")))\ndescent = -int(min(glyf[c].yMin for c in font.getGlyphOrder() if hasattr(glyf[c], \"yMin\")))\nfont['OS/2'].usWinAscent = ascent\nfont['OS/2'].usWinDescent = descent\nfont['hhea'].ascent = ascent\nfont['hhea'].descent = -descent",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "font['cmap'].tables",
+        "kind": 5,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "font['cmap'].tables = [table for table in font['cmap'].tables if table.platformID != 1]\n# fix OS/2 and hhea metrics\nglyf = font['glyf']\nascent = int(max(glyf[c].yMax for c in font.getGlyphOrder() if hasattr(glyf[c], \"yMax\")))\ndescent = -int(min(glyf[c].yMin for c in font.getGlyphOrder() if hasattr(glyf[c], \"yMin\")))\nfont['OS/2'].usWinAscent = ascent\nfont['OS/2'].usWinDescent = descent\nfont['hhea'].ascent = ascent\nfont['hhea'].descent = -descent\n# save TTF",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "glyf",
+        "kind": 5,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "glyf = font['glyf']\nascent = int(max(glyf[c].yMax for c in font.getGlyphOrder() if hasattr(glyf[c], \"yMax\")))\ndescent = -int(min(glyf[c].yMin for c in font.getGlyphOrder() if hasattr(glyf[c], \"yMin\")))\nfont['OS/2'].usWinAscent = ascent\nfont['OS/2'].usWinDescent = descent\nfont['hhea'].ascent = ascent\nfont['hhea'].descent = -descent\n# save TTF\nfont.save(font_file, reorderTables=None)\n# save WOFF",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "ascent",
+        "kind": 5,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "ascent = int(max(glyf[c].yMax for c in font.getGlyphOrder() if hasattr(glyf[c], \"yMax\")))\ndescent = -int(min(glyf[c].yMin for c in font.getGlyphOrder() if hasattr(glyf[c], \"yMin\")))\nfont['OS/2'].usWinAscent = ascent\nfont['OS/2'].usWinDescent = descent\nfont['hhea'].ascent = ascent\nfont['hhea'].descent = -descent\n# save TTF\nfont.save(font_file, reorderTables=None)\n# save WOFF\nfont.flavor = 'woff'",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "descent",
+        "kind": 5,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "descent = -int(min(glyf[c].yMin for c in font.getGlyphOrder() if hasattr(glyf[c], \"yMin\")))\nfont['OS/2'].usWinAscent = ascent\nfont['OS/2'].usWinDescent = descent\nfont['hhea'].ascent = ascent\nfont['hhea'].descent = -descent\n# save TTF\nfont.save(font_file, reorderTables=None)\n# save WOFF\nfont.flavor = 'woff'\nfont.save(os.path.join('woff', font_name + '.woff'), reorderTables=None)",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "font['OS/2'].usWinAscent",
+        "kind": 5,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "font['OS/2'].usWinAscent = ascent\nfont['OS/2'].usWinDescent = descent\nfont['hhea'].ascent = ascent\nfont['hhea'].descent = -descent\n# save TTF\nfont.save(font_file, reorderTables=None)\n# save WOFF\nfont.flavor = 'woff'\nfont.save(os.path.join('woff', font_name + '.woff'), reorderTables=None)\n# save WOFF2",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "font['OS/2'].usWinDescent",
+        "kind": 5,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "font['OS/2'].usWinDescent = descent\nfont['hhea'].ascent = ascent\nfont['hhea'].descent = -descent\n# save TTF\nfont.save(font_file, reorderTables=None)\n# save WOFF\nfont.flavor = 'woff'\nfont.save(os.path.join('woff', font_name + '.woff'), reorderTables=None)\n# save WOFF2\nfont.flavor = 'woff2'",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "font['hhea'].ascent",
+        "kind": 5,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "font['hhea'].ascent = ascent\nfont['hhea'].descent = -descent\n# save TTF\nfont.save(font_file, reorderTables=None)\n# save WOFF\nfont.flavor = 'woff'\nfont.save(os.path.join('woff', font_name + '.woff'), reorderTables=None)\n# save WOFF2\nfont.flavor = 'woff2'\nfont.save(os.path.join('woff2', font_name + '.woff2'), reorderTables=None)",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "font['hhea'].descent",
+        "kind": 5,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "font['hhea'].descent = -descent\n# save TTF\nfont.save(font_file, reorderTables=None)\n# save WOFF\nfont.flavor = 'woff'\nfont.save(os.path.join('woff', font_name + '.woff'), reorderTables=None)\n# save WOFF2\nfont.flavor = 'woff2'\nfont.save(os.path.join('woff2', font_name + '.woff2'), reorderTables=None)",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "font.flavor",
+        "kind": 5,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "font.flavor = 'woff'\nfont.save(os.path.join('woff', font_name + '.woff'), reorderTables=None)\n# save WOFF2\nfont.flavor = 'woff2'\nfont.save(os.path.join('woff2', font_name + '.woff2'), reorderTables=None)",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "font.flavor",
+        "kind": 5,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "peekOfCode": "font.flavor = 'woff2'\nfont.save(os.path.join('woff2', font_name + '.woff2'), reorderTables=None)",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.fonts.generate_fonts",
+        "documentation": {}
+    },
+    {
+        "label": "find_font_path",
+        "kind": 2,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.extract_tfms",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.extract_tfms",
+        "peekOfCode": "def find_font_path(font_name):\n    try:\n        font_path = subprocess.check_output(['kpsewhich', font_name])\n    except OSError:\n        raise RuntimeError(\"Couldn't find kpsewhich program, make sure you\" +\n                           \" have TeX installed\")\n    except subprocess.CalledProcessError:\n        raise RuntimeError(\"Couldn't find font metrics: '%s'\" % font_name)\n    return font_path.strip()\ndef main():",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.extract_tfms",
+        "documentation": {}
+    },
+    {
+        "label": "main",
+        "kind": 2,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.extract_tfms",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.extract_tfms",
+        "peekOfCode": "def main():\n    mapping = json.load(sys.stdin)\n    fonts = [\n        'cmbsy10.tfm',\n        'cmbx10.tfm',\n        'cmbxti10.tfm',\n        'cmex10.tfm',\n        'cmmi10.tfm',\n        'cmmib10.tfm',\n        'cmr10.tfm',",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.extract_tfms",
+        "documentation": {}
+    },
+    {
+        "label": "main",
+        "kind": 2,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.extract_ttfs",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.extract_ttfs",
+        "peekOfCode": "def main():\n    start_json = json.load(sys.stdin)\n    for font in start_json:\n        fontInfo = TTFont(\"../../fonts/KaTeX_\" + font + \".ttf\")\n        glyf = fontInfo[\"glyf\"]\n        widths = fontInfo.getGlyphSet()\n        unitsPerEm = float(fontInfo[\"head\"].unitsPerEm)\n        # We keep ALL Unicode cmaps, not just fontInfo[\"cmap\"].getcmap(3, 1).\n        # This is playing it extra safe, since it reports inconsistencies.\n        # Platform 0 is Unicode, platform 3 is Windows. For platform 3,",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.extract_ttfs",
+        "documentation": {}
+    },
+    {
+        "label": "metrics_to_extract",
+        "kind": 5,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.extract_ttfs",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.extract_ttfs",
+        "peekOfCode": "metrics_to_extract = {\n    # Font name\n    \"AMS-Regular\": {\n        u\"\\u21e2\": None,  # \\dashrightarrow\n        u\"\\u21e0\": None,  # \\dashleftarrow\n    },\n    \"Main-Regular\": {\n        # Skew and italic metrics can't be easily parsed from the TTF. Instead,\n        # we map each character to a \"base character\", which is a character\n        # from the same font with correct italic and skew metrics. A character",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.extract_ttfs",
+        "documentation": {}
+    },
+    {
+        "label": "props",
+        "kind": 5,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.format_json",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.format_json",
+        "peekOfCode": "props = ['depth', 'height', 'italic', 'skew']\nif len(sys.argv) > 1:\n    if sys.argv[1] == '--width':\n        props.append('width')\ndata = json.load(sys.stdin)\nsys.stdout.write(\n  \"// This file is GENERATED by buildMetrics.sh. DO NOT MODIFY.\\n\")\nsep = \"export default {\\n    \"\nfor font in sorted(data):\n    sys.stdout.write(sep + json.dumps(font))",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.format_json",
+        "documentation": {}
+    },
+    {
+        "label": "data",
+        "kind": 5,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.format_json",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.format_json",
+        "peekOfCode": "data = json.load(sys.stdin)\nsys.stdout.write(\n  \"// This file is GENERATED by buildMetrics.sh. DO NOT MODIFY.\\n\")\nsep = \"export default {\\n    \"\nfor font in sorted(data):\n    sys.stdout.write(sep + json.dumps(font))\n    sep = \": {\\n        \"\n    for glyph in sorted(data[font], key=int):\n        sys.stdout.write(sep + json.dumps(glyph) + \": \")\n        values = [value if value != 0.0 else 0 for value in",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.format_json",
+        "documentation": {}
+    },
+    {
+        "label": "sep",
+        "kind": 5,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.format_json",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.format_json",
+        "peekOfCode": "sep = \"export default {\\n    \"\nfor font in sorted(data):\n    sys.stdout.write(sep + json.dumps(font))\n    sep = \": {\\n        \"\n    for glyph in sorted(data[font], key=int):\n        sys.stdout.write(sep + json.dumps(glyph) + \": \")\n        values = [value if value != 0.0 else 0 for value in\n                  [data[font][glyph][key] for key in props]]\n        sys.stdout.write(json.dumps(values))\n        sep = \",\\n        \"",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.format_json",
+        "documentation": {}
+    },
+    {
+        "label": "CharInfoWord",
+        "kind": 6,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "peekOfCode": "class CharInfoWord(object):\n    def __init__(self, word):\n        b1, b2, b3, b4 = (word >> 24,\n                          (word & 0xff0000) >> 16,\n                          (word & 0xff00) >> 8,\n                          word & 0xff)\n        self.width_index = b1\n        self.height_index = b2 >> 4\n        self.depth_index = b2 & 0x0f\n        self.italic_index = (b3 & 0b11111100) >> 2",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "documentation": {}
+    },
+    {
+        "label": "LigKernProgram",
+        "kind": 6,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "peekOfCode": "class LigKernProgram(object):\n    def __init__(self, program):\n        self.program = program\n    def execute(self, start, next_char):\n        curr_instruction = start\n        while True:\n            instruction = self.program[curr_instruction]\n            (skip, inst_next_char, op, remainder) = instruction\n            if inst_next_char == next_char:\n                if op < 128:",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "documentation": {}
+    },
+    {
+        "label": "TfmCharMetrics",
+        "kind": 6,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "peekOfCode": "class TfmCharMetrics(object):\n    def __init__(self, width, height, depth, italic, kern_table):\n        self.width = width\n        self.height = height\n        self.depth = depth\n        self.italic_correction = italic\n        self.kern_table = kern_table\nclass TfmFile(object):\n    def __init__(self, start_char, end_char, char_info, width_table,\n                 height_table, depth_table, italic_table, ligkern_table,",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "documentation": {}
+    },
+    {
+        "label": "TfmFile",
+        "kind": 6,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "peekOfCode": "class TfmFile(object):\n    def __init__(self, start_char, end_char, char_info, width_table,\n                 height_table, depth_table, italic_table, ligkern_table,\n                 kern_table):\n        self.start_char = start_char\n        self.end_char = end_char\n        self.char_info = char_info\n        self.width_table = width_table\n        self.height_table = height_table\n        self.depth_table = depth_table",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "documentation": {}
+    },
+    {
+        "label": "TfmReader",
+        "kind": 6,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "peekOfCode": "class TfmReader(object):\n    def __init__(self, f):\n        self.f = f\n    def read_byte(self):\n        return ord(self.f.read(1))\n    def read_halfword(self):\n        b1 = self.read_byte()\n        b2 = self.read_byte()\n        return (b1 << 8) | b2\n    def read_word(self):",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "documentation": {}
+    },
+    {
+        "label": "read_tfm_file",
+        "kind": 2,
+        "importPath": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "description": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "peekOfCode": "def read_tfm_file(file_name):\n    with open(file_name, 'rb') as f:\n        reader = TfmReader(f)\n        # file_size\n        reader.read_halfword()\n        header_size = reader.read_halfword()\n        start_char = reader.read_halfword()\n        end_char = reader.read_halfword()\n        width_table_size = reader.read_halfword()\n        height_table_size = reader.read_halfword()",
+        "detail": "packages.vscode-extension..vscode-test.vscode-darwin-arm64-1.114.0.Visual Studio Code.app.Contents.Resources.app.node_modules.katex.src.metrics.parse_tfm",
+        "documentation": {}
+    },
+    {
+        "label": "create_backup_dir",
+        "kind": 2,
+        "importPath": "skills.openclaw-agentlog.patch_dist",
+        "description": "skills.openclaw-agentlog.patch_dist",
+        "peekOfCode": "def create_backup_dir():\n    \"\"\"Create timestamped backup directory\"\"\"\n    timestamp = datetime.now().strftime(\"%Y%m%d_%H%M%S\")\n    backup_path = f\"{BACKUP_DIR}_{timestamp}\"\n    os.makedirs(backup_path, exist_ok=True)\n    return backup_path\ndef patch_file(filepath, backup_dir):\n    \"\"\"Patch a single file\"\"\"\n    filename = os.path.basename(filepath)\n    # Read content",
+        "detail": "skills.openclaw-agentlog.patch_dist",
+        "documentation": {}
+    },
+    {
+        "label": "patch_file",
+        "kind": 2,
+        "importPath": "skills.openclaw-agentlog.patch_dist",
+        "description": "skills.openclaw-agentlog.patch_dist",
+        "peekOfCode": "def patch_file(filepath, backup_dir):\n    \"\"\"Patch a single file\"\"\"\n    filename = os.path.basename(filepath)\n    # Read content\n    with open(filepath, 'r', encoding='utf-8') as f:\n        content = f.read()\n    # Check if file contains the pattern\n    if OLD_PATTERN not in content:\n        return False, \"pattern not found\"\n    # Create backup",
+        "detail": "skills.openclaw-agentlog.patch_dist",
+        "documentation": {}
+    },
+    {
+        "label": "main",
+        "kind": 2,
+        "importPath": "skills.openclaw-agentlog.patch_dist",
+        "description": "skills.openclaw-agentlog.patch_dist",
+        "peekOfCode": "def main():\n    print(f\"OpenClaw Dist Bundle Patcher\")\n    print(f\"=\" * 50)\n    print(f\"Dist directory: {DIST_DIR}\")\n    print(f\"\")\n    # Create backup directory\n    backup_dir = create_backup_dir()\n    print(f\"Backup directory: {backup_dir}\")\n    print(f\"\")\n    # Find all JS files",
+        "detail": "skills.openclaw-agentlog.patch_dist",
+        "documentation": {}
+    },
+    {
+        "label": "DIST_DIR",
+        "kind": 5,
+        "importPath": "skills.openclaw-agentlog.patch_dist",
+        "description": "skills.openclaw-agentlog.patch_dist",
+        "peekOfCode": "DIST_DIR = \"/home/hobo/.npm-global/lib/node_modules/openclaw/dist\"\nBACKUP_DIR = \"/home/hobo/.npm-global/lib/node_modules/openclaw/dist_backup\"\n# Pattern to search for (the original unmodified code)\nOLD_PATTERN = 'return modelLabel === defaultLabel ? `\\u2705 New session started \\u00b7 model: ${modelLabel}` : `\\u2705 New session started \\u00b7 model: ${modelLabel} (default: ${defaultLabel})`;'\n# Replacement code (adds trace ID display)\nNEW_CODE = '''const _agentlogTraceId = process.env.AGENTLOG_TRACE_ID;\n\\tconst _agentlogTraceSuffix = _agentlogTraceId ? ` \\u00b7 trace: ${_agentlogTraceId}` : \"\";\n\\treturn modelLabel === defaultLabel ? `\\u2705 New trace started \\u00b7 model: ${modelLabel}${_agentlogTraceSuffix}` : `\\u2705 New trace started \\u00b7 model: ${modelLabel} (default: ${defaultLabel})${_agentlogTraceSuffix}`;'''\ndef create_backup_dir():\n    \"\"\"Create timestamped backup directory\"\"\"",
+        "detail": "skills.openclaw-agentlog.patch_dist",
+        "documentation": {}
+    },
+    {
+        "label": "BACKUP_DIR",
+        "kind": 5,
+        "importPath": "skills.openclaw-agentlog.patch_dist",
+        "description": "skills.openclaw-agentlog.patch_dist",
+        "peekOfCode": "BACKUP_DIR = \"/home/hobo/.npm-global/lib/node_modules/openclaw/dist_backup\"\n# Pattern to search for (the original unmodified code)\nOLD_PATTERN = 'return modelLabel === defaultLabel ? `\\u2705 New session started \\u00b7 model: ${modelLabel}` : `\\u2705 New session started \\u00b7 model: ${modelLabel} (default: ${defaultLabel})`;'\n# Replacement code (adds trace ID display)\nNEW_CODE = '''const _agentlogTraceId = process.env.AGENTLOG_TRACE_ID;\n\\tconst _agentlogTraceSuffix = _agentlogTraceId ? ` \\u00b7 trace: ${_agentlogTraceId}` : \"\";\n\\treturn modelLabel === defaultLabel ? `\\u2705 New trace started \\u00b7 model: ${modelLabel}${_agentlogTraceSuffix}` : `\\u2705 New trace started \\u00b7 model: ${modelLabel} (default: ${defaultLabel})${_agentlogTraceSuffix}`;'''\ndef create_backup_dir():\n    \"\"\"Create timestamped backup directory\"\"\"\n    timestamp = datetime.now().strftime(\"%Y%m%d_%H%M%S\")",
+        "detail": "skills.openclaw-agentlog.patch_dist",
+        "documentation": {}
+    },
+    {
+        "label": "OLD_PATTERN",
+        "kind": 5,
+        "importPath": "skills.openclaw-agentlog.patch_dist",
+        "description": "skills.openclaw-agentlog.patch_dist",
+        "peekOfCode": "OLD_PATTERN = 'return modelLabel === defaultLabel ? `\\u2705 New session started \\u00b7 model: ${modelLabel}` : `\\u2705 New session started \\u00b7 model: ${modelLabel} (default: ${defaultLabel})`;'\n# Replacement code (adds trace ID display)\nNEW_CODE = '''const _agentlogTraceId = process.env.AGENTLOG_TRACE_ID;\n\\tconst _agentlogTraceSuffix = _agentlogTraceId ? ` \\u00b7 trace: ${_agentlogTraceId}` : \"\";\n\\treturn modelLabel === defaultLabel ? `\\u2705 New trace started \\u00b7 model: ${modelLabel}${_agentlogTraceSuffix}` : `\\u2705 New trace started \\u00b7 model: ${modelLabel} (default: ${defaultLabel})${_agentlogTraceSuffix}`;'''\ndef create_backup_dir():\n    \"\"\"Create timestamped backup directory\"\"\"\n    timestamp = datetime.now().strftime(\"%Y%m%d_%H%M%S\")\n    backup_path = f\"{BACKUP_DIR}_{timestamp}\"\n    os.makedirs(backup_path, exist_ok=True)",
+        "detail": "skills.openclaw-agentlog.patch_dist",
+        "documentation": {}
+    },
+    {
+        "label": "NEW_CODE",
+        "kind": 5,
+        "importPath": "skills.openclaw-agentlog.patch_dist",
+        "description": "skills.openclaw-agentlog.patch_dist",
+        "peekOfCode": "NEW_CODE = '''const _agentlogTraceId = process.env.AGENTLOG_TRACE_ID;\n\\tconst _agentlogTraceSuffix = _agentlogTraceId ? ` \\u00b7 trace: ${_agentlogTraceId}` : \"\";\n\\treturn modelLabel === defaultLabel ? `\\u2705 New trace started \\u00b7 model: ${modelLabel}${_agentlogTraceSuffix}` : `\\u2705 New trace started \\u00b7 model: ${modelLabel} (default: ${defaultLabel})${_agentlogTraceSuffix}`;'''\ndef create_backup_dir():\n    \"\"\"Create timestamped backup directory\"\"\"\n    timestamp = datetime.now().strftime(\"%Y%m%d_%H%M%S\")\n    backup_path = f\"{BACKUP_DIR}_{timestamp}\"\n    os.makedirs(backup_path, exist_ok=True)\n    return backup_path\ndef patch_file(filepath, backup_dir):",
+        "detail": "skills.openclaw-agentlog.patch_dist",
+        "documentation": {}
+    }
+]

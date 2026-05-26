@@ -12,6 +12,7 @@
 import * as vscode from "vscode";
 import { execSync } from "child_process";
 import { getBackendClient } from "../client/backendClient";
+import { SseClient } from "../client/sseClient";
 import type { CommitBinding } from "@agentlog/shared";
 
 const SUPPORTED_LANGUAGES = ["en", "zh-CN", "zh-TW"];
@@ -121,7 +122,7 @@ export class TracePanel {
   public static current: TracePanel | undefined;
   private readonly panel: vscode.WebviewPanel;
   private readonly extensionUri: vscode.Uri;
-  private sseConnection: { close: () => void } | null = null;
+  private _sseClient: SseClient | null = null;
   private currentTraceId: string | null = null;
 
   private constructor(
@@ -286,41 +287,34 @@ export class TracePanel {
   private connectSSE(): void {
     this.disconnectSSE();
 
-    // Get backend URL from configuration
-    const backendUrl = vscode.workspace.getConfiguration("agentlog").get<string>("backendUrl") ?? "http://localhost:7892";
-    const eventSource = new EventSource(`${backendUrl}/mcp/sse`);
+    const client = getBackendClient();
+    if (!client) {
+      console.log(`[TracePanel] BackendClient 不可用，跳过 SSE 连接`);
+      return;
+    }
 
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === "span_created" && data.data) {
-          // 如果是当前 trace 的 span，则刷新
-          if (
-            this.currentTraceId &&
-            data.data.traceId === this.currentTraceId
-          ) {
-            this.loadTrace(this.currentTraceId);
-          }
-          // 通知 webview 有新 span
-          this.postMessage({ type: "spanCreated", payload: data.data });
-        }
-      } catch {
-        // ignore parse errors
+    this._sseClient = new SseClient(client.getBaseUrl());
+
+    this._sseClient.on("connected", () => {
+      console.log(`[TracePanel] SSE 已连接`);
+      if (this.currentTraceId) {
+        this.loadTrace(this.currentTraceId).catch(() => {});
       }
-    };
+    });
 
-    eventSource.onerror = () => {
-      console.log("[TracePanel] SSE 连接断开，5秒后重连...");
-      setTimeout(() => this.connectSSE(), 5000);
-    };
+    this._sseClient.on("span_created", () => {
+      if (this.currentTraceId) {
+        this.loadTrace(this.currentTraceId).catch(() => {});
+      }
+    });
 
-    this.sseConnection = eventSource;
+    this._sseClient.connect();
   }
 
   private disconnectSSE(): void {
-    if (this.sseConnection) {
-      this.sseConnection.close();
-      this.sseConnection = null;
+    if (this._sseClient) {
+      this._sseClient.dispose();
+      this._sseClient = null;
     }
   }
 
@@ -430,6 +424,9 @@ body { font-family: var(--vscode-font-family); font-size: var(--vscode-font-size
 .badge-source-mcp-tool-call { background: #a855f722; color: #c084fc; border: 1px solid #a855f744; }
 .badge-source { background: var(--vscode-badge-background); color: var(--vscode-badge-foreground); }
 .badge-git { background: #f9731622; color: #fb923c; border: 1px solid #f9731644; }
+.parent-trace { color: var(--vscode-descriptionForeground); font-size: 12px; margin-left: 8px; }
+.parent-trace-link { color: var(--vscode-textLink-foreground); cursor: pointer; text-decoration: none; }
+.parent-trace-link:hover { text-decoration: underline; }
 
 /* ── Stats grid ── */
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 10px; margin-bottom: 16px; }
@@ -663,6 +660,7 @@ function renderHeader(trace) {
       <div class="trace-meta-row">
         <span class="\${statusBadgeClass(trace.status)}">\${statusLabel(trace.status)}</span>
         \${trace.parentTraceId ? '<span class="badge badge-model">子 Trace</span>' : ''}
+        \${trace.parentTraceId ? '<span class="parent-trace">↳ 父 Trace: <a href="#" class="parent-trace-link" data-trace-id="' + trace.parentTraceId + '">' + esc(trace.parentTraceId) + '</a></span>' : ''}
       </div>
       <div class="trace-time-row">
         <span>📅 创建：\${fmtTime(trace.createdAt)}</span>
@@ -1149,6 +1147,15 @@ function setupEventListeners() {
           traceIdCopyBtn.classList.remove('copied');
           traceIdCopyBtn.textContent = '📋';
         }, 1500);
+      }
+    }
+
+    // 查看父 Trace
+    const parentTraceLink = e.target.closest('.parent-trace-link');
+    if (parentTraceLink) {
+      const parentTraceId = parentTraceLink.dataset.traceId;
+      if (parentTraceId) {
+        vscode.postMessage({ command: 'queryTrace', data: { traceId: parentTraceId } });
       }
     }
 

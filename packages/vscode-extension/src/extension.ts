@@ -153,9 +153,22 @@ function updateStatusBar(state: StatusBarState, count?: number): void {
 // ─────────────────────────────────────────────
 
 /**
+ * 判断配置的 backendUrl 是否为本地地址
+ */
+function isLocalBackend(backendUrl: string): boolean {
+  try {
+    const hostname = new URL(backendUrl).hostname.toLowerCase();
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+  } catch {
+    return true; // 默认视为本地
+  }
+}
+
+/**
  * 启动本地后台子进程。
  * 若已在运行则跳过。
  * 子进程的 stdout / stderr 重定向到 VS Code 输出频道。
+ * 若配置的是远程地址（192.168.x.x 等），则跳过本地启动，只检查远程服务。
  */
 async function startBackendProcess(
   context: vscode.ExtensionContext,
@@ -168,6 +181,9 @@ async function startBackendProcess(
 
   updateStatusBar("backend-starting");
 
+  // 判断是否为远程后端地址
+  const isLocal = isLocalBackend(config.backendUrl);
+
   // 尝试先 ping 一次，避免重复启动已有的后台实例
   const client = getBackendClient();
   const health = await client.ping(true);
@@ -176,6 +192,38 @@ async function startBackendProcess(
       `[后台] 检测到已有运行中的后台实例（v${health.version}），跳过本地启动`,
     );
     updateStatusBar("idle");
+    return;
+  }
+
+  // 如果配置的是远程地址，不启动本地后端
+  if (!isLocal) {
+    log(`[后台] 配置了远程后端 ${config.backendUrl}，跳过本地后端启动`);
+    
+    // 使用 curl 检查远程后端（ping 可能被防火墙禁用）
+    const maxRetries = 3;
+    const retryDelay = 2000; // 2 秒重试间隔
+    let remoteHealth = await checkBackendWithCurl(config.backendUrl);
+    let retries = 0;
+    
+    while (retries < maxRetries && !remoteHealth.ok) {
+      retries++;
+      log(`[后台] 第 ${retries} 次重试检查远程后端 (curl)...`);
+      await sleep(retryDelay);
+      remoteHealth = await checkBackendWithCurl(config.backendUrl);
+    }
+    
+    if (remoteHealth.ok) {
+      log(`[后台] 远程后端服务在线 (v${remoteHealth.version})`);
+      updateStatusBar("idle");
+    } else {
+      // 远程后端不可达，但不阻塞 MCP Server 启动
+      log("[后台] 远程后端服务不可达，MCP Server 仍会启动");
+      updateStatusBar("backend-offline");
+      // 只在日志中提示，不弹窗警告（因为 MCP Server 可能会自动重连）
+      vscode.window.showWarningMessage(
+        `AgentLog 远程后端 ${config.backendUrl} 暂时不可达，MCP Server 已启动，将在服务就绪后自动连接。`,
+      );
+    }
     return;
   }
 
@@ -210,9 +258,11 @@ async function startBackendProcess(
     args = [backendEntry];
   }
 
+  const backendUrlObj = new URL(config.backendUrl);
   const env: NodeJS.ProcessEnv = {
     ...process.env,
-    AGENTLOG_PORT: new URL(config.backendUrl).port || "7892",
+    AGENTLOG_PORT: backendUrlObj.port || "7892",
+    AGENTLOG_HOST: backendUrlObj.hostname || "127.0.0.1",
     NODE_ENV: isDevMode ? "development" : "production",
   };
 
@@ -300,6 +350,7 @@ function stopBackendProcess(): void {
  */
 async function startMcpServerProcess(
   context: vscode.ExtensionContext,
+  config: AgentLogConfig,
 ): Promise<void> {
   if (mcpServerProcess && !mcpServerProcess.killed) {
     log("[MCP] 进程已在运行，跳过重启");
@@ -318,9 +369,11 @@ async function startMcpServerProcess(
 
   const command = isDevMode ? "npx" : "node";
   const args = isDevMode ? ["tsx", mcpEntry] : [mcpEntry];
+  
+  // 传递 backendUrl 给 MCP Server，让它连接远程后端
   const env: NodeJS.ProcessEnv = {
     ...process.env,
-    // AGENTLOG_PORT / AGENTLOG_BACKEND_URL 由 mcp.ts 内部读取
+    AGENTLOG_BACKEND_URL: config.backendUrl,
   };
 
   log(`[MCP] 启动命令: ${command} ${args.join(" ")}`);
@@ -360,6 +413,47 @@ function stopMcpServerProcess(): void {
     log("[MCP] 进程已停止");
     mcpServerProcess = null;
   }
+}
+
+/**
+ * 使用 curl 检查后端健康状态（绕过 ping 限制）
+ */
+async function checkBackendWithCurl(backendUrl: string): Promise<{ ok: boolean; version?: string }> {
+  return new Promise((resolve) => {
+    const url = `${backendUrl.replace(/\/$/, "")}/health`;
+    const timeout = 5000;
+    
+    const args = [
+      "-s",           // silent
+      "-m", String(timeout / 1000),  // timeout in seconds
+      "-w", "\\n%{http_code}",  // output HTTP status code
+      url,
+    ];
+    
+    cp.execFile("curl", args, { timeout }, (err, stdout, stderr) => {
+      if (err) {
+        resolve({ ok: false });
+        return;
+      }
+      
+      const lines = stdout.trim().split("\n");
+      const httpCode = lines.pop();
+      
+      if (httpCode === "200") {
+        let version: string | undefined;
+        try {
+          const body = lines.join("\n");
+          const health = JSON.parse(body);
+          version = health.version;
+        } catch {
+          // ignore parse error
+        }
+        resolve({ ok: true, version });
+      } else {
+        resolve({ ok: false });
+      }
+    });
+  });
 }
 
 /**
@@ -533,7 +627,7 @@ async function writeMcpEntryToConfig(
       type: "local",
       command: [mcpCommand, ...mcpArgs],
       environment: {
-        AGENTLOG_GATEWAY_URL: backendUrl,
+        AGENTLOG_BACKEND_URL: backendUrl,
       },
       enabled: true,
     };
@@ -1406,7 +1500,7 @@ function registerCommands(
 
   // ── Trace 列表刷新 ─────────────────────────
   register("agentlog.refreshTraceList", async () => {
-    traceTreeProvider.refresh();
+    traceTreeProvider?.refresh();
     commitBindingsProvider?.refresh();
   });
 
@@ -2138,7 +2232,7 @@ function registerCommands(
       const client = getBackendClient();
       const workspacePath = resolveWorkspacePath() ?? "";
       await client.createHandoff(traceId, targetAgent, workspacePath);
-      traceTreeProvider.refresh();
+      traceTreeProvider?.refresh();
       vscode.window.showInformationMessage(`✅ 交接请求已创建给 ${picked.label}`);
     } catch (err) {
       if (err instanceof Error && err.message.includes("409")) {
@@ -2180,7 +2274,7 @@ function registerCommands(
       const client = getBackendClient();
       const workspacePath = resolveWorkspacePath() ?? "";
       await client.resumeTrace(traceId, picked.value, workspacePath);
-      traceTreeProvider.refresh();
+      traceTreeProvider?.refresh();
       vscode.window.showInformationMessage(`✅ 已认领 Trace，由 ${picked.label} 接管`);
     } catch (err) {
       vscode.window.showErrorMessage(
@@ -2204,7 +2298,7 @@ function registerCommands(
     try {
       const client = getBackendClient();
       await client.pauseTrace(traceId);
-      traceTreeProvider.refresh();
+      traceTreeProvider?.refresh();
       vscode.window.showInformationMessage("✅ Trace 已暂停");
     } catch (err) {
       vscode.window.showErrorMessage(
@@ -2228,7 +2322,7 @@ function registerCommands(
     try {
       const client = getBackendClient();
       await client.resumeFromPause(traceId);
-      traceTreeProvider.refresh();
+      traceTreeProvider?.refresh();
       vscode.window.showInformationMessage("✅ Trace 已从暂停恢复");
     } catch (err) {
       vscode.window.showErrorMessage(
@@ -2252,7 +2346,7 @@ function registerCommands(
     try {
       const client = getBackendClient();
       await client.completeTrace(traceId);
-      traceTreeProvider.refresh();
+      traceTreeProvider?.refresh();
       vscode.window.showInformationMessage("✅ Trace 已标记完成");
     } catch (err) {
       vscode.window.showErrorMessage(
@@ -2284,7 +2378,7 @@ function registerCommands(
     try {
       const client = getBackendClient();
       await client.deleteTrace(traceId);
-      traceTreeProvider.refresh();
+      traceTreeProvider?.refresh();
       vscode.window.showInformationMessage("✅ Trace 已删除");
     } catch (err) {
       vscode.window.showErrorMessage(
@@ -2570,7 +2664,7 @@ export async function activate(
       const health = await getBackendClient().ping(true);
       updateStatusBar(health.status === "ok" ? "idle" : "backend-offline");
     }
-    await startMcpServerProcess(context);
+    await startMcpServerProcess(context, config);
   }, 1000);
 
   // ── 注册命令 ────────────────────────────────

@@ -37,7 +37,8 @@ import {
 // ─────────────────────────────────────────────
 
 const PORT = parseInt(process.env.AGENTLOG_PORT ?? "7892", 10);
-const HOST = process.env.AGENTLOG_HOST ?? "127.0.0.1";
+// 默认监听 0.0.0.0 以支持远程连接，可通过 AGENTLOG_HOST=127.0.0.1 限制仅本地访问
+const HOST = process.env.AGENTLOG_HOST ?? "0.0.0.0";
 const IS_DEV = process.env.NODE_ENV !== "production";
 
 // ─────────────────────────────────────────────

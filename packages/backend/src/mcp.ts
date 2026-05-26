@@ -40,6 +40,7 @@ import {
   type ReasoningChainStep,
 } from "./services/traceService.js";
 import { getSessionsJsonPath, readSessionsJson, writeSessionsJson } from "./services/sessionsJsonService.js";
+import { broadcastEvent } from "./utils/sseManager.js";
 
 // ─────────────────────────────────────────────
 // 配置
@@ -470,6 +471,34 @@ function cleanupStaleTraceStates(): void {
 // ─────────────────────────────────────────────
 
 async function main(): Promise<void> {
+  // Debug: 打印网络环境信息
+  process.stderr.write(`[agentlog-mcp][DEBUG] BACKEND_BASE=${BACKEND_BASE}\n`);
+  process.stderr.write(`[agentlog-mcp][DEBUG] HTTP_PROXY=${process.env.HTTP_PROXY || 'not set'}\n`);
+  process.stderr.write(`[agentlog-mcp][DEBUG] HTTPS_PROXY=${process.env.HTTPS_PROXY || 'not set'}\n`);
+  process.stderr.write(`[agentlog-mcp][DEBUG] NO_PROXY=${process.env.NO_PROXY || 'not set'}\n`);
+  process.stderr.write(`[agentlog-mcp][DEBUG] http_proxy=${process.env.http_proxy || 'not set'}\n`);
+  process.stderr.write(`[agentlog-mcp][DEBUG] https_proxy=${process.env.https_proxy || 'not set'}\n`);
+  process.stderr.write(`[agentlog-mcp][DEBUG] NO_PROXY env=${process.env.NO_PROXY || 'not set'}\n`);
+  process.stderr.write(`[agentlog-mcp][DEBUG] agENTLOG_BACKEND_URL=${process.env.AGENTLOG_BACKEND_URL || 'not set'}\n`);
+  process.stderr.write(`[agentlog-mcp][DEBUG] AGENTLOG_PORT=${process.env.AGENTLOG_PORT || 'not set'}\n`);
+  
+  // 启动时测试后端连接
+  try {
+    const healthUrl = `${BACKEND_BASE}/health`;
+    process.stderr.write(`[agentlog-mcp][DEBUG] Testing backend connectivity: ${healthUrl}\n`);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const testResp = await fetch(healthUrl, { signal: controller.signal });
+    clearTimeout(timeout);
+    process.stderr.write(`[agentlog-mcp][DEBUG] Backend health check: ${testResp.status} ${testResp.statusText}\n`);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    process.stderr.write(`[agentlog-mcp][DEBUG] Backend health check failed: ${msg}\n`);
+    if (err instanceof Error && 'code' in err) {
+      process.stderr.write(`[agentlog-mcp][DEBUG] Error code: ${(err as NodeJS.ErrnoException).code}\n`);
+    }
+  }
+  
   const server = new Server(
     {
       name: "agentlog-mcp",
@@ -1232,6 +1261,13 @@ async function main(): Promise<void> {
           currentTraceId = await postTrace(role === "user" ? content : "Untitled Task", workspacePath);
           lastCreatedTraceId = currentTraceId;
           lastCreatedAt = Date.now();
+
+          // SSE 实时推送：广播新 Trace 创建事件
+          broadcastEvent({
+            type: "trace_created",
+            data: { id: currentTraceId, taskGoal: role === "user" ? content : "Untitled Task", workspacePath },
+            timestamp: new Date().toISOString(),
+          });
 
           // 设置环境变量供 Git Hook 使用
           process.env.AGENTLOG_TRACE_ID = currentTraceId;
